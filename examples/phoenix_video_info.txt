@@ -1,0 +1,43 @@
+PHOENIX VIDEO DOWNLOAD INSTRUCTIONS
+====================================
+
+Video File ID: 38x9riomju0y
+Operation ID: models/veo-3.1-generate-preview/operations/e28anf7mnneo
+Generated: March 2, 2026 at 3:02 PM UTC
+Duration: 8 seconds
+Expires: ~March 4, 2026 (48 hours from creation)
+
+API Key Used: AIzaSyD0A0rw0QD0iVkVb7EJnD_AKVU5Lv4ryQw
+
+HOW TO DOWNLOAD:
+================
+
+Option 1: Google AI Studio (Easiest)
+-------------------------------------
+1. Go to: https://aistudio.google.com/app/apikey
+2. Sign in with the Google account associated with the API key
+3. Click on "My files" or the file manager icon
+4. Look for file ID: 38x9riomju0y
+5. Click download
+
+Option 2: Direct File URL
+--------------------------
+1. Sign into Google account at: https://aistudio.google.com
+2. Navigate to: https://aistudio.google.com/app/prompts/new_freeform
+3. Access files section
+4. Search for: 38x9riomju0y
+
+PROMPT USED:
+============
+Extreme-scale cinematic desert theater at midnight. Dense weave of thousands 
+of white-hot missile trails fill the sky. A phoenix rendered in liquid plasma 
+trapped in a kill box. Stryker M-SHORADs and Bradley platforms unleash 
+continuous FIM-92 Stinger missiles creating a macramé of fire. Bullet-time 
+zoom follows a missile seeker-head locking onto the phoenix thermal core. 
+Volumetric smoke snakes from rocket motors, lens-searing flashes as 
+interceptors detonate, blue-shift electrical arcs from 50kW DEW lasers. 
+Phoenix golden wings shredded by high-velocity kinetic fragments, each 
+impact creating heat haze ripples. Frame saturated with 70% high-intensity 
+light and 30% deep-shadow contrast.
+
+NOTE: Video must be downloaded before expiration date!

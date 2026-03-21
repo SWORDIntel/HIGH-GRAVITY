@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "post_run_command": [
+      {
+        "command": "python3 .windsurf/cascade_highgravity_hook.py",
+        "show_output": false
+      }
+    ],
+    "post_setup_worktree": [
+      {
+        "command": "python3 .windsurf/cascade_highgravity_hook.py",
+        "show_output": false
+      }
+    ]
+  }
+}
