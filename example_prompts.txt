@@ -1,0 +1,13 @@
+# Example Veo 3.1 Video Generation Prompts
+# One prompt per line, lines starting with # are ignored
+
+A futuristic data center with glowing servers and holographic displays
+Cybersecurity analyst working at multiple monitors with code scrolling
+Abstract visualization of network traffic flowing through fiber optic cables
+Close-up of a microchip with electrical signals pulsing through circuits
+Hacker in a dark room, green terminal text reflecting on their face
+3D animation of a neural network processing data with glowing nodes
+Time-lapse of a server rack booting up with LED indicators
+Drone footage flying through a massive underground data facility
+Animated diagram showing encryption keys being exchanged between systems
+Particle effects representing data packets traveling across the internet

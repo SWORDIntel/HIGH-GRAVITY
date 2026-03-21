@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+
+gemini_keys.json
+key_test_results.json
+
+veo3_outputs/
+windsurf_profiles/
