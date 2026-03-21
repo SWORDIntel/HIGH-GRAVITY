@@ -26,16 +26,19 @@ from typing import List, Dict, Optional
 import threading
 from queue import Queue
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+
 class Veo3VideoGenerator:
     def __init__(self, keys_file: str = None):
         """Initialize with Gemini API keys"""
         if keys_file is None:
-            keys_file = Path(__file__).parent / "gemini_keys.json"
+            keys_file = self._default_keys_file()
         
         self.keys_file = Path(keys_file)
         self.keys = self._load_keys()
         self.current_key_idx = 0
-        self.output_dir = Path("veo3_outputs")
+        self.output_dir = REPO_ROOT / "veo3_outputs"
         self.output_dir.mkdir(exist_ok=True)
         
         # Job tracking
@@ -48,6 +51,17 @@ class Veo3VideoGenerator:
         with open(self.keys_file) as f:
             data = json.load(f)
         return data["keys"]
+
+    def _default_keys_file(self) -> Path:
+        """Find the preferred local keys file"""
+        candidates = [
+            REPO_ROOT / "config" / "gemini_keys.json",
+            REPO_ROOT / "gemini_keys.json",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return candidates[0]
     
     def _get_next_key(self) -> str:
         """Round-robin key selection"""
@@ -343,7 +357,7 @@ def main():
     parser.add_argument("--duration", "-d", type=int, default=8, help="Video duration in seconds (default: 8)")
     parser.add_argument("--aspect-ratio", "-a", default="16:9", help="Aspect ratio (default: 16:9)")
     parser.add_argument("--no-monitor", action="store_true", help="Don't monitor jobs")
-    parser.add_argument("--keys-file", "-k", help="Path to gemini_keys.json")
+    parser.add_argument("--keys-file", "-k", help="Path to a keys file, usually config/gemini_keys.json")
     
     args = parser.parse_args()
     
@@ -364,13 +378,13 @@ def main():
         print("[!] No prompts provided. Use --prompt or --prompts-file")
         print("\nExample usage:")
         print("  # Single video")
-        print("  ./veo3_video_generator.py --prompt 'A cat playing piano'")
+        print("  python3 scripts/veo3_video_generator.py --prompt 'A cat playing piano'")
         print("")
         print("  # Batch from file")
-        print("  ./veo3_video_generator.py --prompts-file prompts.txt")
+        print("  python3 scripts/veo3_video_generator.py --prompts-file examples/example_prompts.txt")
         print("")
         print("  # Custom duration and aspect ratio")
-        print("  ./veo3_video_generator.py -p 'Sunset over ocean' -d 8 -a 16:9")
+        print("  python3 scripts/veo3_video_generator.py -p 'Sunset over ocean' -d 8 -a 16:9")
         sys.exit(1)
     
     # Generate videos

@@ -3,7 +3,9 @@
 
 OPERATION="models/veo-3.1-generate-preview/operations/e28anf7mnneo"
 API_KEY="AIzaSyD0A0rw0QD0iVkVb7EJnD_AKVU5Lv4ryQw"
-OUTPUT_DIR="veo3_outputs"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUTPUT_DIR="${REPO_ROOT}/veo3_outputs"
 
 mkdir -p "$OUTPUT_DIR"
 

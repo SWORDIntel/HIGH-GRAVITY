@@ -11,7 +11,7 @@ from unittest import mock
 
 
 def load_hook_module():
-    module_path = Path(__file__).parent / ".windsurf" / "cascade_highgravity_hook.py"
+    module_path = Path(__file__).resolve().parent.parent / ".windsurf" / "cascade_highgravity_hook.py"
     spec = importlib.util.spec_from_file_location("cascade_highgravity_hook", module_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

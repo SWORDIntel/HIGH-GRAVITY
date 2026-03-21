@@ -3,17 +3,30 @@
 Basic tests for Windsurf profile generation in gemini_session_launcher.py
 """
 
+import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from gemini_session_launcher import GeminiSessionLauncher
 
 
 class GeminiSessionLauncherTests(unittest.TestCase):
     def setUp(self):
-        self.launcher = GeminiSessionLauncher()
         self.api_key = "AIzaSyExampleKey1234567890"
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.keys_file = Path(self.temp_dir.name) / "gemini_keys.json"
+        self.keys_file.write_text(json.dumps({
+            "keys": [{"key": self.api_key, "status": "active"}]
+        }))
+        self.launcher = GeminiSessionLauncher(keys_file=str(self.keys_file))
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def test_build_windsurf_profile_proxy_sets_expected_env(self):
         profile = self.launcher.build_windsurf_profile(

@@ -1,0 +1,151 @@
+{
+  "service": "google_gemini",
+  "description": "Gemini API keys extracted from HIGHGRAVITY analysis",
+  "total_keys": 18,
+  "extraction_date": "2026-02-27",
+  "keys": [
+    {
+      "key": "AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E",
+      "timestamp": "2026-02-27T11:34:43Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyDEDyD7mQHamBGjKdfnxc79VR9bembXCcg",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyDEDyD7mQHamBGjKdfnxc79VR9bembXCcg",
+      "timestamp": "2026-02-27T11:34:44Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyDev6eZaRJzgmFiu5Lt0MsPkAWGdvuKAz4",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyDev6eZaRJzgmFiu5Lt0MsPkAWGdvuKAz4",
+      "timestamp": "2026-02-27T11:34:48Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyBgDZeER7nA3wDzoaRR6z_asLkgZQHOKH0",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBgDZeER7nA3wDzoaRR6z_asLkgZQHOKH0",
+      "timestamp": "2026-02-27T11:34:48Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyA5z9T5UrSP6fS6p8qb43TE0wghjY7-DBA",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyA5z9T5UrSP6fS6p8qb43TE0wghjY7-DBA",
+      "timestamp": "2026-02-27T11:34:49Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyBpTbGKsku-XABJAQQ2lMtGsNqZJbIRzmc",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBpTbGKsku-XABJAQQ2lMtGsNqZJbIRzmc",
+      "timestamp": "2026-02-27T11:34:50Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyDbgZvn0q3JToULqv7S0mmXS6k5eF39Yas",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyDbgZvn0q3JToULqv7S0mmXS6k5eF39Yas",
+      "timestamp": "2026-02-27T11:34:53Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyBR0Zidv_ItVnhwkkSkCBEdnLjAOpBBF8I",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBR0Zidv_ItVnhwkkSkCBEdnLjAOpBBF8I",
+      "timestamp": "2026-02-27T11:34:53Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyBo6EhcaW1NIcY3dMaQ5LZ189M8xaJquXs",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBo6EhcaW1NIcY3dMaQ5LZ189M8xaJquXs",
+      "timestamp": "2026-02-27T11:34:54Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyC9b-_bS-h4j9VHXWBmVH6CfjchZb0xoss",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyC9b-_bS-h4j9VHXWBmVH6CfjchZb0xoss",
+      "timestamp": "2026-02-27T11:34:54Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyBJHgv0iVhjbOt0_xFF-H_iWanTQUTRIwg",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyBJHgv0iVhjbOt0_xFF-H_iWanTQUTRIwg",
+      "timestamp": "2026-02-27T11:34:54Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyCiMufbaxxyMs2nTtnUQ3MqcXjAqlPwqEc",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyCiMufbaxxyMs2nTtnUQ3MqcXjAqlPwqEc",
+      "timestamp": "2026-02-27T11:34:55Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyCj7p7dwfrqHMrnhrwWxF9vI03rq2gzGxY",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyCj7p7dwfrqHMrnhrwWxF9vI03rq2gzGxY",
+      "timestamp": "2026-02-27T11:34:55Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyC0XC_7znuUozxf-xfAoN1UH7u1TrppP0M",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyC0XC_7znuUozxf-xfAoN1UH7u1TrppP0M",
+      "timestamp": "2026-02-27T11:34:55Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyDyUZUQRo-R7m7y6od3ofNn2QeY2QG2vOw",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyDyUZUQRo-R7m7y6od3ofNn2QeY2QG2vOw",
+      "timestamp": "2026-02-27T11:34:55Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyC_Puy2Goy6IXKrnP0IMGZIz7OcwColW74",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyC_Puy2Goy6IXKrnP0IMGZIz7OcwColW74",
+      "timestamp": "2026-02-27T11:34:58Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyD0A0rw0QD0iVkVb7EJnD_AKVU5Lv4ryQw",
+      "activation_response": "{\n  \"files\": [\n    {\n      \"name\": \"files/z3n2ocpe70sy\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/amkgp5atpm6r\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:50:38.499544Z\",\n      \"updateTime\": \"2026-02-27T09:50:40.572947Z\",\n      \"expirationTime\": \"2026-03-01T09:49:44.899856Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/z3n2ocpe70sy\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/z3n2ocpe70sy:download?alt=media\"\n    },\n    {\n      \"name\": \"files/qu0076v0u77d\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/omg1cy6qydr1\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:31:09.587367Z\",\n      \"updateTime\": \"2026-02-27T09:31:13.042417Z\",\n      \"expirationTime\": \"2026-03-01T09:30:04.945979Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/qu0076v0u77d\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/qu0076v0u77d:download?alt=media\"\n    },\n    {\n      \"name\": \"files/ar1qrn8j2sh6\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/dx8bo7z7gbcg\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:22:52.685734Z\",\n      \"updateTime\": \"2026-02-27T09:22:57.848212Z\",\n      \"expirationTime\": \"2026-03-01T09:21:57.439965Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/ar1qrn8j2sh6\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/ar1qrn8j2sh6:download?alt=media\"\n    },\n    {\n      \"name\": \"files/0c5i0783azud\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/o62f4nepicha\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:20:54.429255Z\",\n      \"updateTime\": \"2026-02-27T09:20:56.619496Z\",\n      \"expirationTime\": \"2026-03-01T09:19:51.179766Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/0c5i0783azud\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/0c5i0783azud:download?alt=media\"\n    },\n    {\n      \"name\": \"files/ntblly6e05f7\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/jlr99rkt4leb\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:19:01.832360Z\",\n      \"updateTime\": \"2026-02-27T09:19:03.760090Z\",\n      \"expirationTime\": \"2026-03-01T09:18:01.362360Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/ntblly6e05f7\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/ntblly6e05f7:download?alt=media\"\n    },\n    {\n      \"name\": \"files/bdygb1z08pdw\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/tsi5nq163lup\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:17:42.367811Z\",\n      \"updateTime\": \"2026-02-27T09:17:45.584013Z\",\n      \"expirationTime\": \"2026-03-01T09:16:32.628838Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/bdygb1z08pdw\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/bdygb1z08pdw:download?alt=media\"\n    },\n    {\n      \"name\": \"files/fzpann3gf9jv\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/h7zja7h5aqce\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T09:14:54.569588Z\",\n      \"updateTime\": \"2026-02-27T09:14:56.881326Z\",\n      \"expirationTime\": \"2026-03-01T09:13:57.357788Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/fzpann3gf9jv\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/fzpann3gf9jv:download?alt=media\"\n    },\n    {\n      \"name\": \"files/p6py7igdxmbv\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/zrya4jncaub7\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T04:08:12.702023Z\",\n      \"updateTime\": \"2026-02-27T04:08:14.790217Z\",\n      \"expirationTime\": \"2026-03-01T04:07:03.206618Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/p6py7igdxmbv\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/p6py7igdxmbv:download?alt=media\"\n    },\n    {\n      \"name\": \"files/s5fk14beqgp6\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/d6q1n8os9l0i\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T04:07:21.630219Z\",\n      \"updateTime\": \"2026-02-27T04:07:23.546500Z\",\n      \"expirationTime\": \"2026-03-01T04:06:06.157157Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/s5fk14beqgp6\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/s5fk14beqgp6:download?alt=media\"\n    },\n    {\n      \"name\": \"files/xju3iulff1c8\",\n      \"displayName\": \"Veo generated clip, operation name: models/veo-3.1-generate-preview/operations/wgiakxm6eazl\",\n      \"mimeType\": \"video/mp4\",\n      \"createTime\": \"2026-02-27T04:02:51.220473Z\",\n      \"updateTime\": \"2026-02-27T04:02:52.920701Z\",\n      \"expirationTime\": \"2026-03-01T04:01:46.696487Z\",\n      \"uri\": \"https://generativelanguage.googleapis.com/v1beta/files/xju3iulff1c8\",\n      \"state\": \"ACTIVE\",\n      \"videoMetadata\": {\n        \"videoDuration\": \"8s\"\n      },\n      \"source\": \"GENERATED\",\n      \"downloadUri\": \"https://generativelanguage.googleapis.com/v1beta/files/xju3iulff1c8:download?alt=media\"\n    }\n  ],\n  \"nextPageToken\": \"ciAKDoIBCwjrroTNBhCozZBpCg5CDHhqdTNpdWxmZjFjOA\"\n}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyD0A0rw0QD0iVkVb7EJnD_AKVU5Lv4ryQw",
+      "timestamp": "2026-02-27T11:34:58Z",
+      "status": "active",
+      "has_veo_files": true,
+      "veo_file_count": 10
+    },
+    {
+      "key": "AIzaSyAeIXUamE7kDurfthO8Ft098N81SoSTxXI",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyAeIXUamE7kDurfthO8Ft098N81SoSTxXI",
+      "timestamp": "2026-02-27T11:35:02Z",
+      "status": "active"
+    },
+    {
+      "key": "AIzaSyA03BE_TmjVXpRND6y-eGhL3ze2m_F7pSc",
+      "activation_response": "{}\n",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/files?key=AIzaSyA03BE_TmjVXpRND6y-eGhL3ze2m_F7pSc",
+      "timestamp": "2026-02-27T11:35:04Z",
+      "status": "active"
+    }
+  ],
+  "notes": {
+    "veo_access": "Key AIzaSyD0A0rw0QD0iVkVb7EJnD_AKVU5Lv4ryQw has Veo 3.1 video generation access with 10 active files",
+    "expiration": "Veo files expire ~48 hours after creation",
+    "api_endpoints": [
+      "https://generativelanguage.googleapis.com/v1beta/files",
+      "https://generativelanguage.googleapis.com/v1beta/models"
+    ]
+  }
+}

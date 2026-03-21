@@ -1,19 +1,22 @@
 # HIGHGRAVITY
 
-HIGHGRAVITY contains local tooling for Gemini key management, Windsurf/Cascade integration, and Veo video workflows.
+HIGHGRAVITY is a repo for Windsurf/Cascade integration, Gemini key-driven tooling, and Veo video workflow scripts.
 
-## Repo hygiene
+## Layout
 
-Live keys and generated outputs are intentionally excluded from version control.
+- [.windsurf/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf) workspace hook integration
+- [scripts/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts) operator scripts and entry points
+- [tests/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/tests) automated tests
+- [docs/guides/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides) usage docs
+- [docs/analysis/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis) longer analysis docs
+- [config/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config) config templates
+- [examples/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/examples) sample prompts and example content
 
-- Use [gemini_keys.example.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/gemini_keys.example.json) as the template for your local `gemini_keys.json`
-- `veo3_outputs/` and `windsurf_profiles/` are generated at runtime
+## Quick start
 
-## Windsurf quick start
-
-This repo already includes workspace hooks in [.windsurf/hooks.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/hooks.json) and a hook bridge in [.windsurf/cascade_highgravity_hook.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/cascade_highgravity_hook.py).
-
-Set your key and defaults before opening the repo in Windsurf:
+1. Update [config/gemini_keys.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.json) or replace it from [config/gemini_keys.example.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.example.json).
+2. The launcher will prompt to add keys if no usable key file is present in interactive mode.
+3. For Windsurf, export the vars below before opening the repo.
 
 ```bash
 export WINDSURF_API_KEY='AIzaSy...'
@@ -23,9 +26,14 @@ export HIGHGRAVITY_PROXY_URL='http://localhost:9999'
 export HIGHGRAVITY_DRY_RUN='true'
 ```
 
-Then open the repo in Windsurf and trigger Cascade once. The launcher will create a profile under `windsurf_profiles/<profile>/`.
+## Main entry points
 
-## Supported Windsurf key variables
+- [scripts/gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/gemini_session_launcher.py)
+- [scripts/veo3_video_generator.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/veo3_video_generator.py)
+- [docs/guides/WINDSURF_INTEGRATION.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides/WINDSURF_INTEGRATION.md)
+- [docs/guides/VEO3_README.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides/VEO3_README.md)
+
+## Windsurf variables
 
 Any of these can supply the API key:
 
@@ -36,24 +44,16 @@ Any of these can supply the API key:
 - `OPENAI_API_KEY`
 - `HIGHGRAVITY_KEY_INDEX`
 
-Priority is:
-
-1. CLI args
-2. `stdin` payload
-3. environment variables
-
-## Supported Windsurf and Cascade variables
-
-The Windsurf bridge and launcher understand these variables:
+Supported Windsurf and Cascade env vars:
 
 | Variable | Purpose |
 |----------|---------|
 | `WINDSURF_API_KEY` | Preferred Windsurf-specific API key alias |
-| `HIGHGRAVITY_API_KEY` | Generic HIGHGRAVITY key alias |
+| `HIGHGRAVITY_API_KEY` | Generic HIGHGRAVITY API key alias |
 | `GEMINI_API_KEY` | Gemini key alias |
 | `GOOGLE_API_KEY` | Google key alias |
 | `OPENAI_API_KEY` | OpenAI-compatible key alias |
-| `HIGHGRAVITY_KEY_INDEX` | Use a key from `gemini_keys.json` by index |
+| `HIGHGRAVITY_KEY_INDEX` | Use a key from `config/gemini_keys.json` or `gemini_keys.json` by index |
 | `HIGHGRAVITY_MODE` | Launch mode, typically `windsurf` |
 | `HIGHGRAVITY_PROVIDER` | Provider mode, typically `proxy` or `direct` |
 | `HIGHGRAVITY_PROXY_URL` | Proxy URL for Windsurf/OpenAI-compatible routing |
@@ -67,24 +67,22 @@ The Windsurf bridge and launcher understand these variables:
 | `HIGHGRAVITY_NEW_WINDOW` | Control whether `--new-window` is passed |
 | `WINDSURF_BIN` | Override the Windsurf executable |
 | `WINDSURF_BINARY` | Alias for Windsurf executable path/name |
+| `CASCADE_API_KEY` | Cascade-prefixed API key alias |
+| `CASCADE_KEY_INDEX` | Cascade-prefixed key index |
+| `CASCADE_MODE` | Cascade-prefixed mode |
+| `CASCADE_PROVIDER` | Cascade-prefixed provider |
+| `CASCADE_PROXY_URL` | Cascade-prefixed proxy URL |
+| `CASCADE_MODEL` | Cascade-prefixed model |
+| `CASCADE_WINDOW_NAME` | Cascade-prefixed profile/window name |
+| `CASCADE_MONITOR` | Cascade-prefixed monitor duration |
+| `CASCADE_CHECK` | Cascade-prefixed check flag |
+| `CASCADE_DRY_RUN` | Cascade-prefixed dry-run flag |
+| `CASCADE_NEW_WINDOW` | Cascade-prefixed new-window flag |
 
-Cascade-prefixed aliases are also supported by the launcher for non-interactive use:
+## Repo hygiene
 
-- `CASCADE_API_KEY`
-- `CASCADE_KEY_INDEX`
-- `CASCADE_MODE`
-- `CASCADE_PROVIDER`
-- `CASCADE_PROXY_URL`
-- `CASCADE_MODEL`
-- `CASCADE_WINDOW_NAME`
-- `CASCADE_MONITOR`
-- `CASCADE_CHECK`
-- `CASCADE_DRY_RUN`
-- `CASCADE_NEW_WINDOW`
+Live keys and generated outputs are intentionally excluded from version control.
 
-## Main files
-
-- [gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/gemini_session_launcher.py)
-- [WINDSURF_INTEGRATION.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/WINDSURF_INTEGRATION.md)
-- [veo3_video_generator.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/veo3_video_generator.py)
-- [VEO3_README.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/VEO3_README.md)
+- Keep active keys in `config/gemini_keys.json` or `gemini_keys.json`
+- `veo3_outputs/` and `windsurf_profiles/` are generated at runtime
+- `key_test_results.json` is generated output

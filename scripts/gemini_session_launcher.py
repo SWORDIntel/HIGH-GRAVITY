@@ -21,6 +21,9 @@ import requests
 import webbrowser
 from typing import Optional, Dict
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+
 try:
     from rich.console import Console
     from rich.table import Table
@@ -38,16 +41,67 @@ class GeminiSessionLauncher:
     def __init__(self, keys_file: str = None):
         """Initialize with Gemini API keys"""
         if keys_file is None:
-            keys_file = Path(__file__).parent / "gemini_keys.json"
+            keys_file = self._default_keys_file()
         
         self.keys_file = Path(keys_file)
         self.keys = self._load_keys()
+
+    def _default_keys_file(self) -> Path:
+        """Find the preferred local keys file"""
+        candidates = [
+            REPO_ROOT / "config" / "gemini_keys.json",
+            REPO_ROOT / "gemini_keys.json",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return candidates[0]
         
     def _load_keys(self) -> list:
         """Load API keys from JSON file"""
+        if not self.keys_file.exists():
+            return []
         with open(self.keys_file) as f:
             data = json.load(f)
         return data["keys"]
+
+    def ensure_keys_file(self) -> bool:
+        """
+        Ensure a usable keys file exists, prompting interactively when possible.
+        """
+        if self.keys:
+            return True
+
+        print(f"[!] No Gemini keys file found at: {self.keys_file}")
+        print("[*] Expected location: config/gemini_keys.json")
+
+        if not sys.stdin.isatty():
+            print("[!] Non-interactive mode: provide --api-key, --key-index, or create config/gemini_keys.json")
+            return False
+
+        choice = input("Create a keys file now? (y/n): ").strip().lower()
+        if choice != "y":
+            return False
+
+        raw_keys = input("Paste one or more Gemini API keys separated by commas: ").strip()
+        keys = [key.strip() for key in raw_keys.split(",") if key.strip()]
+
+        if not keys:
+            print("[!] No keys provided.")
+            return False
+
+        self.keys_file.parent.mkdir(parents=True, exist_ok=True)
+        self.keys_file.write_text(json.dumps({
+            "keys": [{"key": key, "status": "active"} for key in keys]
+        }, indent=2) + "\n")
+        try:
+            self.keys_file.chmod(0o600)
+        except OSError:
+            pass
+
+        self.keys = self._load_keys()
+        print(f"[+] Saved {len(self.keys)} key(s) to {self.keys_file}")
+        return True
 
     def _mask_key(self, api_key: str) -> str:
         """Mask API key for safe display"""
@@ -353,7 +407,7 @@ class GeminiSessionLauncher:
     ) -> Dict[str, Path]:
         """Write Windsurf profile metadata and env file to disk"""
         if output_dir is None:
-            output_dir = Path(__file__).parent / "windsurf_profiles" / profile["profile_id"]
+            output_dir = REPO_ROOT / "windsurf_profiles" / profile["profile_id"]
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -763,6 +817,10 @@ class GeminiSessionLauncher:
         print("\n" + "="*70)
         print("GEMINI SESSION LAUNCHER")
         print("="*70)
+
+        if not self.ensure_keys_file():
+            print("Exiting...")
+            return
         
         # List available keys
         self.list_keys()
@@ -862,7 +920,7 @@ def main():
     parser.add_argument("--check", "-c", action="store_true", default=None, help="Check key validity only")
     parser.add_argument("--monitor", "-m", type=int, help="Monitor duration in seconds")
     parser.add_argument("--mode", choices=["studio", "chat", "windsurf"], help="Launch mode")
-    parser.add_argument("--keys-file", help="Path to gemini_keys.json")
+    parser.add_argument("--keys-file", help="Path to a keys file, usually config/gemini_keys.json")
     parser.add_argument("--provider", choices=["proxy", "direct"], help="Windsurf provider mode")
     parser.add_argument("--proxy-url", help="HIGHGRAVITY/OpenAI-compatible proxy URL for Windsurf mode")
     parser.add_argument("--model", help="Model label to record in Windsurf profile")
@@ -878,6 +936,10 @@ def main():
     stdin_overrides = launcher.load_stdin_overrides(stdin_format=args.stdin_format)
     env_overrides = launcher.load_environment_overrides()
     runtime = launcher.resolve_runtime_options(args, stdin_overrides, env_overrides)
+
+    if not launcher.keys and not runtime["api_key"] and not runtime["key_index"] and not sys.stdin.isatty():
+        print("[!] No keys available. Create config/gemini_keys.json or pass --api-key.")
+        raise SystemExit(1)
     
     if args.list:
         launcher.list_keys()

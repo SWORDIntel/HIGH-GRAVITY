@@ -67,7 +67,7 @@ def build_payload(hook_input):
 def main():
     hook_input = json.load(sys.stdin)
     repo_root = Path(__file__).resolve().parent.parent
-    launcher = repo_root / "gemini_session_launcher.py"
+    launcher = repo_root / "scripts" / "gemini_session_launcher.py"
 
     payload = build_payload(hook_input)
 

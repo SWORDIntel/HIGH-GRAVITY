@@ -7,6 +7,9 @@ import json
 import requests
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+
 def test_key(api_key: str, key_index: int):
     """Test a single API key"""
     print(f"\n[{key_index}] Testing key: {api_key[:20]}...{api_key[-10:]}")
@@ -65,7 +68,9 @@ def test_key(api_key: str, key_index: int):
 
 
 def main():
-    keys_file = Path(__file__).parent / "gemini_keys.json"
+    keys_file = REPO_ROOT / "config" / "gemini_keys.json"
+    if not keys_file.exists():
+        keys_file = REPO_ROOT / "gemini_keys.json"
     
     with open(keys_file) as f:
         data = json.load(f)
@@ -108,7 +113,7 @@ def main():
         print(f"  Key: {keys[veo_keys[0]-1]['key']}")
     
     # Save results
-    output_file = Path(__file__).parent / "key_test_results.json"
+    output_file = REPO_ROOT / "key_test_results.json"
     with open(output_file, 'w') as f:
         json.dump({
             "test_date": "2026-03-02",
