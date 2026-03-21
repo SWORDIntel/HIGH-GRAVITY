@@ -7,6 +7,27 @@ HIGHGRAVITY is a small operator repo built around two workflows:
 
 The repo is structured so the root explains the system, while the detailed guides live under `docs/`.
 
+## Savings vs normal use
+
+Based on the repo's internal analysis docs, the intended optimization model is:
+
+- Windsurf alone: about 10-15% cost reduction
+- HIGHGRAVITY alone: about 40-60% cost reduction
+- Combined Windsurf + HIGHGRAVITY path: about 80% cost reduction
+
+Example figures from the analysis:
+
+- Individual developer: `Windsurf alone $36/month`, `HIGHGRAVITY alone $14.40/month`, `Combined $7.20/month`
+- Small team pattern: `Windsurf alone $360/month`, `Windsurf + HIGHGRAVITY $72/month`
+- Larger team pattern: `Windsurf alone $3,600/month`, `Windsurf + HIGHGRAVITY $720/month`
+
+Those numbers come from:
+
+- [docs/analysis/COMPLETE_ANALYSIS.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis/COMPLETE_ANALYSIS.md)
+- [docs/analysis/COMPOUND_OPTIMIZATION.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis/COMPOUND_OPTIMIZATION.md)
+
+They are the repo's modeled estimates, not live billing measurements.
+
 ## How It Works
 
 ### Windsurf flow
