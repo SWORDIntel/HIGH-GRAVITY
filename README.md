@@ -225,4 +225,4 @@ python3 -m unittest \
 
 - `veo3_outputs/`, `windsurf_profiles/`, and `key_test_results.json` are generated at runtime.
 - The launcher masks keys in terminal output, but generated profile files still contain live secrets.
-- This repo now contains the current `config/gemini_keys.json` because you asked for it to be committed and published.
+- Credit to John Reese for this abomination
