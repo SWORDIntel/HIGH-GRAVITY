@@ -2,9 +2,9 @@
 
 Windsurf support in this repo is built from:
 
-- [.windsurf/hooks.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/hooks.json)
-- [.windsurf/cascade_highgravity_hook.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/cascade_highgravity_hook.py)
-- [scripts/gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/gemini_session_launcher.py)
+- [.windsurf/hooks.json](.windsurf/hooks.json)
+- [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py)
+- [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py)
 
 ## Fastest setup
 
@@ -23,9 +23,9 @@ Then open this repo in Windsurf and trigger Cascade once.
 ## What happens
 
 1. Windsurf sends hook JSON on `stdin`.
-2. [.windsurf/cascade_highgravity_hook.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/cascade_highgravity_hook.py) reads that payload.
+2. [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py) reads that payload.
 3. The bridge merges env defaults such as `WINDSURF_API_KEY` and `HIGHGRAVITY_PROXY_URL`.
-4. The bridge forwards normalized JSON into [scripts/gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/gemini_session_launcher.py).
+4. The bridge forwards normalized JSON into [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py).
 5. The launcher writes a profile under `windsurf_profiles/<profile>/`.
 
 The included hooks run on:
@@ -56,7 +56,7 @@ export HIGHGRAVITY_DRY_RUN='false'
 ## Direct launcher test
 
 ```bash
-python3 scripts/gemini_session_launcher.py \
+python3 tools/integration/gemini_session_launcher.py \
   --api-key "$WINDSURF_API_KEY" \
   --mode windsurf \
   --provider proxy \
@@ -72,7 +72,7 @@ The launcher checks for keys in this order:
 1. `config/gemini_keys.json`
 2. `gemini_keys.json`
 
-Use [config/gemini_keys.example.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.example.json) as your template, or update [config/gemini_keys.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.json) directly.
+Use [config/gemini_keys.example.json](config/gemini_keys.example.json) as your template, or update [config/gemini_keys.json](config/gemini_keys.json) directly.
 
 ## Example hook payload
 

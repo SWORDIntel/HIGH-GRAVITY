@@ -1,0 +1,89 @@
+{
+  "sample": {
+    "name": "language_server_linux_x64",
+    "hash": "e4e75e8746482661c105ebf13b9b29b9875db1450b2eb77ce8348527d602ed78",
+    "size": 183138624
+  },
+  "analysis_time": "2026-03-28T14:20:13.010377",
+  "summary": {
+    "modules_found": 0,
+    "modules_decrypted": 0,
+    "keys_derived": 5
+  },
+  "modules": [],
+  "derived_keys": [
+    {
+      "type": "xor_single",
+      "key": "46",
+      "size": 1,
+      "method": "data[3] ^ data[7]",
+      "offsets": [
+        3,
+        7
+      ],
+      "confidence": 0.2,
+      "verified": false,
+      "metadata": {
+        "byte1": "0x46",
+        "byte2": "0x00",
+        "description": "APT-41 PE5 kernel exploit"
+      }
+    },
+    {
+      "type": "xor_single",
+      "key": "55",
+      "size": 1,
+      "method": "hardcoded",
+      "offsets": [],
+      "confidence": 1.0,
+      "verified": true,
+      "metadata": {
+        "pattern": "pe4_apt41"
+      }
+    },
+    {
+      "type": "xor_rotating",
+      "key": "df",
+      "size": 1,
+      "method": "key[i] = (0xDF + i) % 256",
+      "offsets": [],
+      "confidence": 0.9,
+      "verified": false,
+      "metadata": {
+        "pattern": "pe1_apt41",
+        "base_key": "0xDF"
+      }
+    },
+    {
+      "type": "xor_rotating",
+      "key": "c7",
+      "size": 1,
+      "method": "key[i] = (0xC7 + i) % 256",
+      "offsets": [],
+      "confidence": 0.9,
+      "verified": false,
+      "metadata": {
+        "pattern": "pe3_apt41",
+        "base_key": "0xC7"
+      }
+    },
+    {
+      "type": "xor_single",
+      "key": "7d",
+      "size": 1,
+      "method": "(DWORD[0] ^ DWORD[1]) & 0xFF",
+      "offsets": [
+        0,
+        4
+      ],
+      "confidence": 0.3,
+      "verified": false,
+      "metadata": {
+        "dword1": "0x464C457F",
+        "dword2": "0x00010102"
+      }
+    }
+  ],
+  "output_directory": "kp14_output/reconstruction",
+  "metadata": {}
+}

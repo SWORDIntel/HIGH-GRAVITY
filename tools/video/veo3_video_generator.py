@@ -27,7 +27,7 @@ import threading
 from queue import Queue
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent
 
 class Veo3VideoGenerator:
     def __init__(self, keys_file: str = None):

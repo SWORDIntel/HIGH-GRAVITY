@@ -22,7 +22,7 @@ import webbrowser
 from typing import Optional, Dict
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent
 
 try:
     from rich.console import Console

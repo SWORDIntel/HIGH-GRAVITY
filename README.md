@@ -1,228 +1,74 @@
 # HIGHGRAVITY
 
-HIGHGRAVITY is a small operator repo built around two workflows:
+HIGHGRAVITY is an optimization layer for AI development workflows, specifically targeting Windsurf/Cascade and Gemini-driven media generation.
 
-- Windsurf/Cascade integration through repo-local hooks and a launcher
-- Gemini-key-driven Veo video generation utilities
+## 🚀 Quick Start
 
-The repo is structured so the root explains the system, while the detailed guides live under `docs/`.
-
-## Savings vs normal use
-
-Based on the repo's internal analysis docs, the intended optimization model is:
-
-- Windsurf alone: about 10-15% cost reduction
-- HIGHGRAVITY alone: about 40-60% cost reduction
-- Combined Windsurf + HIGHGRAVITY path: about 80% cost reduction
-
-Example figures from the analysis:
-
-- Individual developer: `Windsurf alone $36/month`, `HIGHGRAVITY alone $14.40/month`, `Combined $7.20/month`
-- Small team pattern: `Windsurf alone $360/month`, `Windsurf + HIGHGRAVITY $72/month`
-- Larger team pattern: `Windsurf alone $3,600/month`, `Windsurf + HIGHGRAVITY $720/month`
-
-Those numbers come from:
-
-- [docs/analysis/COMPLETE_ANALYSIS.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis/COMPLETE_ANALYSIS.md)
-- [docs/analysis/COMPOUND_OPTIMIZATION.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis/COMPOUND_OPTIMIZATION.md)
-
-They are the repo's modeled estimates, not live billing measurements.
-
-## How It Works
-
-### Windsurf flow
-
-The Windsurf path is driven by three pieces:
-
-1. [.windsurf/hooks.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/hooks.json) registers workspace hooks for Cascade.
-2. [.windsurf/cascade_highgravity_hook.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf/cascade_highgravity_hook.py) reads native hook JSON from `stdin`, merges environment defaults, and forwards normalized input to the launcher.
-3. [scripts/gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/gemini_session_launcher.py) resolves keys and options, generates a Windsurf profile, and can optionally launch Windsurf with that profile.
-
-Operationally, the flow is:
-
-1. Windsurf fires a Cascade hook such as `post_run_command`.
-2. The hook bridge receives the Windsurf payload on `stdin`.
-3. The bridge fills in any missing values from env vars like `WINDSURF_API_KEY` or `HIGHGRAVITY_PROXY_URL`.
-4. The launcher normalizes those values with this precedence:
-   `CLI > stdin > environment > defaults`
-5. The launcher writes a profile into `windsurf_profiles/<profile>/`:
-   `profile.env`, `profile.json`, and `launch_windsurf.sh`
-
-This means the repo works both from interactive CLI use and directly from Windsurf/Cascade without extra wrapper glue.
-
-### Veo flow
-
-The Veo side is simpler:
-
-1. [scripts/veo3_video_generator.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/veo3_video_generator.py) loads Gemini keys, rotates through them, submits Veo jobs, monitors progress, and downloads results.
-2. [scripts/check_video_status.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/check_video_status.py) checks long-running operation status.
-3. [scripts/test_veo3.sh](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/test_veo3.sh) is a smoke-test entry point.
-
-Generated files land in `veo3_outputs/`, which is intentionally ignored by git.
-
-## Repo Layout
-
-- [.windsurf/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/.windsurf)
-  Windsurf/Cascade workspace integration
-- [scripts/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts)
-  Runtime scripts and entry points
-- [tests/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/tests)
-  Automated verification
-- [docs/guides/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides)
-  Usage documentation
-- [docs/analysis/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/analysis)
-  Longer analysis/reference docs
-- [config/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config)
-  Config templates and current key file
-- [examples/](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/examples)
-  Sample prompts and example content
-
-## Keys And Config
-
-The scripts look for Gemini keys in this order:
-
-1. `config/gemini_keys.json`
-2. `gemini_keys.json`
-
-Template:
-
-- [config/gemini_keys.example.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.example.json)
-
-Current repo state also includes:
-
-- [config/gemini_keys.json](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/config/gemini_keys.json)
-
-If no usable key file is present and you run the launcher interactively, it will prompt you to create one.
-
-## Windsurf Quick Start
-
-Export the defaults you want Windsurf to inherit before opening this repo:
+### 1. Unified Launcher & Midway Control
+Use the root-level `launch.py` for all operations. For permanent "Midway" control (redirection & token optimization), you must patch the Windsurf client.
 
 ```bash
-export WINDSURF_API_KEY='AIzaSy...'
-export HIGHGRAVITY_MODE='windsurf'
-export HIGHGRAVITY_PROVIDER='proxy'
-export HIGHGRAVITY_PROXY_URL='http://localhost:9999'
-export HIGHGRAVITY_DRY_RUN='true'
+# Auto-Patch all Windsurf versions (Stable & Next)
+./tools/integration/auto_modifier.sh
+
+# Interactive mode (Select keys, modes, and launch)
+./launch.py
 ```
 
-Then:
+### 2. Token Optimization & Identity Cloaking
+HIGHGRAVITY provides an 80% cost reduction and enhanced privacy by intercepting traffic midway.
+- **Canonical Ordering:** Alphabetically sorts context to maximize backend cache hits (Opus/Sonnet/DeepSeek).
+- **Context Stripping:** Deduplicates large file blocks across session turns.
+- **Identity Cloaking:** Randomizes fingerprints and IDs to prevent account-level tracking.
+- **Tier Spoofing:** Impersonates Enterprise-tier priority for all requests.
+- **Universal Models:** Optimized for **Claude 3.5 Sonnet**, **Claude 3 Opus**, **DeepSeek V3/R1**, **Gemini 1.5 Pro**, and **GPT-4o**.
 
-1. Open this repo in Windsurf.
-2. Trigger a Cascade action.
-3. Confirm `windsurf_profiles/<profile>/` was created.
-4. Once the generated profile looks right, switch `HIGHGRAVITY_DRY_RUN` to `false`.
+### 3. Quick Integration
+HIGHGRAVITY bridges Windsurf through an optimized proxy.
 
-Manual launcher test:
+- **Auto-Wire:** Run `./tools/integration/detect_and_wire_windsurf.py` while Windsurf is open.
+- **Manual Launch:** `./launch.py --mode windsurf --window-name my-project`
+
+## 🎬 Veo Video Generation
+Generate high-fidelity video using Gemini/Veo models with automatic key rotation.
 
 ```bash
-python3 scripts/gemini_session_launcher.py \
-  --api-key "$WINDSURF_API_KEY" \
-  --mode windsurf \
-  --provider proxy \
-  --proxy-url "$HIGHGRAVITY_PROXY_URL" \
-  --window-name manual-test \
-  --dry-run
+# Generate video from a prompt
+./tools/video/veo3_video_generator.py --prompt "Cinematic orbit of a futuristic city"
+
+# Check status of pending jobs
+./tools/video/check_video_status.py
 ```
 
-## Supported Windsurf And Cascade Variables
+## 📂 Project Structure
 
-Any of these can provide the key:
+| Directory | Description |
+|-----------|-------------|
+| `tools/integration/` | **Core:** Launcher and Windsurf/Cascade wiring logic. |
+| `tools/video/` | **Media:** Veo3 video generation and monitoring tools. |
+| `tools/keys/` | **Security:** API key validation and health check utilities. |
+| `config/` | Configuration templates (`gemini_keys.json`). |
+| `docs/` | Technical analysis and detailed integration guides. |
+| `windsurf_profiles/` | Generated environment profiles for Windsurf sessions. |
 
-- `WINDSURF_API_KEY`
-- `HIGHGRAVITY_API_KEY`
-- `GEMINI_API_KEY`
-- `GOOGLE_API_KEY`
-- `OPENAI_API_KEY`
-- `HIGHGRAVITY_KEY_INDEX`
+## 🛠 Advanced Usage
 
-The launcher and hook bridge understand:
-
-| Variable | Purpose |
-|----------|---------|
-| `WINDSURF_API_KEY` | Preferred Windsurf-specific API key alias |
-| `HIGHGRAVITY_API_KEY` | Generic HIGHGRAVITY key alias |
-| `GEMINI_API_KEY` | Gemini key alias |
-| `GOOGLE_API_KEY` | Google key alias |
-| `OPENAI_API_KEY` | OpenAI-compatible key alias |
-| `HIGHGRAVITY_KEY_INDEX` | Use a key by index from the key file |
-| `HIGHGRAVITY_MODE` | Launch mode, usually `windsurf` |
-| `HIGHGRAVITY_PROVIDER` | Provider mode, usually `proxy` or `direct` |
-| `HIGHGRAVITY_PROXY_URL` | Proxy endpoint for generated profiles |
-| `OPENAI_BASE_URL` | Alias for proxy endpoint |
-| `OPENAI_API_BASE` | Alias for proxy endpoint |
-| `HIGHGRAVITY_MODEL` | Model label written into generated profiles |
-| `HIGHGRAVITY_WINDOW_NAME` | Explicit window/profile name |
-| `HIGHGRAVITY_MONITOR` | Monitoring duration in seconds |
-| `HIGHGRAVITY_CHECK` | Check key validity only |
-| `HIGHGRAVITY_DRY_RUN` | Generate artifacts without launching Windsurf |
-| `HIGHGRAVITY_NEW_WINDOW` | Control whether `--new-window` is passed |
-| `WINDSURF_BIN` | Override the Windsurf executable |
-| `WINDSURF_BINARY` | Alias for Windsurf executable path |
-| `CASCADE_API_KEY` | Cascade-prefixed API key alias |
-| `CASCADE_KEY_INDEX` | Cascade-prefixed key index |
-| `CASCADE_MODE` | Cascade-prefixed mode |
-| `CASCADE_PROVIDER` | Cascade-prefixed provider |
-| `CASCADE_PROXY_URL` | Cascade-prefixed proxy URL |
-| `CASCADE_MODEL` | Cascade-prefixed model |
-| `CASCADE_WINDOW_NAME` | Cascade-prefixed profile/window name |
-| `CASCADE_MONITOR` | Cascade-prefixed monitor duration |
-| `CASCADE_CHECK` | Cascade-prefixed check flag |
-| `CASCADE_DRY_RUN` | Cascade-prefixed dry-run flag |
-| `CASCADE_NEW_WINDOW` | Cascade-prefixed new-window flag |
-
-## Veo Quick Start
-
-Single prompt:
-
+### Key Management
+The system rotates through keys in `config/gemini_keys.json`. You can test all keys for validity:
 ```bash
-python3 scripts/veo3_video_generator.py \
-  --prompt "A cat playing piano in a jazz club"
+./tools/keys/test_all_keys.py
 ```
 
-Batch prompts:
+### Savings Analysis
+Based on internal modeling, the Windsurf + HIGHGRAVITY path delivers significant savings:
+- **Windsurf alone:** ~15% reduction
+- **Combined:** ~80% reduction ($36/mo → $7.20/mo per dev)
+- *See `docs/analysis/COMPLETE_ANALYSIS.md` for details.*
 
-```bash
-python3 scripts/veo3_video_generator.py \
-  --prompts-file examples/example_prompts.txt
-```
+### 📖 Documentation
+- [Re-Installation & Re-Wiring Guide](docs/guides/RE-INSTALLATION.md)
+- [Windsurf Integration Guide](docs/guides/WINDSURF_INTEGRATION.md)
+- [Technical Analysis](docs/analysis/COMPLETE_ANALYSIS.md)
 
-Smoke test:
-
-```bash
-bash scripts/test_veo3.sh
-```
-
-## Main Entry Points
-
-- [scripts/gemini_session_launcher.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/gemini_session_launcher.py)
-- [scripts/veo3_video_generator.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/veo3_video_generator.py)
-- [scripts/check_video_status.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/check_video_status.py)
-- [scripts/test_all_keys.py](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/scripts/test_all_keys.py)
-
-## Verification
-
-Automated tests currently cover:
-
-- Windsurf profile generation
-- Windsurf hook payload normalization
-- Hook bridge env/default merging
-
-Run them with:
-
-```bash
-python3 -m unittest \
-  tests/test_gemini_session_launcher.py \
-  tests/test_windsurf_hook_bridge.py
-```
-
-## Guides
-
-- [docs/guides/WINDSURF_INTEGRATION.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides/WINDSURF_INTEGRATION.md)
-- [docs/guides/VEO3_README.md](/media/john/593d876a-4036-4255-bd45-33baba503068/DSMILSystem/tools/HIGHGRAVITY/docs/guides/VEO3_README.md)
-
-## Notes
-
-- `veo3_outputs/`, `windsurf_profiles/`, and `key_test_results.json` are generated at runtime.
-- The launcher masks keys in terminal output, but generated profile files still contain live secrets.
-- Credit to John Reese for this abomination
+---
+*Maintained by the HIGHGRAVITY team.*

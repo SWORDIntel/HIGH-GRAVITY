@@ -1,0 +1,37 @@
+{
+  "case_id": "e4e75e87_language_server_",
+  "file_path": "/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64",
+  "file_hash": "e4e75e8746482661c105ebf13b9b29b9875db1450b2eb77ce8348527d602ed78",
+  "file_size": 183138624,
+  "created_at": "2026-03-28T14:20:11.576579+00:00",
+  "analysis_status": "running",
+  "updated_at": "2026-03-28T15:08:40.733532+00:00",
+  "analysis_config": {
+    "file_path": "/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64",
+    "enable_dynamic": false,
+    "enable_ai_guidance": false,
+    "deep_forensic": true,
+    "standard_reports": true,
+    "ai_endpoint": null,
+    "ai_api_key": null,
+    "verbose": false,
+    "output_dir": "kp14_output"
+  },
+  "result_summary": {
+    "risk_score": 85,
+    "behaviors": {
+      "persistence": 0,
+      "evasion": 0,
+      "privilege_escalation": 0,
+      "detected_count": 0,
+      "behaviors": []
+    },
+    "mitre_techniques": [],
+    "report_paths": {},
+    "reconstruction": {
+      "output_directory": "kp14_output/reconstruction",
+      "modules_found": 0,
+      "modules_decrypted": 0
+    }
+  }
+}

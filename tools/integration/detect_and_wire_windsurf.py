@@ -13,7 +13,7 @@ import shutil
 from pathlib import Path
 
 # Base configuration
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
 
 def get_running_windsurf_session():
@@ -147,8 +147,8 @@ def wire_in():
     
     # Point to the current HIGH-GRAVITY installation
     content = content.replace(
-        "repo_root = Path(__file__).resolve().parent.parent",
-        f"repo_root = Path(\"{REPO_ROOT}\")"
+        "REPO_ROOT = Path(__file__).resolve().parent.parent",
+        f"REPO_ROOT = Path(\"{REPO_ROOT}\")"
     )
     
     with open(target_windsurf / "cascade_highgravity_hook.py", "w") as f:
