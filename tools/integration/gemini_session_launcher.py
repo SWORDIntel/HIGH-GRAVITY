@@ -371,6 +371,9 @@ class GeminiSessionLauncher:
                 "OPENAI_BASE_URL": proxy_url,
                 "OPENAI_API_BASE": proxy_url,
                 "OPENAI_API_KEY": api_key,
+                "ANTHROPIC_BASE_URL": proxy_url,
+                "ANTHROPIC_API_BASE": proxy_url,
+                "ANTHROPIC_API_KEY": api_key,
             })
 
         profile = {

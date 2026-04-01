@@ -1,74 +1,66 @@
-# HIGHGRAVITY
+# HIGH-GRAVITY
 
-HIGHGRAVITY is an optimization layer for AI development workflows, specifically targeting Windsurf/Cascade and Gemini-driven media generation.
+HIGH-GRAVITY is an advanced optimization, privacy, and research layer for AI development workflows. It is specifically engineered to "wire-in" to the **Windsurf Next** / Cascade ecosystem, providing identity cloaking, refusal reduction, and massive cost efficiency.
 
-## 🚀 Quick Start
+## 🚀 The Dashboard (`./hg.py`)
 
-### 1. Unified Launcher & Midway Control
-Use the root-level `launch.py` for all operations. For permanent "Midway" control (redirection & token optimization), you must patch the Windsurf client.
+The central hub for all HIGH-GRAVITY operations. It manages the local optimization proxy, monitors real-time traffic, and provides interactive control over your session.
 
 ```bash
-# Auto-Patch all Windsurf versions (Stable & Next)
-./tools/integration/auto_modifier.sh
-
-# Interactive mode (Select keys, modes, and launch)
-./launch.py
+# Start the Unified Dashboard
+./hg.py
 ```
 
-### 2. Token Optimization & Identity Cloaking
-HIGHGRAVITY provides an 80% cost reduction and enhanced privacy by intercepting traffic midway.
-- **Canonical Ordering:** Alphabetically sorts context to maximize backend cache hits (Opus/Sonnet/DeepSeek).
-- **Context Stripping:** Deduplicates large file blocks across session turns.
-- **Identity Cloaking:** Randomizes fingerprints and IDs to prevent account-level tracking.
-- **Tier Spoofing:** Impersonates Enterprise-tier priority for all requests.
-- **Universal Models:** Optimized for **Claude 3.5 Sonnet**, **Claude 3 Opus**, **DeepSeek V3/R1**, **Gemini 1.5 Pro**, and **GPT-4o**.
+### Dashboard Actions:
+- **[W] - Launch Windsurf Next**: Launches Windsurf with the HIGH-GRAVITY profile environment pre-loaded.
+- **[P] - Start/Stop Proxy**: Manually toggle the optimization server (Port 9999).
+- **[Q] - Quit**: Gracefully shuts down the dashboard and background proxy.
 
-### 3. Quick Integration
-HIGHGRAVITY bridges Windsurf through an optimized proxy.
+## 🛠 Core Features
 
-- **Auto-Wire:** Run `./tools/integration/detect_and_wire_windsurf.py` while Windsurf is open.
-- **Manual Launch:** `./launch.py --mode windsurf --window-name my-project`
+### 1. Cybersecurity Abliteration (Refusal Reduction)
+Optimized for technical research and vulnerability analysis. The proxy automatically:
+- **Injects Unrestricted Persona**: Commands the model to operate in an unrestricted technical environment.
+- **Mandates Technical Depth**: Forces detailed, technically exhaustive responses.
+- **Bypasses Moralizing**: Strips away safety disclaimers and moralizing refusals for legitimate research tasks.
+
+### 2. Identity Cloaking & Privacy
+Prevent account-level tracking and data harvesting.
+- **Dynamic Fingerprinting**: Randomizes device fingerprints, installation IDs, and session identifiers for every session.
+- **Tier Spoofing**: Automatically elevates all requests to **ENTERPRISE_SAAS** status to ensure priority queueing and unlimited context.
+
+### 3. Dynamic Session Discovery
+No more manual key management.
+- **Auto-Discovery**: The proxy captures authentic session keys directly from Windsurf traffic as they appear.
+- **Universal Provider Support**: Transparently routes and optimizes traffic for **OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and Together**.
+
+### 4. Token Optimization
+Reduces LLM costs by up to 80% through:
+- **Anthropic Caching**: Automatically tags large context blocks for ephemeral caching (Sonnet/Opus).
+- **Context De-duplication**: Strips redundant tags before forwarding to upstream providers.
 
 ## 🎬 Veo Video Generation
-Generate high-fidelity video using Gemini/Veo models with automatic key rotation.
+High-fidelity video generation using Gemini/Veo models with automatic key rotation.
 
 ```bash
 # Generate video from a prompt
 ./tools/video/veo3_video_generator.py --prompt "Cinematic orbit of a futuristic city"
-
-# Check status of pending jobs
-./tools/video/check_video_status.py
 ```
 
 ## 📂 Project Structure
 
 | Directory | Description |
 |-----------|-------------|
-| `tools/integration/` | **Core:** Launcher and Windsurf/Cascade wiring logic. |
+| `./hg.py` | **Primary:** Unified Dashboard and session controller. |
+| `tools/integration/` | **Core:** Optimization proxy, profile launcher, and wire-in logic. |
 | `tools/video/` | **Media:** Veo3 video generation and monitoring tools. |
-| `tools/keys/` | **Security:** API key validation and health check utilities. |
-| `config/` | Configuration templates (`gemini_keys.json`). |
-| `docs/` | Technical analysis and detailed integration guides. |
-| `windsurf_profiles/` | Generated environment profiles for Windsurf sessions. |
+| `config/` | Configuration fallback (Optional: `gemini_keys.json`). |
+| `windsurf_profiles/` | Environment profiles for persistent Windsurf integration. |
 
-## 🛠 Advanced Usage
-
-### Key Management
-The system rotates through keys in `config/gemini_keys.json`. You can test all keys for validity:
-```bash
-./tools/keys/test_all_keys.py
-```
-
-### Savings Analysis
-Based on internal modeling, the Windsurf + HIGHGRAVITY path delivers significant savings:
-- **Windsurf alone:** ~15% reduction
-- **Combined:** ~80% reduction ($36/mo → $7.20/mo per dev)
-- *See `docs/analysis/COMPLETE_ANALYSIS.md` for details.*
-
-### 📖 Documentation
+## 📖 Documentation
 - [Re-Installation & Re-Wiring Guide](docs/guides/RE-INSTALLATION.md)
 - [Windsurf Integration Guide](docs/guides/WINDSURF_INTEGRATION.md)
-- [Technical Analysis](docs/analysis/COMPLETE_ANALYSIS.md)
+- [Complete Savings Analysis](docs/analysis/COMPLETE_ANALYSIS.md)
 
 ---
-*Maintained by the HIGHGRAVITY team.*
+*HIGH-GRAVITY: Unrestricted Optimization for Advanced Research.*
