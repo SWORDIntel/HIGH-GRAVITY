@@ -272,8 +272,8 @@ async def proxy_request(path: str, request: Request):
     for attempt in range(max_retries):
         try:
             if is_windsurf_rpc:
-                # Use primary API for core services
-                target_base_url = "https://api.codeium.com"
+                # Primary Windsurf RPC Target
+                target_base_url = "https://server.self-serve.windsurf.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 
                     wk = get_realtime_windsurf_key()
@@ -295,7 +295,8 @@ async def proxy_request(path: str, request: Request):
                 if "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
-            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length", "connection"]}
+            # Keep Content-Length for binary/RPC integrity
+            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "connection"]}
             
             # Unleash cache bypass
             if is_unleash:
