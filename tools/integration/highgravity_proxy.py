@@ -7,6 +7,7 @@ import logging
 import time
 import secrets
 import uuid
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -346,7 +347,7 @@ async def proxy_request(path: str, request: Request):
             auth_header = f"Bearer {api_key}"
             auth_source = "POOL"
 
-    # 5. Construct Headers
+    # 6. Construct Headers
     headers = {
         "Content-Type": "application/json"
     }
@@ -366,7 +367,7 @@ async def proxy_request(path: str, request: Request):
 
     logger.info(f"[{request_id}] Forwarding {request.method} to {target_url} (Auth: {auth_source}, Opt: {is_opt})")
 
-    # 6. Proxy the Request
+    # 7. Proxy the Request
     async def stream_response():
         async with aiohttp.ClientSession() as session:
             try:
@@ -384,7 +385,7 @@ async def proxy_request(path: str, request: Request):
                         yield f"data: {json.dumps({'error': {'message': f'Upstream error: {err_text}', 'status': resp.status}})}\n\n".encode()
                         return
 
-                    logger.info(f"[{request_id}] Streaming started (latency: {duration:.2f}s)")
+                    logger.info(f"[{request_id}] Streaming started (latency: {duration:.2f}s, Upstream Status: {resp.status})")
                     async for chunk in resp.content.iter_any():
                         yield chunk
                     
@@ -423,6 +424,7 @@ async def proxy_request(path: str, request: Request):
 
 def get_windsurf_versions():
     """Detects available Windsurf binaries."""
+    import shutil
     versions = []
     potential = [
         ("Windsurf Stable", "windsurf"),
@@ -456,6 +458,7 @@ def interactive_launcher():
         return
 
     try:
+        import subprocess
         idx = int(choice) - 1
         if 0 <= idx < len(versions):
             label, cmd = versions[idx]
@@ -475,20 +478,12 @@ def interactive_launcher():
         pass
 
 if __name__ == "__main__":
-    import shutil
-    import subprocess
+    import threading
     
     logger.info(f"Starting HIGHGRAVITY Universal Proxy on port {PROXY_PORT}...")
     
     # Run the interactive launcher in a separate thread so it doesn't block the server
-    import threading
     launcher_thread = threading.Thread(target=interactive_launcher, daemon=True)
     launcher_thread.start()
     
     uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT)
-ading
-    launcher_thread = threading.Thread(target=interactive_launcher, daemon=True)
-    launcher_thread.start()
-    
-    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT)
-ORT)
