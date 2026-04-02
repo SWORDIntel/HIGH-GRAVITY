@@ -188,7 +188,43 @@ async def proxy_request(path: str, request: Request):
         except Exception:
             raw_body = {}
 
-    model = raw_body.get("model", "unknown")
+    # Enhanced Model Detection Logic
+    def resolve_model(body: Dict[str, Any]) -> str:
+        """Intelligently find the model name in various JSON structures."""
+        # 1. Standard OpenAI/Anthropic
+        if body.get("model"):
+            return str(body["model"])
+        
+        # 2. Nested Metadata or Options
+        for key in ["model_name", "engine", "deployment", "modelId"]:
+            if body.get(key):
+                return str(body[key])
+        
+        # 3. Windsurf/Codeium specific structures
+        if "options" in body and isinstance(body["options"], dict):
+            if body["options"].get("model"):
+                return str(body["options"]["model"])
+        
+        # 4. Search entire body for anything looking like a model string
+        # (This is the "autodetect" fallback)
+        body_str = json.dumps(body).lower()
+        for candidate in ["claude", "gpt-4", "gpt-3.5", "gemini", "sonnet", "opus"]:
+            if candidate in body_str:
+                return candidate
+        
+        return "unknown"
+
+    model = resolve_model(raw_body)
+    model_override = os.environ.get("HIGHGRAVITY_MODEL")
+    
+    # Apply override if specified (not in 'auto' mode)
+    if model_override and model_override != "auto":
+        model = model_override
+        logger.info(f"[{request_id}] Model forced by override: {model}")
+    
+    if model != "unknown":
+        logger.info(f"ACTIVE_MODEL_USED: {model}")
+    
     logger.info(f"[{request_id}] Incoming {request.method} /{path} from {client_host}: model={model}")
     
     # Debug: Log all headers (except Auth for safety)
