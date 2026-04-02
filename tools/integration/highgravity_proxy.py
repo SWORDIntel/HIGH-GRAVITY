@@ -233,16 +233,25 @@ async def proxy_request(path: str, request: Request):
             logger.info(f"[{request_id}] GHOST_CACHE_HIT: KEY=LOCAL")
             return StreamingResponse(iter([cr]), media_type="application/json")
 
-    is_windsurf_rpc = "exa." in path
     is_unleash = "unleash/" in path
-    max_retries = max(5, len(pool.keys))
-    for attempt in range(max_retries):
-        try:
-            if is_unleash:
-                target_base_url = "https://unleash.codeium.com"
-                resolved_api_key = "NONE"
-                tp = path.replace("unleash/", "api/")
-            elif is_windsurf_rpc:
+    if is_unleash:
+        # Mock Unleash response locally - All Features Enabled
+        mock_features = {
+            "version": 1,
+            "features": [
+                {"name": "unlimited_context", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "priority_queue", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "enable_opus", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "enable_gpt4o", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "enable_cascade_v2", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "enable_terminal_auto_suggest", "enabled": True, "strategies": [{"name": "default"}]},
+                {"name": "enable_deep_search", "enabled": True, "strategies": [{"name": "default"}]}
+            ]
+        }
+        logger.info(f"[{request_id}] UNLEASH_SHIELD: Returning local MOCK features.")
+        return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
+
+    is_windsurf_rpc = "exa." in path
                 target_base_url = "https://server.self-serve.windsurf.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 

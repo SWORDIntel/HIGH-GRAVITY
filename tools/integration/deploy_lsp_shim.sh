@@ -4,7 +4,7 @@
 SUDO_PASS="1786"
 LSP_DIR="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin"
 LSP_BIN="language_server_linux_x64"
-SHIM_SRC="/home/john/HIGH-GRAVITY/tools/integration/lsp_shim.py"
+SHIM_SRC="/home/john/HIGH-GRAVITY/tools/integration/lsp_shim.sh"
 
 echo "[*] Deploying HIGH-GRAVITY LSP Shield..."
 
