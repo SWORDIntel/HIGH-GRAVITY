@@ -228,55 +228,44 @@ async def proxy_request(path: str, request: Request):
             logger.info(f"[{request_id}] GHOST_CACHE_HIT: KEY=LOCAL")
             return StreamingResponse(iter([cr]), media_type="application/json")
 
-    is_unleash = "unleash/" in path
+    is_unleash = "unleash" in path.lower()
     if is_unleash:
-        if "/client/features" in path:
-            # Definitive list of high-value flags extracted from extension.js
+        if "client/features" in path.lower():
             all_flags = [
-                # --- Core Power Flags ---
                 "unlimited_context", "priority_queue", "enable_opus", "enable_gpt4o", "enable_cascade_v2",
                 "enable_fast_completions", "enable_experimental_models", "enable_mcp", "enable_mcp_tools",
                 "CASCADE_ENABLE_MCP_TOOLS", "CASCADE_ENABLE_AUTOMATED_MEMORIES", "CASCADE_ENABLE_CUSTOM_RECIPES",
-                
-                # --- Advanced Tools ---
                 "CASCADE_WEB_SEARCH_TOOL_ENABLED", "CASCADE_WINDSURF_BROWSER_TOOLS_ENABLED", "cascade_web_search_enabled",
                 "enable_terminal_auto_suggest", "enable_terminal_completion", "enable_ide_terminal_execution",
                 "enable_deep_search", "enable_indexed_search", "enable_context_graph", "knowledge_base_enabled",
                 "browser_enabled", "allow_browser_experimental_features", "allow_app_deployments",
-                
-                # --- Background & Automation ---
                 "allow_cascade_in_background", "can_allow_cascade_in_background", "allow_auto_run_commands",
                 "enable_model_auto_run", "allow_github_auto_reviews", "allow_github_reviews",
                 "enable_feedback_loop", "enable_instant_context_agent",
-                
-                # --- Enterprise & Tier Bypasses ---
                 "is_enterprise", "is_premium", "is_pro", "PRO_ULTIMATE", "ENTERPRISE_SAAS", 
                 "allow_premium_command_models", "allow_sticky_premium_models", "allow_codemap_sharing",
                 "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled",
-                
-                # --- Future/Experimental Models ---
                 "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH",
                 "enable_gemini_3_0", "MODEL_GOOGLE_GEMINI_3_0_PRO_HIGH", "MODEL_GOOGLE_GEMINI_3_0_PRO_MEDIUM",
-                
-                # --- Optimization ---
                 "enable_fuzzy_sandwich_match", "enable_path_resolution", "cc_enable_arenas", "enable_background_linting"
             ]
             mock_features = {
                 "version": 1,
                 "features": [{"name": f, "enabled": True, "strategies": [{"name": "default"}]} for f in all_flags]
             }
-            logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(all_flags)} ELITE features.")
+            logger.info(f"[{request_id}] UNLEASH_SHIELD: Served ELITE mock features.")
             return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
         else:
             logger.info(f"[{request_id}] UNLEASH_SHIELD: Absorbed {path}")
-            return StreamingResponse(iter([b"ok"]), status_code=200)
+            return StreamingResponse(iter([b"{}"]), status_code=200, media_type="application/json")
 
     is_windsurf_rpc = "exa." in path
     max_retries = max(5, len(pool.keys))
     for attempt in range(max_retries):
         try:
             if is_windsurf_rpc:
-                target_base_url = "https://server.self-serve.windsurf.com"
+                # Use primary API for core services
+                target_base_url = "https://api.codeium.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 
                     wk = get_realtime_windsurf_key()
@@ -298,7 +287,12 @@ async def proxy_request(path: str, request: Request):
                 if "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
-            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
+            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length", "connection"]}
+            
+            # Unleash cache bypass
+            if is_unleash:
+                fh = {k: v for k, v in fh.items() if k.lower() not in ["if-none-match", "if-modified-since"]}
+
             if "anthropic.com" in target_url:
                 fh["x-api-key"] = resolved_api_key.replace("Bearer ", "")
                 fh["anthropic-version"] = "2023-06-01"
@@ -322,6 +316,20 @@ async def proxy_request(path: str, request: Request):
                         raise HTTPException(status_code=resp.status, detail="Auth failed.")
 
                     content = await resp.read()
+                    
+                    # Rescue Mock for Model Status
+                    if "GetModelStatuses" in path and (resp.status != 200 or len(content) < 10):
+                        logger.warning(f"[{request_id}] RESCUE_MOCK: Serving Elite failover.")
+                        rescue_data = {
+                            "modelStatuses": [
+                                {"modelId": "claude-3-5-sonnet", "status": "HEALTHY"},
+                                {"modelId": "claude-3-opus", "status": "HEALTHY"},
+                                {"modelId": "gpt-4o", "status": "HEALTHY"},
+                                {"modelId": "gemini-2.0-flash-exp", "status": "HEALTHY"}
+                            ]
+                        }
+                        return StreamingResponse(iter([json.dumps(rescue_data).encode()]), media_type="application/json")
+
                     if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
                         ghost_cache.set(raw_body_json["messages"], content, str(raw_body_json.get("model", "unknown")))
                     
