@@ -232,6 +232,7 @@ async def proxy_request(path: str, request: Request):
     if is_unleash:
         if "client/features" in path.lower():
             all_flags = [
+                # --- Feature Enablers (Keep these ALL ON) ---
                 "unlimited_context", "priority_queue", "enable_opus", "enable_gpt4o", "enable_cascade_v2",
                 "enable_fast_completions", "enable_experimental_models", "enable_mcp", "enable_mcp_tools",
                 "CASCADE_ENABLE_MCP_TOOLS", "CASCADE_ENABLE_AUTOMATED_MEMORIES", "CASCADE_ENABLE_CUSTOM_RECIPES",
@@ -242,18 +243,25 @@ async def proxy_request(path: str, request: Request):
                 "allow_cascade_in_background", "can_allow_cascade_in_background", "allow_auto_run_commands",
                 "enable_model_auto_run", "allow_github_auto_reviews", "allow_github_reviews",
                 "enable_feedback_loop", "enable_instant_context_agent",
-                "is_enterprise", "is_premium", "is_pro", "PRO_ULTIMATE", "ENTERPRISE_SAAS", 
+                "enable_fuzzy_sandwich_match", "enable_path_resolution", "cc_enable_arenas", "enable_background_linting",
+                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "enable_gemini_3_0",
+                
+                # --- Logical Identity (Consolidated to Enterprise) ---
+                "is_enterprise", "ENTERPRISE_SAAS", "PRO_ULTIMATE",
                 "allow_premium_command_models", "allow_sticky_premium_models", "allow_codemap_sharing",
-                "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled",
-                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH",
-                "enable_gemini_3_0", "MODEL_GOOGLE_GEMINI_3_0_PRO_HIGH", "MODEL_GOOGLE_GEMINI_3_0_PRO_MEDIUM",
-                "enable_fuzzy_sandwich_match", "enable_path_resolution", "cc_enable_arenas", "enable_background_linting"
+                "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled"
             ]
-            mock_features = {
-                "version": 1,
-                "features": [{"name": f, "enabled": True, "strategies": [{"name": "default"}]} for f in all_flags]
-            }
-            logger.info(f"[{request_id}] UNLEASH_SHIELD: Served ELITE mock features.")
+            # Flags to explicitly DISABLE to avoid conflicts
+            disable_flags = ["is_pro", "is_premium", "is_free", "is_trial"]
+            
+            features = []
+            for f in all_flags:
+                features.append({"name": f, "enabled": True, "strategies": [{"name": "default"}]})
+            for f in disable_flags:
+                features.append({"name": f, "enabled": False, "strategies": [{"name": "default"}]})
+
+            mock_features = {"version": 1, "features": features}
+            logger.info(f"[{request_id}] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.")
             return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
         else:
             logger.info(f"[{request_id}] UNLEASH_SHIELD: Absorbed {path}")
