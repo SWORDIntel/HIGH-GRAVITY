@@ -1,13 +1,15 @@
-# HIGH-GRAVITY v3.3
+# HIGH-GRAVITY v3.3.4
 
 The ultimate local identity proxy and optimization shield for Windsurf.
 
-## New in v3.3: The Feature Shield Update
+## New in v3.3.4: The Elite Feature Update
 
-### 1. 🚀 Unleash Shield (Feature Flag Manipulation)
-*   **Force-Enable Features:** The proxy now intercepts Unleash server responses and manually sets `enabled: true` for every feature flag.
-*   **Beta Gate Bypass:** Gain instant access to experimental features, beta UI elements, and higher-tier models regardless of account status.
-*   **Strategy Neutralization:** Bypasses server-side activation strategies to ensure features remain active for your local session.
+### 1. 🚀 Unleash Shield (Elite Feature Activation)
+*   **Force-Enable Elite Features:** The proxy now mocks the Unleash server with a curated list of over 60 high-value flags.
+*   **Future Model Access:** Early activation strings for `O3-Pro` and `Gemini 3.0 Pro`.
+*   **Advanced Tools:** Unlocks MCP tool support, Web Search tools, Browser tools, and Terminal auto-suggestions.
+*   **Enterprise Tier Bypassing:** Force-enables `PRO_ULTIMATE` and `ENTERPRISE_SAAS` status locally.
+*   **Automation & Backgrounding:** Allows Cascade to run in the background and auto-execute commands with increased trust.
 
 ### 2. 🛡️ Complete API Shield (Full Proxy Mode)
 *   **Deep Redirection:** Core API, Inference, and Feature Flag servers are all routed through the proxy.

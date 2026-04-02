@@ -231,23 +231,41 @@ async def proxy_request(path: str, request: Request):
     is_unleash = "unleash/" in path
     if is_unleash:
         if "/client/features" in path:
-            # Definitive list of all potential flags extracted from extension.js
+            # Definitive list of high-value flags extracted from extension.js
             all_flags = [
-                "unlimited_context", "priority_queue", "enable_opus", "enable_gpt4o",
-                "enable_cascade_v2", "enable_terminal_auto_suggest", "enable_deep_search",
-                "enable_fast_completions", "enable_experimental_models", "enable_mcp",
-                "enable_indexed_search", "enable_context_graph", "cascade_web_search_enabled",
-                "conversations_enabled", "enable_background_linting", "enable_feedback_loop",
-                "enable_instant_context_agent", "enable_lsp", "enable_model_auto_run",
-                "enable_terminal_completion", "knowledge_base_enabled", "mucs_enabled",
-                "user_activities_enabled", "enable_fuzzy_sandwich_match", "enable_path_resolution",
-                "enable_auto_cascade_seat_provisioning", "cc_enable_arenas", "attribution_enabled"
+                # --- Core Power Flags ---
+                "unlimited_context", "priority_queue", "enable_opus", "enable_gpt4o", "enable_cascade_v2",
+                "enable_fast_completions", "enable_experimental_models", "enable_mcp", "enable_mcp_tools",
+                "CASCADE_ENABLE_MCP_TOOLS", "CASCADE_ENABLE_AUTOMATED_MEMORIES", "CASCADE_ENABLE_CUSTOM_RECIPES",
+                
+                # --- Advanced Tools ---
+                "CASCADE_WEB_SEARCH_TOOL_ENABLED", "CASCADE_WINDSURF_BROWSER_TOOLS_ENABLED", "cascade_web_search_enabled",
+                "enable_terminal_auto_suggest", "enable_terminal_completion", "enable_ide_terminal_execution",
+                "enable_deep_search", "enable_indexed_search", "enable_context_graph", "knowledge_base_enabled",
+                "browser_enabled", "allow_browser_experimental_features", "allow_app_deployments",
+                
+                # --- Background & Automation ---
+                "allow_cascade_in_background", "can_allow_cascade_in_background", "allow_auto_run_commands",
+                "enable_model_auto_run", "allow_github_auto_reviews", "allow_github_reviews",
+                "enable_feedback_loop", "enable_instant_context_agent",
+                
+                # --- Enterprise & Tier Bypasses ---
+                "is_enterprise", "is_premium", "is_pro", "PRO_ULTIMATE", "ENTERPRISE_SAAS", 
+                "allow_premium_command_models", "allow_sticky_premium_models", "allow_codemap_sharing",
+                "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled",
+                
+                # --- Future/Experimental Models ---
+                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH",
+                "enable_gemini_3_0", "MODEL_GOOGLE_GEMINI_3_0_PRO_HIGH", "MODEL_GOOGLE_GEMINI_3_0_PRO_MEDIUM",
+                
+                # --- Optimization ---
+                "enable_fuzzy_sandwich_match", "enable_path_resolution", "cc_enable_arenas", "enable_background_linting"
             ]
             mock_features = {
                 "version": 1,
                 "features": [{"name": f, "enabled": True, "strategies": [{"name": "default"}]} for f in all_flags]
             }
-            logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(all_flags)} features.")
+            logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(all_flags)} ELITE features.")
             return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
         else:
             logger.info(f"[{request_id}] UNLEASH_SHIELD: Absorbed {path}")
