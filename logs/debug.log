@@ -1,0 +1,36 @@
+[*] Starting HighGravity Debug Session at Thu  2 Apr 03:31:52 BST 2026
+[*] Cleaning up existing proxy...
+[*] Starting Proxy with DEBUG logging...
+[+] Proxy started (PID: 504089)
+[*] Using profile script: /home/john/HIGH-GRAVITY/windsurf_profiles/untitled-1775086321759/launch_windsurf.sh
+[*] Launching Windsurf Next in debug mode...
++ set -euo pipefail
++ set -a
++ . /home/john/HIGH-GRAVITY/windsurf_profiles/untitled-1775086321759/profile.env
+++ ANTHROPIC_API_BASE=http://localhost:9999
+++ ANTHROPIC_API_KEY=AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E
+++ ANTHROPIC_BASE_URL=http://localhost:9999
+++ GEMINI_API_KEY=AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E
+++ GOOGLE_API_KEY=AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E
+++ HIGHGRAVITY_FALLBACK_TO_DIRECT=true
+++ HIGHGRAVITY_MODEL=gemini-2.0-flash-exp
+++ HIGHGRAVITY_PROVIDER=proxy
+++ HIGHGRAVITY_PROXY_URL=http://localhost:9999
+++ HIGHGRAVITY_WINDOW_ID=untitled-1775086321759
+++ HIGHGRAVITY_WINDOW_NAME=untitled_1775086321759
+++ OPENAI_API_BASE=http://localhost:9999
+++ OPENAI_API_KEY=AIzaSyBMAvo9xWuzFN4us7Ea4IcSWbIWYMczM8E
+++ OPENAI_BASE_URL=http://localhost:9999
++ set +a
++ exec /usr/bin/windsurf-next --new-window
+2026-04-02 03:31:54,409 [INFO] Loaded 19 fallback keys from local pool.
+2026-04-02 03:31:54,437 [INFO] Starting HIGHGRAVITY Universal Proxy on port 9999...
+2026-04-02 03:31:54,439 [DEBUG] Using selector: EpollSelector
+INFO:     Started server process [504089]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9999 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [504089]

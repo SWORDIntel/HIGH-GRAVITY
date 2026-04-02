@@ -33,10 +33,11 @@ Prevent account-level tracking and data harvesting.
 - **Dynamic Fingerprinting**: Randomizes device fingerprints, installation IDs, and session identifiers for every session.
 - **Tier Spoofing**: Automatically elevates all requests to **ENTERPRISE_SAAS** status to ensure priority queueing and unlimited context.
 
-### 4. Dynamic Session Discovery
-No more manual key management.
-- **Auto-Discovery**: The proxy captures authentic session keys directly from Windsurf traffic as they appear.
-- **Universal Provider Support**: Transparently routes and optimizes traffic for **OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and Together**.
+### 4. Real-time Session Key Discovery & Dynamic Routing
+Seamlessly integrates with Windsurf and other providers without manual API key configuration.
+- **Automatic Key Fetching**: The proxy dynamically retrieves your Windsurf API key in real-time from your local Windsurf configuration (`state.vscdb`). It prioritizes the configuration of your currently running Windsurf instance (Next, Stable, Insiders) and checks multiple potential keys for maximum reliability.
+- **Prioritized Windsurf RPC Routing**: Windsurf RPC requests are automatically routed to the `https://server.self-serve.windsurf.com` backend using the discovered key.
+- **Universal Provider Support**: Transparently routes and optimizes traffic for **OpenAI, Anthropic (including specific versions like Sonnet 4.5, Opus 4.5/4.6), Gemini, DeepSeek, Mistral, Groq, OpenRouter, and Together**.
 
 ### 5. Token Optimization
 Reduces LLM costs by up to 80% through:

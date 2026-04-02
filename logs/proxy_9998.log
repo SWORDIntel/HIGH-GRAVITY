@@ -1,0 +1,13 @@
+2026-04-02 03:06:36,823 [INFO] Loaded 19 fallback keys from local pool.
+2026-04-02 03:06:37,073 [INFO] Starting HIGHGRAVITY Universal Proxy on port 9998...
+2026-04-02 03:06:37,092 [DEBUG] Using selector: EpollSelector
+INFO:     Started server process [490245]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9998 (Press CTRL+C to quit)
+2026-04-02 03:09:30,101 [INFO] Loaded 19 fallback keys from local pool.
+2026-04-02 03:09:30,132 [INFO] Starting HIGHGRAVITY Universal Proxy on port 9998...
+INFO:     Started server process [492147]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9998 (Press CTRL+C to quit)
