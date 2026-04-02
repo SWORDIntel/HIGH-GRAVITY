@@ -32,11 +32,8 @@ LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
 os.makedirs(REPO_ROOT / "logs", exist_ok=True)
 os.makedirs(REPO_ROOT / "config", exist_ok=True)
 log_level = os.environ.get("HG_LOG_LEVEL", "INFO").upper()
-
-# Custom formatter to ensure it's easy to parse
 log_format = '%(asctime)s [%(levelname)s] %(message)s'
 
-# Configure root logger
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
     format=log_format,
@@ -47,7 +44,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("HG-Proxy")
 
-# Force flush on all handlers
 for handler in logging.root.handlers:
     handler.setFormatter(logging.Formatter(log_format))
 
@@ -151,9 +147,7 @@ class TokenPool:
         while True:
             time.sleep(30); now = time.time()
             tr = [k for k, exp in self.exhausted_keys.items() if now > exp]
-            for k in tr: 
-                del self.exhausted_keys[k]
-                logger.info(f"KEY_RECOVERED: KEY={k[:15]}...")
+            for k in tr: del self.exhausted_keys[k]; logger.info(f"KEY_RECOVERED: KEY={k[:15]}...")
 
     def load_keys(self):
         try:
@@ -177,6 +171,7 @@ class TokenPool:
 
     def add_key(self, key: str, persist: bool = True):
         ck = key.replace("Bearer ", "").strip()
+        if ck == "sk-ws-test-123": return # Block dummy key
         if ck and ck not in self.keys:
             self.keys.append(ck)
             if persist: self.save_keys()
@@ -235,23 +230,34 @@ async def proxy_request(path: str, request: Request):
 
     is_unleash = "unleash/" in path
     if is_unleash:
-        # Mock Unleash response locally - All Features Enabled
-        mock_features = {
-            "version": 1,
-            "features": [
-                {"name": "unlimited_context", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "priority_queue", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "enable_opus", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "enable_gpt4o", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "enable_cascade_v2", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "enable_terminal_auto_suggest", "enabled": True, "strategies": [{"name": "default"}]},
-                {"name": "enable_deep_search", "enabled": True, "strategies": [{"name": "default"}]}
+        if "/client/features" in path:
+            # Definitive list of all potential flags extracted from extension.js
+            all_flags = [
+                "unlimited_context", "priority_queue", "enable_opus", "enable_gpt4o",
+                "enable_cascade_v2", "enable_terminal_auto_suggest", "enable_deep_search",
+                "enable_fast_completions", "enable_experimental_models", "enable_mcp",
+                "enable_indexed_search", "enable_context_graph", "cascade_web_search_enabled",
+                "conversations_enabled", "enable_background_linting", "enable_feedback_loop",
+                "enable_instant_context_agent", "enable_lsp", "enable_model_auto_run",
+                "enable_terminal_completion", "knowledge_base_enabled", "mucs_enabled",
+                "user_activities_enabled", "enable_fuzzy_sandwich_match", "enable_path_resolution",
+                "enable_auto_cascade_seat_provisioning", "cc_enable_arenas", "attribution_enabled"
             ]
-        }
-        logger.info(f"[{request_id}] UNLEASH_SHIELD: Returning local MOCK features.")
-        return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
+            mock_features = {
+                "version": 1,
+                "features": [{"name": f, "enabled": True, "strategies": [{"name": "default"}]} for f in all_flags]
+            }
+            logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(all_flags)} features.")
+            return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
+        else:
+            logger.info(f"[{request_id}] UNLEASH_SHIELD: Absorbed {path}")
+            return StreamingResponse(iter([b"ok"]), status_code=200)
 
     is_windsurf_rpc = "exa." in path
+    max_retries = max(5, len(pool.keys))
+    for attempt in range(max_retries):
+        try:
+            if is_windsurf_rpc:
                 target_base_url = "https://server.self-serve.windsurf.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 
@@ -259,7 +265,7 @@ async def proxy_request(path: str, request: Request):
                     if wk: pool.add_key(wk)
                 if not wk: raise HTTPException(status_code=503, detail="No Windsurf keys.")
                 resolved_api_key = f"Bearer {wk}"
-                tp = path # Preserve RPC path
+                tp = path
             else:
                 model = raw_body_json.get("model", "unknown") if is_json else "unknown"
                 if "gpt" in str(model): target_base_url = "https://api.openai.com"
@@ -270,19 +276,11 @@ async def proxy_request(path: str, request: Request):
                     pk = pool.get_key(is_windsurf=False)
                     if not pk: raise HTTPException(status_code=503, detail="No LLM keys.")
                     resolved_api_key = f"Bearer {pk}"
-                
-                # LLM path logic
                 tp = path if path.startswith("v1/") else f"v1/{path}"
                 if "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
             fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
-            
-            # --- Unleash Cache Bypass ---
-            if is_unleash:
-                # Strip caching headers to force a 200 OK so we can always apply the shield
-                fh = {k: v for k, v in fh.items() if k.lower() not in ["if-none-match", "if-modified-since"]}
-
             if "anthropic.com" in target_url:
                 fh["x-api-key"] = resolved_api_key.replace("Bearer ", "")
                 fh["anthropic-version"] = "2023-06-01"
@@ -306,25 +304,6 @@ async def proxy_request(path: str, request: Request):
                         raise HTTPException(status_code=resp.status, detail="Auth failed.")
 
                     content = await resp.read()
-                    
-                    # --- Unleash Force-Enable Shield ---
-                    if is_unleash:
-                        logger.info(f"[{request_id}] UNLEASH_INTERCEPT: Intercepted feature flag response (Status: {resp.status})")
-                        if resp.status == 200:
-                            try:
-                                unleash_data = json.loads(content)
-                                if "features" in unleash_data:
-                                    flag_names = [f["name"] for f in unleash_data["features"]]
-                                    for feature in unleash_data["features"]:
-                                        feature["enabled"] = True
-                                        feature["strategies"] = [{"name": "default"}]
-                                    content = json.dumps(unleash_data).encode()
-                                    logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(flag_names)} features: {', '.join(flag_names)}")
-                            except Exception as e:
-                                logger.error(f"[{request_id}] UNLEASH_SHIELD_ERROR: {e}")
-                        else:
-                            logger.warning(f"[{request_id}] UNLEASH_BYPASS: Received non-200 response ({resp.status}), cannot apply shield.")
-
                     if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
                         ghost_cache.set(raw_body_json["messages"], content, str(raw_body_json.get("model", "unknown")))
                     
