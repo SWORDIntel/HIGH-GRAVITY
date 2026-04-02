@@ -16,8 +16,10 @@ import socket
 import shutil
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Deque
+from collections import deque
 
+import re # Added for pattern matching
 try:
     from rich.console import Console
     from rich.layout import Layout
@@ -35,13 +37,12 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "2.2.1-HG"
+VERSION = "3.0.0-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
-LAUNCHER_SCRIPT = REPO_ROOT / "tools" / "integration" / "gemini_session_launcher.py"
-WIRING_SCRIPT = REPO_ROOT / "tools" / "integration" / "detect_and_wire_windsurf.py"
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
+PERSISTENCE_FILE = REPO_ROOT / "config" / "windsurf_session_keys.json"
 LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
 LAUNCH_LOG = REPO_ROOT / "logs" / "launch.log"
 PROFILES_ROOT = REPO_ROOT / "windsurf_profiles"
@@ -56,181 +57,113 @@ class HighGravityDashboard:
         self.status_msg = "Dashboard initialized."
         self.proxy_status = "Stopped"
         self.proxy_port = PROXY_PORT
-        self.session_keys = set()
+        self.active_keys_count = 0
+        self.exhausted_keys_count = 0
         self.request_count = 0
+        self.cache_hits = 0
+        self.retry_count = 0
         self.last_request_time = None
-        self.active_profile_path = None
         self.selected_model = "auto"
         self.detected_model = "None"
-        self.models = [
-            "auto",
-            "gemini-2.0-flash-exp",
-            "claude-3-5-sonnet-20240620",
-            "claude-3-opus-20240229",
-            "gpt-4o",
-            "gpt-4-turbo",
-            "deepseek-coder"
-        ]
+        self.models = ["auto", "gemini-2.0-flash-exp", "claude-3-5-sonnet", "claude-3-opus", "gpt-4o"]
 
-    def cycle_model(self):
-        """Cycle through available models for override."""
-        idx = self.models.index(self.selected_model)
-        self.selected_model = self.models[(idx + 1) % len(self.models)]
-        self.status_msg = f"Model mode set to: [bold magenta]{self.selected_model}[/bold magenta]"
-
-    def find_launch_script(self) -> Optional[Path]:
-        """Find the most appropriate Windsurf launch script."""
-        # Check all profiles and pick the most recently modified one
-        scripts = list(PROFILES_ROOT.glob("*/launch_windsurf.sh"))
-        if scripts:
-            # Prefer 'high-gravity' if it was modified recently, otherwise just newest
-            scripts.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-            return scripts[0]
-        return None
+        # Pulse Data (Throughput)
+        self.pulse_data = deque([0]*40, maxlen=40)
+        self.key_stats = {}
+        self.event_log = []
+        self.max_event_log_size = 1000
 
     def check_proxy_alive(self) -> bool:
-        """Check if port 9999 is being listened on."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1.0)
+            s.settimeout(0.5)
             return s.connect_ex(('127.0.0.1', self.proxy_port)) == 0
 
     def start_proxy(self):
-        """Starts the highgravity_proxy.py in a background process."""
-        if self.check_proxy_alive():
-            self.status_msg = f"Proxy already running on port {self.proxy_port}."
-            return
-
-        self.status_msg = "Starting proxy server..."
-        env = os.environ.copy()
-        if self.selected_model != "auto":
-            env["HIGHGRAVITY_MODEL"] = self.selected_model
-        
-        self.proxy_proc = subprocess.Popen(
-            [sys.executable, str(PROXY_SCRIPT)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            start_new_session=True
-        )
-        time.sleep(2)
-        if self.check_proxy_alive():
-            self.proxy_status = "Running"
-            self.status_msg = "Proxy server started successfully."
-        else:
-            self.proxy_status = "Error"
-            self.status_msg = "Failed to start proxy. Check logs/proxy.log."
+        if self.check_proxy_alive(): return
+        env = {**os.environ, "HG_PROXY_PORT": str(self.proxy_port), "HIGHGRAVITY_MODEL": self.selected_model}
+        self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
+        time.sleep(1)
 
     def stop_proxy(self):
-        """Stops the proxy process."""
         if self.proxy_proc:
-            try:
-                os.killpg(os.getpgid(self.proxy_proc.pid), signal.SIGTERM)
-            except:
-                pass
+            try: os.killpg(os.getpgid(self.proxy_proc.pid), signal.SIGTERM)
+            except: pass
             self.proxy_proc = None
-            self.proxy_status = "Stopped"
-            self.status_msg = "Proxy server stopped."
 
     def update_stats(self):
-        """Parses log file for recent activity stats and autodetection."""
-        if not LOG_FILE.exists():
-            return
+        if not LOG_FILE.exists(): return
 
         try:
             with open(LOG_FILE, 'r') as f:
                 lines = f.readlines()
-                self.last_logs = []
+
+            self.last_logs = []
+            self.request_count = 0
+            self.cache_hits = 0
+            self.retry_count = 0
+            
+            # Temporary trackers
+            current_pulse = 0
+            
+            key_pattern = re.compile(r'KEY=([\w-]+)')
+            timestamp_pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
+
+            for line in lines:
+                line = line.strip()
+                match = timestamp_pattern.match(line)
+                if not match: continue
+                ts = match.group(1)
+
+                if "CONNECTION ATTEMPT" in line:
+                    self.request_count += 1
+                    self.last_request_time = ts
+                elif "GHOST_CACHE_HIT" in line:
+                    self.cache_hits += 1
+                elif "Silent Retry" in line or "KEY_LIMIT" in line:
+                    self.retry_count += 1
+                elif "PULSE_METRIC" in line:
+                    try: current_pulse += int(line.split("BYTES=")[1].split(" ")[0])
+                    except: pass
                 
-                # Filter for interesting logs
-                for l in reversed(lines):
-                    if len(self.last_logs) >= 12:
-                        break
-                    line = l.strip()
+                # Key Discovery & Status
+                km = key_pattern.search(line)
+                if km:
+                    key = km.group(1)
+                    self.key_stats.setdefault(key, {'requests': 0, 'status': 'Active'})
+                    if "KEY_EXHAUSTED" in line:
+                        self.key_stats[key]['status'] = 'Exhausted'
+                        try: self.key_stats[key]['reason'] = line.split("REASON=")[1].split(" ")[0]
+                        except: pass
+                    elif "KEY_RECOVERED" in line or "ROTATION" in line:
+                        self.key_stats[key]['status'] = 'Active'
+                        self.key_stats[key].pop('reason', None)
                     
-                    # Autodetect model from logs
-                    if "ACTIVE_MODEL_USED:" in line:
-                        self.detected_model = line.split("ACTIVE_MODEL_USED:")[1].strip()
+                    if "ROTATION" in line:
+                        self.key_stats[key]['requests'] += 1
 
-                    if any(x in line for x in ["Incoming", "Forwarding", "NEW_SESSION_KEY_DISCOVERED", "Upstream Error", "Optimization applied", "ACTIVE_MODEL_USED"]):
-                        self.last_logs.append(line)
-                
-                self.last_logs.reverse()
-                self.request_count = sum(1 for l in lines if "Incoming" in l)
-                
-                for line in lines:
-                    if "NEW_SESSION_KEY_DISCOVERED" in line:
-                        try:
-                            key_part = line.split("DISCOVERED: ")[1].strip()
-                            self.session_keys.add(key_part)
-                        except:
-                            pass
-                
-                for line in reversed(lines):
-                    if "Incoming" in line:
-                        parts = line.split("] ")
-                        if len(parts) > 1:
-                            self.last_request_time = parts[0].lstrip("[")
-                            break
-        except:
-            pass
+                # Display logs
+                if any(x in line for x in ["GHOST_CACHE_HIT", "Silent Retry", "KEY_LIMIT", "ROTATION", "KEY_RECOVERED"]):
+                    color = "cyan"
+                    if "CACHE" in line: color = "magenta"
+                    if "Retry" in line or "LIMIT" in line: color = "red"
+                    if "RECOVERED" in line: color = "green"
+                    
+                    clean_msg = line.split("] ")[-1] if "] " in line else line
+                    self.last_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
 
-    def run_wiring(self) -> bool:
-        """Runs the automated wiring script."""
-        self.status_msg = "[bold yellow]Running automated wire-in...[/bold yellow]"
-        try:
-            subprocess.run([sys.executable, str(WIRING_SCRIPT)], check=True, capture_output=True)
-            return True
-        except Exception as e:
-            self.status_msg = f"[red]Wiring error: {e}[/red]"
-            return False
+            self.pulse_data.append(current_pulse // 1024) # KB Throughput
+            
+            all_keys = self.key_stats.keys()
+            self.active_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Active'])
+            self.exhausted_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Exhausted'])
+            self.last_logs = self.last_logs[-12:]
 
-    def launch_windsurf(self):
-        """Executes the Windsurf launch script."""
-        launch_script = self.find_launch_script()
-        if not launch_script:
-            if self.run_wiring():
-                launch_script = self.find_launch_script()
-            if not launch_script:
-                self.status_msg = "[red]Error: No profile found.[/red]"
-                return
+        except: pass
 
-        if not self.check_proxy_alive():
-            self.start_proxy()
-            time.sleep(2)
-            if not self.check_proxy_alive():
-                self.status_msg = "[red]Error: Proxy failed to start.[/red]"
-                return
-        
-        # Determine binary
-        cmd = "windsurf-next" if shutil.which("windsurf-next") else "windsurf"
-        self.status_msg = f"Launching {cmd} via {launch_script.parent.name}..."
-        
-        env = os.environ.copy()
-        env["WINDSURF_BIN"] = cmd
-        
-        # Ensure log directory exists
-        REPO_ROOT.joinpath("logs").mkdir(exist_ok=True)
-        
-        # Log launch attempt
-        with open(LAUNCH_LOG, "a") as f:
-            f.write(f"[{datetime.now()}] Launching: {cmd} with profile {launch_script}\n")
-        
-        try:
-            # Use subprocess.Popen with bash explicitly to ensure execution
-            log_f = open(LAUNCH_LOG, "a")
-            subprocess.Popen(
-                ["/usr/bin/bash", str(launch_script)], 
-                env=env, 
-                stdout=log_f, 
-                stderr=log_f,
-                start_new_session=True
-            )
-            self.status_msg = f"[green]Success:[/green] {cmd} launched (Profile: {launch_script.parent.name})."
-        except Exception as e:
-            self.status_msg = f"[red]Launch error: {e}[/red]"
+    def generate_dashboard(self) -> Layout:
+        self.update_stats()
+        is_alive = self.check_proxy_alive()
 
-    def create_layout(self) -> Layout:
-        """Creates the rich layout."""
         layout = Layout()
         layout.split_column(
             Layout(name="header", size=3),
@@ -239,112 +172,73 @@ class HighGravityDashboard:
         )
         layout["main"].split_row(
             Layout(name="sidebar", ratio=1),
-            Layout(name="body", ratio=3)
+            Layout(name="body", ratio=4)
         )
         layout["body"].split_column(
-            Layout(name="status", size=10),
+            Layout(name="metrics", size=10),
+            Layout(name="pulse", size=10),
             Layout(name="logs")
         )
-        return layout
 
-    def generate_dashboard(self) -> Layout:
-        """Populates the layout."""
-        self.update_stats()
-        is_alive = self.check_proxy_alive()
-        self.proxy_status = "Running" if is_alive else "Stopped"
-
-        layout = self.create_layout()
-        header_text = Text.assemble((" HIGH-GRAVITY ", "bold white on blue"), " Optimization & Identity Proxy Dashboard", justify="center")
+        header_text = Text.assemble((" HIGH-GRAVITY v3 ", "bold white on blue"), " Global Identity Pool & Ghost Cache", justify="center")
         layout["header"].update(Panel(header_text, border_style="blue"))
 
-        sidebar_table = Table(show_header=False, box=None)
-        sidebar_table.add_row("[cyan]W[/cyan] - Launch Windsurf")
-        sidebar_table.add_row("[cyan]P[/cyan] - Start/Stop Proxy")
-        sidebar_table.add_row("[cyan]M[/cyan] - Cycle Model")
-        sidebar_table.add_row("[cyan]Q[/cyan] - Quit Dashboard")
-        
-        info_table = Table(show_header=False, box=None, padding=(0, 1))
-        info_table.add_row("Version:", VERSION)
-        key_status = f"[green]{len(self.session_keys)}[/green]" if self.session_keys else "[yellow]Waiting...[/yellow]"
-        info_table.add_row("Session Keys:", key_status)
-        info_table.add_row("Port:", str(self.proxy_port))
-        
-        sidebar_content = Table.grid(expand=True)
-        sidebar_content.add_row(sidebar_table)
-        sidebar_content.add_row(Panel(info_table, title="[bold]Info[/bold]", border_style="dim"))
-        layout["sidebar"].update(Panel(sidebar_content, title="[bold]Actions[/bold]", border_style="cyan"))
+        # Metrics Panel
+        metrics = Table.grid(expand=True)
+        metrics.add_row(Text("Total Requests:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
+        metrics.add_row(Text("Ghost Cache Hits:", style="bold"), f"[bold magenta]{self.cache_hits}[/bold magenta]")
+        metrics.add_row(Text("Invisible Retries:", style="bold"), f"[bold red]{self.retry_count}[/bold red]")
+        metrics.add_row(Text("Active / Dead Keys:", style="bold"), f"[bold green]{self.active_keys_count}[/bold green] / [bold red]{self.exhausted_keys_count}[/bold red]")
+        metrics.add_row(Text("Last Request:", style="bold"), f"[dim]{self.last_request_time or 'Never'}[/dim]")
+        layout["metrics"].update(Panel(metrics, title="System Metrics", border_style="white"))
 
-        status_grid = Table.grid(expand=True)
-        status_grid.add_column(ratio=1)
-        status_grid.add_column(ratio=2)
+        # Pulse Panel (Visual)
+        pulse_str = ""
+        for val in self.pulse_data:
+            if val == 0: pulse_str += "[dim]. [/dim]"
+            elif val < 10: pulse_str += "[green]▂ [/green]"
+            elif val < 50: pulse_str += "[yellow]▅ [/yellow]"
+            else: pulse_str += "[red]█ [/red]"
         
-        proxy_color = "green" if is_alive else "red"
-        status_grid.add_row("Proxy Status:", Text(self.proxy_status, style=f"bold {proxy_color}"))
-        status_grid.add_row("Model Mode:", f"[bold magenta]{self.selected_model}[/bold magenta]")
-        status_grid.add_row("Live Detected:", f"[bold cyan]{self.detected_model}[/bold cyan]")
-        status_grid.add_row("Total Requests:", f"[bold white]{self.request_count}[/bold white]")
-        status_grid.add_row("Last Request:", f"[dim]{self.last_request_time or 'N/A'}[/dim]")
-        status_grid.add_row("Latest Message:", f"[italic yellow]{self.status_msg}[/italic yellow]")
+        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str)), title="Throughput Pulse (KB/req)", border_style="cyan"))
 
-        layout["status"].update(Panel(status_grid, title="[bold]System Status[/bold]", border_style="white"))
-        log_text = Text("\n".join(self.last_logs) if self.last_logs else "No recent logs found.")
-        layout["logs"].update(Panel(log_text, title="[bold]Real-time Proxy Logs (Last 12)[/bold]", border_style="dim", padding=(0, 1)))
-        footer_text = Text(f"Last updated: {datetime.now().strftime('%H:%M:%S')} | Press Q to quit.", justify="center", style="dim")
-        layout["footer"].update(Panel(footer_text, border_style="blue"))
+        # Logs
+        log_content = Text.from_markup("\n".join(self.last_logs)) if self.last_logs else Text("Waiting for traffic...")
+        layout["logs"].update(Panel(log_content, title="Intercepted Events", border_style="dim"))
 
+        # Sidebar
+        sidebar = Table.grid(expand=True)
+        sidebar.add_row("[cyan]W[/cyan] - Launch Windsurf")
+        sidebar.add_row("[cyan]P[/cyan] - Toggle Proxy")
+        sidebar.add_row("[cyan]Q[/cyan] - Quit")
+        sidebar_panel = Table.grid(expand=True)
+        sidebar_panel.add_row(Panel(sidebar, title="Actions", border_style="cyan"))
+        sidebar_panel.add_row(Panel(Text(f"Proxy: {'ON' if is_alive else 'OFF'}", style="bold green" if is_alive else "bold red"), title="Status", border_style="dim"))
+        layout["sidebar"].update(sidebar_panel)
+
+        layout["footer"].update(Panel(Text(f"Last sync: {datetime.now().strftime('%H:%M:%S')} | Multi-Key Load Balancing Active", justify="center", style="dim blue"), border_style="blue"))
         return layout
 
     def run(self):
-        """Main loop."""
         import select, tty, termios
         fd = sys.stdin.fileno()
         is_tty = os.isatty(fd)
-        if is_tty:
-            old_settings = termios.tcgetattr(fd)
-        if not self.check_proxy_alive():
-            self.start_proxy()
+        if is_tty: old_settings = termios.tcgetattr(fd)
+        if not self.check_proxy_alive(): self.start_proxy()
 
-        console.clear()
         try:
-            if is_tty:
-                tty.setcbreak(fd)
+            if is_tty: tty.setcbreak(fd)
             with Live(self.generate_dashboard(), refresh_per_second=4, screen=True) as live:
                 while self.running:
                     live.update(self.generate_dashboard())
-                    time.sleep(0.1)
                     if is_tty:
-                        [r, w, e] = select.select([sys.stdin], [], [], 0.05)
+                        r, _, _ = select.select([sys.stdin], [], [], 0.1)
                         if r:
-                            char = sys.stdin.read(1).lower()
-                            if char == 'q': self.running = False
-                            elif char == 'w': self.launch_windsurf()
-                            elif char == 'm':
-                                self.cycle_model()
-                                if self.check_proxy_alive():
-                                    self.stop_proxy()
-                                    self.start_proxy()
-                            elif char == 'p':
-                                if self.check_proxy_alive(): self.stop_proxy()
-                                else: self.start_proxy()
-                    else:
-                        time.sleep(0.1)
-        except Exception as e:
-            self.status_msg = f"Dashboard Error: {e}"
+                            c = sys.stdin.read(1).lower()
+                            if c == 'q': self.running = False
+                            elif c == 'p': (self.stop_proxy() if self.check_proxy_alive() else self.start_proxy())
         finally:
-            if is_tty:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            # We don't stop the proxy here to keep it running if the user launched windsurf
-            # Actually, the user might want it stopped. But if windsurf is running, it needs it.
-            # I'll leave it as is for now.
-
-def main():
-    dashboard = HighGravityDashboard()
-    def signal_handler(sig, frame):
-        dashboard.running = False
-        dashboard.stop_proxy()
-        sys.exit(0)
-    signal.signal(signal.SIGINT, signal_handler)
-    dashboard.run()
+            if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 if __name__ == "__main__":
-    main()
+    HighGravityDashboard().run()

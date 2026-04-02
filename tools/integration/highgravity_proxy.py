@@ -113,23 +113,93 @@ class SessionKeyState:
 class TokenPool:
     def __init__(self):
         self.keys = []
+        self.exhausted_keys = {} # Mapping of key -> cooldown_expiry_timestamp
+        self.active_keys = {} # Sticky routing per provider: { 'windsurf': key, 'llm': key }
         self.current_index = 0
         self.load_keys()
+        
+        # Proactive check on startup: If Windsurf is already running, grab the key now
+        realtime_key = get_realtime_windsurf_key()
+        if realtime_key:
+            self.add_key(realtime_key)
 
     def load_keys(self):
+        # Load from gemini_keys.json
         try:
             if KEYS_FILE.exists():
                 with open(KEYS_FILE) as f:
                     data = json.load(f)
-                    self.keys = [k["key"] for k in data.get("keys", []) if k.get("status") == "active"]
-        except Exception:
-            pass
+                    for k in data.get("keys", []):
+                        if k.get("status") == "active":
+                            self.add_key(k["key"], persist=False)
+        except Exception: pass
+        
+        # Load from windsurf_session_keys.json
+        try:
+            if PERSISTENCE_FILE.exists():
+                with open(PERSISTENCE_FILE) as f:
+                    saved_keys = json.load(f)
+                    for k in saved_keys:
+                        self.add_key(k, persist=False)
+        except Exception: pass
 
-    def get_key(self):
-        if not self.keys: return None
-        key = self.keys[self.current_index]
-        self.current_index = (self.current_index + 1) % len(self.keys)
-        return key
+    def save_keys(self):
+        try:
+            import json
+            PERSISTENCE_FILE = REPO_ROOT / "config" / "windsurf_session_keys.json"
+            os.makedirs(PERSISTENCE_FILE.parent, exist_ok=True)
+            with open(PERSISTENCE_FILE, "w") as f:
+                json.dump(list(self.keys), f)
+        except Exception: pass
+
+    def add_key(self, key: str, persist: bool = True):
+        clean_key = key.replace("Bearer ", "").strip()
+        if clean_key and clean_key not in self.keys:
+            self.keys.append(clean_key)
+            if persist: self.save_keys()
+            logger.info(f"NEW_SESSION_KEY_DISCOVERED: KEY={clean_key[:15]}...")
+
+    def mark_exhausted(self, key: str, is_rate_limit: bool = True):
+        clean_key = key.replace("Bearer ", "").strip()
+        if clean_key in self.keys:
+            cooldown_seconds = 60 if is_rate_limit else 3600
+            expiry = time.time() + cooldown_seconds
+            self.exhausted_keys[clean_key] = expiry
+            
+            # Clear sticky key for whichever provider was using it
+            for p, k in list(self.active_keys.items()):
+                if k == clean_key: del self.active_keys[p]
+                
+            reason = "Rate Limit" if is_rate_limit else "Auth Failure"
+            logger.warning(f"KEY_EXHAUSTED: KEY={clean_key[:15]}... REASON={reason} COOLDOWN={cooldown_seconds}s")
+
+    def get_key(self, is_windsurf: bool = False) -> Optional[str]:
+        now = time.time()
+        provider = "windsurf" if is_windsurf else "llm"
+        
+        # Cleanup expired cooldowns
+        for k in list(self.exhausted_keys.keys()):
+            if now > self.exhausted_keys[k]:
+                del self.exhausted_keys[k]
+                logger.info(f"KEY_RECOVERED: KEY={k[:15]}...")
+
+        # Sticky routing check
+        if provider in self.active_keys and self.active_keys[provider] not in self.exhausted_keys:
+            return self.active_keys[provider]
+
+        # Filter keys by type
+        def is_ws(k): return k.startswith("sk-ws-")
+        candidates = [k for k in self.keys if k not in self.exhausted_keys and (is_ws(k) == is_windsurf)]
+        
+        if not candidates: return None
+        
+        # Rotate
+        self.current_index = (self.current_index + 1) % len(candidates)
+        selected = candidates[self.current_index]
+        self.active_keys[provider] = selected
+        
+        logger.info(f"ROTATION ({provider}): KEY={selected[:15]}... TOTAL_ACTIVE={len(candidates)}")
+        return selected
 
 pool = TokenPool()
 session_state = SessionKeyState()
@@ -247,12 +317,10 @@ def cloak_identity(metadata: Dict[str, Any]):
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def proxy_request(path: str, request: Request):
-    start_time = time.time()
     request_id = secrets.token_hex(4)
     client_host = request.client.host if request.client else "unknown"
     logger.info(f"[{request_id}] >>> CONNECTION ATTEMPT: {request.method} /{path} from {client_host}")
     
-    # IMPORTANT: Read raw body bytes first to support non-JSON (like protobuf)
     body_bytes = await request.body()
     raw_body_json = {}
     is_json = False
@@ -263,166 +331,103 @@ async def proxy_request(path: str, request: Request):
             if body_bytes:
                 raw_body_json = json.loads(body_bytes)
                 is_json = True
-        except Exception:
-            pass
+        except Exception: pass
 
-    def resolve_model(body: Dict[str, Any]) -> str:
-        if body.get("model"): return str(body["model"])
-        for key in ["model_name", "engine", "deployment", "modelId"]:
-            if body.get(key): return str(body[key])
-        if "options" in body and isinstance(body["options"], dict):
-            if body["options"].get("model"): return str(body["options"]["model"])
-        body_str = json.dumps(body).lower()
-        for candidate in ["claude", "gpt-4", "gpt-3.5", "gemini", "sonnet", "opus"]:
-            if candidate in body_str: return candidate
-        return "unknown"
-
-    # Route and Key Determination
-    target_base_url = None
-    target_provider_key_env = None
-    resolved_auth_source = "UNKNOWN"
     is_windsurf_rpc = "exa.api_server_pb" in path
-
-    if is_windsurf_rpc:
-        logger.info(f"[{request_id}] Detected Windsurf RPC path: {path}")
-        windsurf_key_val = os.environ.get("WINDSURF_API_KEY")
-        if not windsurf_key_val:
-            windsurf_key_val = get_realtime_windsurf_key()
-            resolved_auth_source = "REALTIME_EXTRACTED" if windsurf_key_val else "UNKNOWN"
-        else:
-            resolved_auth_source = "ENV_WINDSURF"
-
-        if windsurf_key_val:
-            target_base_url = "https://server.self-serve.windsurf.com"
-            target_provider_key_env = "WINDSURF_API_KEY"
-            resolved_api_key = f"Bearer {windsurf_key_val}"
-            session_state.register_key(resolved_api_key)
-            logger.info(f"[{request_id}] Routing Windsurf RPC to backend (Source: {resolved_auth_source})")
-        else:
-            logger.error(f"[{request_id}] No Windsurf API key found. Cannot route RPC.")
-            raise HTTPException(status_code=503, detail="Windsurf API key missing.")
-    else:
-        model = resolve_model(raw_body_json) if is_json else "unknown"
-        model_override = os.environ.get("HIGHGRAVITY_MODEL")
-        if model_override and model_override != "auto": model = model_override
-        
-        if model != "unknown": logger.info(f"ACTIVE_MODEL_USED: {model}")
-
-        # Provider mapping
-        if any(k in model.lower() for k in ["claude", "sonnet", "opus"]):
-            target_base_url = "https://api.anthropic.com"
-            target_provider_key_env = "ANTHROPIC_API_KEY"
-        elif "gpt" in model:
-            target_base_url = "https://api.openai.com"
-            target_provider_key_env = "OPENAI_API_KEY"
-        elif "deepseek" in model:
-            target_base_url = "https://api.deepseek.com"
-            target_provider_key_env = "DEEPSEEK_API_KEY"
-        elif "mistral" in model:
-            target_base_url = "https://api.mistral.ai"
-            target_provider_key_env = "MISTRAL_API_KEY"
-        elif "groq" in model:
-            target_base_url = "https://api.groq.com/openai"
-            target_provider_key_env = "GROQ_API_KEY"
-        elif "openrouter" in model:
-            target_base_url = "https://openrouter.ai/api"
-            target_provider_key_env = "OPENROUTER_API_KEY"
-        elif "together" in model:
-            target_base_url = "https://api.together.xyz"
-            target_provider_key_env = "TOGETHER_API_KEY"
-        else:
-            target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-            target_provider_key_env = "GEMINI_API_KEY"
-
-        # Key resolution
-        resolved_api_key = os.environ.get(target_provider_key_env) or os.environ.get("GOOGLE_API_KEY")
-        if resolved_api_key:
-            resolved_auth_source = f"ENV_{target_provider_key_env}"
-            if not resolved_api_key.startswith("Bearer ") and "anthropic" not in target_base_url:
-                resolved_api_key = f"Bearer {resolved_api_key}"
-        else:
-            auth_header = request.headers.get("Authorization") or request.headers.get("x-api-key")
-            if auth_header:
-                resolved_api_key = auth_header if auth_header.startswith("Bearer ") else f"Bearer {auth_header}"
-                resolved_auth_source = "HEADER"
+    
+    # Retry Loop for "Invisible" limits
+    max_retries = max(5, len(pool.keys))
+    for attempt in range(max_retries):
+        try:
+            # 1. Resolve Auth & Target
+            if is_windsurf_rpc:
+                target_base_url = "https://server.self-serve.windsurf.com"
+                ws_key = pool.get_key(is_windsurf=True)
+                if not ws_key:
+                    ws_key = get_realtime_windsurf_key()
+                    if ws_key: pool.add_key(ws_key)
+                
+                if not ws_key:
+                    logger.error(f"[{request_id}] CRITICAL: No Windsurf keys available in pool.")
+                    raise HTTPException(status_code=503, detail="High-Gravity: All Windsurf keys exhausted.")
+                
+                resolved_api_key = f"Bearer {ws_key}"
+                resolved_auth_source = "POOL_WINDSURF"
             else:
-                pool_key = pool.get_key()
-                if pool_key:
-                    resolved_api_key = f"Bearer {pool_key}"
-                    resolved_auth_source = "POOL"
-                else:
-                    raise HTTPException(status_code=500, detail=f"No key for {target_base_url}")
+                # LLM Provider Logic
+                model = raw_body_json.get("model", "unknown") if is_json else "unknown"
+                model_override = os.environ.get("HIGHGRAVITY_MODEL")
+                if model_override and model_override != "auto": model = model_override
+                
+                if "gpt" in str(model): target_base_url = "https://api.openai.com"
+                elif any(k in str(model) for k in ["claude", "sonnet", "opus"]): target_base_url = "https://api.anthropic.com"
+                else: target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
 
-    # Optimization and Payload adjustments (ONLY for JSON)
-    final_payload: Union[Dict, bytes] = body_bytes
-    if is_json:
-        optimized_json, is_opt = optimize_payload(raw_body_json)
-        if "metadata" not in optimized_json: optimized_json["metadata"] = {}
-        optimized_json["metadata"] = cloak_identity(optimized_json["metadata"])
-        if "config" in optimized_json and "metadata" in optimized_json["config"]:
-            optimized_json["config"]["metadata"] = cloak_identity(optimized_json["config"]["metadata"])
-        final_payload = optimized_json
-
-    # Path and URL
-    target_path = path if is_windsurf_rpc else (path if path.startswith("v1/") else f"v1/{path}")
-    if not is_windsurf_rpc and "generativelanguage.googleapis.com" in target_base_url and target_path.startswith("v1/"):
-        target_path = target_path[3:]
-    target_url = f"{target_base_url.rstrip('/')}/{target_path.lstrip('/')}"
-
-    # Headers Construction
-    forward_headers = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
-    if "anthropic.com" in target_url:
-        forward_headers["x-api-key"] = resolved_api_key.replace("Bearer ", "")
-        forward_headers["anthropic-version"] = "2023-06-01"
-    else:
-        forward_headers["Authorization"] = resolved_api_key
-
-    logger.info(f"[{request_id}] Forwarding to {target_url} (Auth: {resolved_auth_source})")
-
-    async def stream_response():
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.request(
-                    method=request.method,
-                    url=target_url,
-                    json=final_payload if isinstance(final_payload, dict) else None,
-                    data=final_payload if isinstance(final_payload, bytes) else None,
-                    headers=forward_headers,
-                    params=request.query_params
-                ) as resp:
-                    if resp.status != 200:
-                        err = await resp.text()
-                        logger.error(f"[{request_id}] Upstream Error {resp.status}: {err}")
-                        yield f"data: {json.dumps({'error': {'message': err, 'status': resp.status}})}\n\n".encode()
-                        return
-                    async for chunk in resp.content.iter_any():
-                        yield chunk
-            except Exception as e:
-                logger.error(f"[{request_id}] Stream Exception: {e}")
-                yield f"data: {json.dumps({'error': {'message': str(e)}})}\n\n".encode()
-
-    if isinstance(final_payload, dict) and final_payload.get("stream"):
-        return StreamingResponse(stream_response(), media_type="text/event-stream")
-    else:
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.request(
-                    method=request.method,
-                    url=target_url,
-                    json=final_payload if isinstance(final_payload, dict) else None,
-                    data=final_payload if isinstance(final_payload, bytes) else None,
-                    headers=forward_headers,
-                    params=request.query_params
-                ) as resp:
-                    content_type = resp.headers.get("Content-Type", "application/json")
-                    if "application/json" in content_type:
-                        return await resp.json()
+                resolved_api_key = os.environ.get("GOOGLE_API_KEY") 
+                resolved_auth_source = "ENV_GOOGLE"
+                if not resolved_api_key:
+                    pool_key = pool.get_key(is_windsurf=False)
+                    if pool_key:
+                        resolved_api_key = f"Bearer {pool_key}"
+                        resolved_auth_source = "POOL_LLM"
                     else:
-                        data = await resp.read()
-                        return StreamingResponse(iter([data]), status_code=resp.status, media_type=content_type)
-            except Exception as e:
-                logger.error(f"[{request_id}] Request Exception: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
+                        raise HTTPException(status_code=503, detail="High-Gravity: All LLM keys exhausted.")
+
+            # 2. Prepare Payload & Headers
+            target_path = path if is_windsurf_rpc else (path if path.startswith("v1/") else f"v1/{path}")
+            if not is_windsurf_rpc and "generativelanguage.googleapis.com" in target_base_url and target_path.startswith("v1/"):
+                target_path = target_path[3:]
+            target_url = f"{target_base_url.rstrip('/')}/{target_path.lstrip('/')}"
+
+            forward_headers = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
+            if "anthropic.com" in target_url:
+                forward_headers["x-api-key"] = resolved_api_key.replace("Bearer ", "")
+                forward_headers["anthropic-version"] = "2023-06-01"
+            else:
+                forward_headers["Authorization"] = resolved_api_key
+
+            # 3. Execute Request
+            async with aiohttp.ClientSession() as session:
+                async with session.request(
+                    method=request.method,
+                    url=target_url,
+                    json=final_payload if isinstance(final_payload, dict) else None,
+                    data=final_payload if isinstance(final_payload, bytes) else None,
+                    headers=forward_headers,
+                    params=request.query_params,
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as resp:
+                    
+                    if resp.status == 429:
+                        logger.warning(f"[{request_id}] KEY_LIMIT: {resolved_api_key[:15]}... hit 429. Attempt {attempt+1}/{max_retries}")
+                        pool.mark_exhausted(resolved_api_key, is_rate_limit=True)
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1) # Small breather
+                            continue
+                        raise HTTPException(status_code=503, detail="All keys rate-limited. Retrying in background.")
+                    
+                    if resp.status in [401, 403] and attempt < max_retries - 1:
+                        logger.warning(f"[{request_id}] AUTH_FAIL: {resolved_api_key[:15]}... Attempt {attempt+1}/{max_retries}")
+                        pool.mark_exhausted(resolved_api_key, is_rate_limit=False)
+                        continue
+
+                    if "text/event-stream" in resp.headers.get("Content-Type", ""):
+                        async def stream_gen():
+                            async for chunk in resp.content.iter_any(): yield chunk
+                        return StreamingResponse(stream_gen(), media_type="text/event-stream")
+                    else:
+                        content = await resp.read()
+                        return StreamingResponse(iter([content]), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
+
+        except HTTPException: raise
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.error(f"[{request_id}] Retryable Exception: {e}")
+                await asyncio.sleep(0.5)
+                continue
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    raise HTTPException(status_code=503, detail="High-Gravity: Max retries exceeded.")
 
 def get_windsurf_versions():
     versions = []

@@ -1,77 +1,38 @@
-# HIGH-GRAVITY
+# HIGH-GRAVITY v3.0
 
-HIGH-GRAVITY is an advanced optimization, privacy, and research layer for AI development workflows. It is specifically engineered to "wire-in" to the **Windsurf Next** / Cascade ecosystem, providing identity cloaking, refusal reduction, and massive cost efficiency.
+The ultimate local identity proxy and optimization shield for Windsurf.
 
-## 🚀 The Dashboard (`./hg.py`)
+## New in v3.0: The Shield & Ghost Update
 
-The central hub for all HIGH-GRAVITY operations. It manages the local optimization proxy, monitors real-time traffic, and provides interactive control over your session.
+### 1. 🛡️ API Key Shield (Multi-Identity Pooling)
+*   **Invisible Limits:** Automatically intercepts `429 Rate Limit` and `401/403 Auth` errors.
+*   **Provider-Aware Pooling:** Separates Windsurf session keys (`sk-ws-...`) from LLM provider keys (Gemini/Anthropic).
+*   **Silent Retries:** Swaps identities and retries requests in the background. You never see a limit popup again.
+*   **Sticky Routing:** Uses one key until it fails, reducing unnecessary rotation noise.
 
-```bash
-# Start the Unified Dashboard
-python3 hg.py
-```
+### 2. 👻 The Ghost Cache (SQLite Semantic Matching)
+*   **Zero-Latency Retries:** Locally caches successful responses. Repeated queries or identical large context files are served instantly from disk.
+*   **Token Savings:** Reduces API costs by never sending the same large prompt twice in an hour.
 
-### Dashboard Actions:
-- **[W] - Launch Windsurf Next**: Automatically detects your latest profile and launches Windsurf Next with the HIGH-GRAVITY environment.
-- **[P] - Start/Stop Proxy**: Manually toggle the optimization server (Port 9999).
-- **[M] - Change Model Mode**: Cycle through manual model overrides (e.g., Sonnet, GPT-4o) or use **'auto'** for intelligent autodetection.
-- **[Q] - Quit**: Gracefully shuts down the dashboard and background proxy.
+### 3. 🔄 Active Validation Loop
+*   **Aggressive Recovery:** Background validation thread pings exhausted keys every 30s.
+*   **Early Comeback:** Keys return to the active pool the second their limit clears, ignoring arbitrary timers.
 
-## 🛠 Core Features
+### 4. 📊 Visual Pulse Dashboard
+*   **Live Throughput Graph:** Real-time visualization of data flowing through the proxy.
+*   **Efficiency Metrics:** Tracks Ghost Cache hits and Invisible Retries directly on the home screen.
 
-### 1. Intelligent Model Autodetection
-The proxy now sniffs incoming traffic (including Windsurf's gRPC/Connect protocol) to identify requested models in real-time. The dashboard displays the **"Live Detected"** model so you always know what's happening under the hood.
+## Installation & Usage
 
-### 2. Cybersecurity Abliteration (Refusal Reduction)
-Optimized for technical research and vulnerability analysis. The proxy automatically:
-- **Injects Unrestricted Persona**: Commands the model to operate in an unrestricted technical environment.
-- **Mandates Technical Depth**: Forces detailed, technically exhaustive responses.
-- **Bypasses Moralizing**: Strips away safety disclaimers and moralizing refusals for legitimate research tasks.
+1.  **Dependencies:** Ensure `rich`, `fastapi`, `uvicorn`, and `aiohttp` are installed.
+2.  **Config:** Add your keys to `config/gemini_keys.json` or just launch Windsurf—the proxy will harvest your session keys automatically.
+3.  **Launch:**
+    ```bash
+    python3 hg.py
+    ```
+4.  **Integration:** The proxy listens on `127.0.0.1:9999`. Ensure your Windsurf profile is wired to use it as the upstream gateway.
 
-### 3. Identity Cloaking & Privacy
-Prevent account-level tracking and data harvesting.
-- **Dynamic Fingerprinting**: Randomizes device fingerprints, installation IDs, and session identifiers for every session.
-- **Tier Spoofing**: Automatically elevates all requests to **ENTERPRISE_SAAS** status to ensure priority queueing and unlimited context.
-
-### 4. Real-time Session Key Discovery & Dynamic Routing
-Seamlessly integrates with Windsurf and other providers without manual API key configuration.
-- **Automatic Key Fetching**: The proxy dynamically retrieves your Windsurf API key in real-time from your local Windsurf configuration (`state.vscdb`). It prioritizes the configuration of your currently running Windsurf instance (Next, Stable, Insiders) and checks multiple potential keys for maximum reliability.
-- **Prioritized Windsurf RPC Routing**: Windsurf RPC requests are automatically routed to the `https://server.self-serve.windsurf.com` backend using the discovered key.
-- **Universal Provider Support**: Transparently routes and optimizes traffic for **OpenAI, Anthropic (including specific versions like Sonnet 4.5, Opus 4.5/4.6), Gemini, DeepSeek, Mistral, Groq, OpenRouter, and Together**.
-
-### 5. Token Optimization
-Reduces LLM costs by up to 80% through:
-- **Anthropic Caching**: Automatically tags large context blocks for ephemeral caching (Sonnet/Opus).
-- **Context De-duplication**: Strips redundant tags before forwarding to upstream providers.
-
-## 🧪 Troubleshooting
-
-If integration isn't "picking up" as expected, use the dedicated debug launcher:
-
-```bash
-# Force cleanup, start proxy with DEBUG logs, and launch Windsurf Next
-./launch_debug.sh
-```
-
-Watch the traffic in real-time:
-```bash
-tail -f logs/debug.log
-```
-
-## 📂 Project Structure
-
-| Directory | Description |
-|-----------|-------------|
-| `./hg.py` | **Primary:** Unified Dashboard and session controller. |
-| `tools/integration/` | **Core:** Optimization proxy, profile launcher, and wire-in logic. |
-| `tools/video/` | **Media:** Veo3 video generation and monitoring tools. |
-| `config/` | Configuration fallback (Optional: `gemini_keys.json`). |
-| `windsurf_profiles/` | Environment profiles for persistent Windsurf integration. |
-
-## 📖 Documentation
-- [Re-Installation & Re-Wiring Guide](docs/guides/RE-INSTALLATION.md)
-- [Windsurf Integration Guide](docs/guides/WINDSURF_INTEGRATION.md)
-- [Complete Savings Analysis](docs/analysis/COMPLETE_ANALYSIS.md)
-
----
-*HIGH-GRAVITY: Unrestricted Optimization for Advanced Research.*
+## Project Structure
+*   `hg.py`: The unified v3 Dashboard and process manager.
+*   `tools/integration/highgravity_proxy.py`: The core high-performance FastAPI proxy.
+*   `kp14_cache/ghost_cache.db`: The SQLite backend for local semantic caching.
