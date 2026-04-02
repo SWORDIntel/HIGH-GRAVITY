@@ -207,6 +207,8 @@ async def proxy_request(path: str, request: Request):
     # 1. Apply Midway Optimizations & Refusal Reduction
     if raw_body:
         optimized_body, is_opt = optimize_payload(raw_body)
+        if is_opt:
+            logger.info(f"[{request_id}] Optimization applied: Personas injected, Refusals abliterated.")
         
         # 2. Cloak Identity & Force Enterprise Tier
         if "metadata" not in optimized_body:
@@ -271,7 +273,14 @@ async def proxy_request(path: str, request: Request):
     
     target_url = f"{base_url.rstrip('/')}/{target_path.lstrip('/')}"
 
-    # 4. Extract & Resolve Credentials
+    # 4. Map Model for Upstream Provider
+    if "generativelanguage.googleapis.com" in base_url and is_anthropic:
+        if isinstance(optimized_body, dict):
+            old_model = optimized_body.get("model")
+            optimized_body["model"] = "gemini-1.5-pro"
+            logger.info(f"[{request_id}] Mapped {old_model} -> gemini-1.5-pro for Gemini Bridge feedback.")
+
+    # 5. Extract & Resolve Credentials
     auth_header = request.headers.get("Authorization") or request.headers.get("x-api-key")
     
     # Priority: Provider-specific env key, then WINDSURF_API_KEY, then Header, then Pool
@@ -369,7 +378,7 @@ async def proxy_request(path: str, request: Request):
                         return data
                     else:
                         data = await resp.read()
-                        logger.info(f"[{request_id}] Request complete (binary): status={resp.status}, duration={duration:.2f}s")
+                        logger.info(f"[{request_id}] Request complete (binary): status={resp.status}, duration={duration:.2f}s, upstream_url={target_url}")
                         return StreamingResponse(iter([data]), status_code=resp.status, media_type=content_type)
             except Exception as e:
                 logger.error(f"[{request_id}] Proxy Exception (non-stream): {e}")
@@ -441,3 +450,9 @@ if __name__ == "__main__":
     launcher_thread.start()
     
     uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT)
+ading
+    launcher_thread = threading.Thread(target=interactive_launcher, daemon=True)
+    launcher_thread.start()
+    
+    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT)
+ORT)

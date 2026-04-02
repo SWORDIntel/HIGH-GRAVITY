@@ -129,7 +129,7 @@ class HighGravityDashboard:
                     if len(self.last_logs) >= 12:
                         break
                     line = l.strip()
-                    if any(x in line for x in ["Incoming", "Forwarding", "NEW_SESSION_KEY_DISCOVERED", "Upstream Error"]):
+                    if any(x in line for x in ["Incoming", "Forwarding", "NEW_SESSION_KEY_DISCOVERED", "Upstream Error", "Optimization applied", "Model resolved"]):
                         self.last_logs.append(line)
                 
                 self.last_logs.reverse()
@@ -328,6 +328,12 @@ class HighGravityDashboard:
                                 self.running = False
                             elif char == 'w':
                                 self.launch_windsurf()
+                            elif char == 'm':
+                                self.cycle_model()
+                                # Restart proxy to apply new model override if running
+                                if self.check_proxy_alive():
+                                    self.stop_proxy()
+                                    self.start_proxy()
                             elif char == 'p':
                                 if self.check_proxy_alive():
                                     self.stop_proxy()
@@ -347,6 +353,17 @@ def main():
     
     # Handle signals for clean exit
     def signal_handler(sig, frame):
+        dashboard.running = False
+        dashboard.stop_proxy()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    dashboard.run()
+
+if __name__ == "__main__":
+    main()
+f signal_handler(sig, frame):
         dashboard.running = False
         dashboard.stop_proxy()
         sys.exit(0)
