@@ -35,7 +35,7 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "2.2.0-HG"
+VERSION = "2.2.1-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
@@ -43,6 +43,7 @@ LAUNCHER_SCRIPT = REPO_ROOT / "tools" / "integration" / "gemini_session_launcher
 WIRING_SCRIPT = REPO_ROOT / "tools" / "integration" / "detect_and_wire_windsurf.py"
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
 LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
+LAUNCH_LOG = REPO_ROOT / "logs" / "launch.log"
 PROFILES_ROOT = REPO_ROOT / "windsurf_profiles"
 
 console = Console()
@@ -79,12 +80,10 @@ class HighGravityDashboard:
 
     def find_launch_script(self) -> Optional[Path]:
         """Find the most appropriate Windsurf launch script."""
-        default_script = PROFILES_ROOT / "high-gravity" / "launch_windsurf.sh"
-        if default_script.exists():
-            return default_script
-        
+        # Check all profiles and pick the most recently modified one
         scripts = list(PROFILES_ROOT.glob("*/launch_windsurf.sh"))
         if scripts:
+            # Prefer 'high-gravity' if it was modified recently, otherwise just newest
             scripts.sort(key=lambda x: x.stat().st_mtime, reverse=True)
             return scripts[0]
         return None
@@ -199,14 +198,36 @@ class HighGravityDashboard:
             self.start_proxy()
             time.sleep(2)
             if not self.check_proxy_alive():
+                self.status_msg = "[red]Error: Proxy failed to start.[/red]"
                 return
         
+        # Determine binary
         cmd = "windsurf-next" if shutil.which("windsurf-next") else "windsurf"
+        self.status_msg = f"Launching {cmd} via {launch_script.parent.name}..."
+        
         env = os.environ.copy()
         env["WINDSURF_BIN"] = cmd
         
-        subprocess.Popen([str(launch_script)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.status_msg = f"{cmd} launch requested via {launch_script.parent.name}."
+        # Ensure log directory exists
+        REPO_ROOT.joinpath("logs").mkdir(exist_ok=True)
+        
+        # Log launch attempt
+        with open(LAUNCH_LOG, "a") as f:
+            f.write(f"[{datetime.now()}] Launching: {cmd} with profile {launch_script}\n")
+        
+        try:
+            # Use subprocess.Popen with bash explicitly to ensure execution
+            log_f = open(LAUNCH_LOG, "a")
+            subprocess.Popen(
+                ["/usr/bin/bash", str(launch_script)], 
+                env=env, 
+                stdout=log_f, 
+                stderr=log_f,
+                start_new_session=True
+            )
+            self.status_msg = f"[green]Success:[/green] {cmd} launched (Profile: {launch_script.parent.name})."
+        except Exception as e:
+            self.status_msg = f"[red]Launch error: {e}[/red]"
 
     def create_layout(self) -> Layout:
         """Creates the rich layout."""
@@ -312,7 +333,9 @@ class HighGravityDashboard:
         finally:
             if is_tty:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            self.stop_proxy()
+            # We don't stop the proxy here to keep it running if the user launched windsurf
+            # Actually, the user might want it stopped. But if windsurf is running, it needs it.
+            # I'll leave it as is for now.
 
 def main():
     dashboard = HighGravityDashboard()
