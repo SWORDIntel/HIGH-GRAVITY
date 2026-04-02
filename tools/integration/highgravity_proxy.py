@@ -16,15 +16,16 @@ from fastapi.responses import StreamingResponse
 import aiohttp
 
 # --- Configuration ---
-PROXY_PORT = 9999
+PROXY_PORT = int(os.environ.get("HG_PROXY_PORT", 9999))
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
 LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
 
 # Setup Logging
 os.makedirs(REPO_ROOT / "logs", exist_ok=True)
+log_level = os.environ.get("HG_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()]
 )
@@ -194,6 +195,15 @@ async def proxy_request(path: str, request: Request):
     safe_headers = {k: v for k, v in request.headers.items() if k.lower() not in ["authorization", "x-api-key"]}
     logger.info(f"[{request_id}] Incoming headers: {json.dumps(safe_headers)}")
 
+    # Special handling for Windsurf Connect/gRPC requests
+    is_windsurf_rpc = "exa.api_server_pb" in path
+    if is_windsurf_rpc:
+        logger.info(f"[{request_id}] Detected Windsurf RPC request: {path}")
+        if isinstance(raw_body, dict):
+            # Log a snippet of the body to see if there are tokens
+            body_str = json.dumps(raw_body)
+            logger.info(f"[{request_id}] RPC Body Snippet: {body_str[:500]}...")
+
     # 1. Apply Midway Optimizations & Refusal Reduction
     if raw_body:
         optimized_body, is_opt = optimize_payload(raw_body)
@@ -217,6 +227,10 @@ async def proxy_request(path: str, request: Request):
     # Default: Route to Google's Gemini endpoint
     base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
     provider_key_env = "GEMINI_API_KEY"
+    
+    if is_windsurf_rpc:
+        base_url = "https://server.self-serve.windsurf.com"
+        provider_key_env = "WINDSURF_API_KEY"
     
     is_anthropic = any(m in model for m in ["claude", "sonnet", "opus"])
     
@@ -246,11 +260,14 @@ async def proxy_request(path: str, request: Request):
         base_url = "https://api.together.xyz"
         provider_key_env = "TOGETHER_API_KEY"
 
-    # Fix path normalization for providers that include 'v1' in base_url
-    target_path = path if path.startswith("v1/") else f"v1/{path}"
-    if "/v1beta/openai" in base_url and target_path.startswith("v1/"):
-        # Gemini OpenAI bridge expects the path without 'v1/'
-        target_path = target_path[3:]
+    # Fix path normalization
+    if is_windsurf_rpc:
+        target_path = path
+    else:
+        target_path = path if path.startswith("v1/") else f"v1/{path}"
+        if "/v1beta/openai" in base_url and target_path.startswith("v1/"):
+            # Gemini OpenAI bridge expects the path without 'v1/'
+            target_path = target_path[3:]
     
     target_url = f"{base_url.rstrip('/')}/{target_path.lstrip('/')}"
 
@@ -405,7 +422,7 @@ def interactive_launcher():
                 print(f"[*] Launching {label} via HIGH-GRAVITY profile...")
                 env = os.environ.copy()
                 env["WINDSURF_BIN"] = cmd
-                subprocess.Popen([str(launch_script)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen([str(launch_script)], env=env)
             else:
                 print(f"[*] Launching {label} (Direct - No Proxy Environment)...")
                 subprocess.Popen([cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

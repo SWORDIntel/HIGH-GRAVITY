@@ -35,15 +35,15 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "2.1.0-HG"
+VERSION = "2.1.1-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
 LAUNCHER_SCRIPT = REPO_ROOT / "tools" / "integration" / "gemini_session_launcher.py"
+WIRING_SCRIPT = REPO_ROOT / "tools" / "integration" / "detect_and_wire_windsurf.py"
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
 LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
-PROFILE_DIR = REPO_ROOT / "windsurf_profiles" / "high-gravity"
-LAUNCH_SCRIPT = PROFILE_DIR / "launch_windsurf.sh"
+PROFILES_ROOT = REPO_ROOT / "windsurf_profiles"
 
 console = Console()
 
@@ -58,10 +58,28 @@ class HighGravityDashboard:
         self.session_keys = set()
         self.request_count = 0
         self.last_request_time = None
+        self.active_profile_path = None
+
+    def find_launch_script(self) -> Optional[Path]:
+        """Find the most appropriate Windsurf launch script."""
+        # 1. Check for 'high-gravity' default profile
+        default_script = PROFILES_ROOT / "high-gravity" / "launch_windsurf.sh"
+        if default_script.exists():
+            return default_script
+        
+        # 2. Look for the most recently modified profile script
+        scripts = list(PROFILES_ROOT.glob("*/launch_windsurf.sh"))
+        if scripts:
+            # Sort by modification time, newest first
+            scripts.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            return scripts[0]
+            
+        return None
 
     def check_proxy_alive(self) -> bool:
         """Check if port 9999 is being listened on."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)
             return s.connect_ex(('127.0.0.1', self.proxy_port)) == 0
 
     def start_proxy(self):
@@ -75,7 +93,7 @@ class HighGravityDashboard:
             [sys.executable, str(PROXY_SCRIPT)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            preexec_fn=os.setsid # Run in its own process group
+            start_new_session=True # Process group separation
         )
         time.sleep(2) # Give it a moment to start
         if self.check_proxy_alive():
@@ -88,7 +106,10 @@ class HighGravityDashboard:
     def stop_proxy(self):
         """Stops the proxy process if we started it."""
         if self.proxy_proc:
-            os.killpg(os.getpgid(self.proxy_proc.pid), signal.SIGTERM)
+            try:
+                os.killpg(os.getpgid(self.proxy_proc.pid), signal.SIGTERM)
+            except:
+                pass
             self.proxy_proc = None
             self.proxy_status = "Stopped"
             self.status_msg = "Proxy server stopped."
@@ -134,21 +155,48 @@ class HighGravityDashboard:
         except:
             pass
 
-    def launch_windsurf(self):
-        """Executes the Windsurf launch script."""
-        if not LAUNCH_SCRIPT.exists():
-            self.status_msg = "[red]Error: launch_windsurf.sh not found. Run wire-in first.[/red]"
-            return
+    def run_wiring(self) -> bool:
+        """Runs the automated wiring script to connect running Windsurf."""
+        self.status_msg = "[bold yellow]Running automated wire-in...[/bold yellow]"
+        try:
+            subprocess.run([sys.executable, str(WIRING_SCRIPT)], check=True, capture_output=True)
+            return True
+        except Exception as e:
+            self.status_msg = f"[red]Wiring error: {e}[/red]"
+            return False
 
+    def launch_windsurf(self):
+        """Executes the Windsurf launch script, ensuring proxy is running."""
+        launch_script = self.find_launch_script()
+        
+        # If no profile exists, try to wire it in first
+        if not launch_script:
+            if self.run_wiring():
+                launch_script = self.find_launch_script()
+            
+            if not launch_script:
+                self.status_msg = "[red]Error: No Windsurf profile found and wire-in failed.[/red]"
+                return
+
+        # Ensure proxy is running before launching Windsurf
+        if not self.check_proxy_alive():
+            self.status_msg = "Proxy not running. Starting proxy..."
+            self.start_proxy()
+            time.sleep(2)
+            if not self.check_proxy_alive():
+                self.status_msg = "[red]Error: Proxy failed to start. Cannot launch Windsurf.[/red]"
+                return
+        
         # Determine which binary to use
         cmd = "windsurf-next" if shutil.which("windsurf-next") else "windsurf"
-        self.status_msg = f"Launching {cmd} via profile..."
+        self.status_msg = f"Launching {cmd} via profile: {launch_script.parent.name}..."
         
         env = os.environ.copy()
         env["WINDSURF_BIN"] = cmd
+        env["HG_PROXY_PORT"] = str(self.proxy_port)
         
         subprocess.Popen(
-            [str(LAUNCH_SCRIPT)],
+            [str(launch_script)],
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -269,8 +317,8 @@ class HighGravityDashboard:
 
             with Live(self.generate_dashboard(), refresh_per_second=4, screen=True) as live:
                 while self.running:
-                    # Only update the layout if needed or at regular intervals
                     live.update(self.generate_dashboard())
+                    time.sleep(0.1) # Prevent high CPU usage
                     
                     if is_tty:
                         [r, w, e] = select.select([sys.stdin], [], [], 0.05)
