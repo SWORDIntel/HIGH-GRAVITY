@@ -37,7 +37,7 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "3.1.0-HG"
+VERSION = "3.1.1-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
@@ -66,7 +66,6 @@ class HighGravityDashboard:
         # High Sensitivity Pulse Data
         self.pulse_data = deque([0]*50, maxlen=50)
         self.key_stats = {}
-        self.event_log = []
 
     def check_proxy_alive(self) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -85,6 +84,8 @@ class HighGravityDashboard:
     def start_proxy(self):
         if self.check_proxy_alive(): return
         env = {**os.environ, "HG_PROXY_PORT": str(self.proxy_port), "HG_ROTATION_MODE": self.rotation_mode}
+        # Ensure log directory exists
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
         time.sleep(1)
 
@@ -95,18 +96,17 @@ class HighGravityDashboard:
             self.proxy_proc = None
 
     def update_stats(self):
-        if not LOG_FILE.exists(): return
+        if not LOG_FILE.exists(): 
+            self.last_logs = [f"[dim]Log file not found: {LOG_FILE}[/dim]"]
+            return
 
         try:
-            # Read last 100 lines for efficiency
-            with open(LOG_FILE, 'r') as f:
-                # Seek to near end
-                f.seek(0, os.SEEK_END)
-                size = f.tell()
-                f.seek(max(0, size - 20000)) # Last ~20KB
-                lines = f.readlines()
+            # Use tail approach for better responsiveness
+            cmd = ["tail", "-n", "100", str(LOG_FILE)]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            lines = result.stdout.splitlines()
 
-            self.last_logs = []
+            new_display_logs = []
             current_pulse = 0
             
             key_pattern = re.compile(r'KEY=([\w-]+)')
@@ -114,17 +114,15 @@ class HighGravityDashboard:
 
             for line in lines:
                 line = line.strip()
+                if not line: continue
+                
+                # Check for timestamp but don't strictly require it for all display lines
                 match = ts_pattern.match(line)
-                if not match: continue
-                ts = match.group(1)
-
-                # Broad Keyword Match for Display
-                keywords = ["CONNECTION ATTEMPT", "GHOST_CACHE_HIT", "Silent Retry", "KEY_LIMIT", "ROTATION", "KEY_RECOVERED", "PULSE_METRIC", "NEW_SESSION_KEY_DISCOVERED"]
-                if not any(k in line for k in keywords): continue
+                ts = match.group(1) if match else None
 
                 if "CONNECTION ATTEMPT" in line:
                     self.request_count += 1
-                    self.last_request_time = ts
+                    if ts: self.last_request_time = ts
                 elif "GHOST_CACHE_HIT" in line:
                     self.cache_hits += 1
                 elif "Silent Retry" in line or "KEY_LIMIT" in line:
@@ -142,24 +140,31 @@ class HighGravityDashboard:
                     self.key_stats.setdefault(key, {'requests': 0, 'status': 'Active'})
                     if "KEY_EXHAUSTED" in line:
                         self.key_stats[key]['status'] = 'Exhausted'
-                    elif "KEY_RECOVERED" in line or "ROTATION" in line:
+                    elif "KEY_RECOVERED" in line or "ROTATION" in line or "NEW_SESSION" in line:
                         self.key_stats[key]['status'] = 'Active'
                     
                     if "ROTATION" in line: self.key_stats[key]['requests'] += 1
 
+                # Filter lines for display
+                relevant = any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "PULSE_METRIC"])
+                if not relevant: continue
+
                 # Format Display Line
                 color = "cyan"
                 if "CACHE" in line: color = "magenta"
-                elif "Retry" in line or "LIMIT" in line: color = "red"
+                elif "Retry" in line or "LIMIT" in line or "AUTH_FAIL" in line: color = "red"
                 elif "RECOVERED" in line: color = "green"
                 elif "NEW_SESSION" in line: color = "yellow"
+                elif "PULSE" in line: color = "blue"
                 
                 clean_msg = line.split("] ")[-1] if "] " in line else line
-                self.last_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
+                # Truncate clean_msg if too long
+                if len(clean_msg) > 80: clean_msg = clean_msg[:77] + "..."
+                
+                new_display_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
 
             # Sensitive Pulse Scaling (Logarithmic view)
             if current_pulse > 0:
-                # Value of 1 for tiny reqs, scales up to 10 for huge ones
                 scaled = min(10, (current_pulse.bit_length() // 2) + 1)
                 self.pulse_data.append(scaled)
             else:
@@ -168,9 +173,14 @@ class HighGravityDashboard:
             all_keys = self.key_stats.keys()
             self.active_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Active'])
             self.exhausted_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Exhausted'])
-            self.last_logs = self.last_logs[-12:]
+            
+            if new_display_logs:
+                self.last_logs = new_display_logs[-15:]
+            elif not self.last_logs:
+                self.last_logs = ["[dim]Waiting for traffic events...[/dim]"]
 
-        except: pass
+        except Exception as e:
+            self.last_logs = [f"[red]Error parsing logs: {e}[/red]"]
 
     def generate_dashboard(self) -> Layout:
         self.update_stats()
@@ -218,7 +228,7 @@ class HighGravityDashboard:
 
         # Logs
         log_content = Text.from_markup("\n".join(self.last_logs)) if self.last_logs else Text("Monitoring proxy.log...", style="dim")
-        layout["logs"].update(Panel(log_content, title="Intercepted Events", border_style="dim"))
+        layout["logs"].update(Panel(log_content, title="Intercepted Events (Live)", border_style="dim"))
 
         # Sidebar
         sidebar = Table.grid(expand=True)
@@ -231,7 +241,7 @@ class HighGravityDashboard:
         sidebar_panel.add_row(Panel(Text(f"Proxy: {'ON' if is_alive else 'OFF'}", style="bold green" if is_alive else "bold red"), title="Status", border_style="dim"))
         layout["sidebar"].update(sidebar_panel)
 
-        layout["footer"].update(Panel(Text(f"Last sync: {datetime.now().strftime('%H:%M:%S')} | Log: {LOG_FILE}", justify="center", style="dim blue"), border_style="blue"))
+        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | Log: {LOG_FILE}", justify="center", style="dim blue"), border_style="blue"))
         return layout
 
     def run(self):

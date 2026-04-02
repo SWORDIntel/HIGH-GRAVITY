@@ -32,12 +32,24 @@ LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
 os.makedirs(REPO_ROOT / "logs", exist_ok=True)
 os.makedirs(REPO_ROOT / "config", exist_ok=True)
 log_level = os.environ.get("HG_LOG_LEVEL", "INFO").upper()
+
+# Custom formatter to ensure it's easy to parse
+log_format = '%(asctime)s [%(levelname)s] %(message)s'
+
+# Configure root logger
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+    format=log_format,
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode='a'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger("HG-Proxy")
+
+# Force flush on all handlers
+for handler in logging.root.handlers:
+    handler.setFormatter(logging.Formatter(log_format))
 
 app = FastAPI(title="HIGHGRAVITY Optimization Proxy")
 
@@ -49,13 +61,15 @@ class GhostCache:
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS cache (
-                    hash TEXT PRIMARY KEY, response BLOB, timestamp REAL, model TEXT
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON cache(timestamp)")
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS cache (
+                        hash TEXT PRIMARY KEY, response BLOB, timestamp REAL, model TEXT
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON cache(timestamp)")
+        except: pass
 
     def get(self, messages: List[Dict]) -> Optional[bytes]:
         try:
@@ -137,7 +151,9 @@ class TokenPool:
         while True:
             time.sleep(30); now = time.time()
             tr = [k for k, exp in self.exhausted_keys.items() if now > exp]
-            for k in tr: del self.exhausted_keys[k]; logger.info(f"KEY_RECOVERED: KEY={k[:15]}...")
+            for k in tr: 
+                del self.exhausted_keys[k]
+                logger.info(f"KEY_RECOVERED: KEY={k[:15]}...")
 
     def load_keys(self):
         try:
@@ -203,7 +219,7 @@ async def update_config(request: Request):
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def proxy_request(path: str, request: Request):
     request_id = secrets.token_hex(4)
-    logger.info(f"[{request_id}] >>> CONNECTION ATTEMPT: {request.method} /{path}")
+    logger.info(f"[{request_id}] CONNECTION ATTEMPT: {request.method} /{path}")
     body_bytes = await request.body()
     raw_body_json = {}; is_json = False
     if "application/json" in request.headers.get("Content-Type", "") or not request.headers.get("Content-Type"):
@@ -279,5 +295,5 @@ async def proxy_request(path: str, request: Request):
     raise HTTPException(status_code=503, detail="Max retries.")
 
 if __name__ == "__main__":
-    logger.info(f"Starting HG Proxy on port {PROXY_PORT}...")
-    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT)
+    logger.info("HG_PROXY_ONLINE: High-Gravity Gateway is listening.")
+    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT, log_level="error")
