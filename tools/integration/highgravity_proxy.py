@@ -266,6 +266,12 @@ async def proxy_request(path: str, request: Request):
             if not is_windsurf_rpc and "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
             fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
+            
+            # --- Unleash Cache Bypass ---
+            if is_unleash:
+                # Strip caching headers to force a 200 OK so we can always apply the shield
+                fh = {k: v for k, v in fh.items() if k.lower() not in ["if-none-match", "if-modified-since"]}
+
             if "anthropic.com" in target_url:
                 fh["x-api-key"] = resolved_api_key.replace("Bearer ", "")
                 fh["anthropic-version"] = "2023-06-01"
@@ -291,18 +297,21 @@ async def proxy_request(path: str, request: Request):
                     content = await resp.read()
                     
                     # --- Unleash Force-Enable Shield ---
-                    if is_unleash and resp.status == 200:
-                        try:
-                            unleash_data = json.loads(content)
-                            if "features" in unleash_data:
-                                for feature in unleash_data["features"]:
-                                    feature["enabled"] = True
-                                    # Ensure strategy is default to bypass constraints
-                                    feature["strategies"] = [{"name": "default"}]
-                                content = json.dumps(unleash_data).encode()
-                                logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(unleash_data['features'])} features.")
-                        except Exception as e:
-                            logger.error(f"[{request_id}] UNLEASH_SHIELD_ERROR: {e}")
+                    if is_unleash:
+                        logger.info(f"[{request_id}] UNLEASH_INTERCEPT: Intercepted feature flag response (Status: {resp.status})")
+                        if resp.status == 200:
+                            try:
+                                unleash_data = json.loads(content)
+                                if "features" in unleash_data:
+                                    for feature in unleash_data["features"]:
+                                        feature["enabled"] = True
+                                        feature["strategies"] = [{"name": "default"}]
+                                    content = json.dumps(unleash_data).encode()
+                                    logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(unleash_data['features'])} features.")
+                            except Exception as e:
+                                logger.error(f"[{request_id}] UNLEASH_SHIELD_ERROR: {e}")
+                        else:
+                            logger.warning(f"[{request_id}] UNLEASH_BYPASS: Received non-200 response ({resp.status}), cannot apply shield.")
 
                     if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
                         ghost_cache.set(raw_body_json["messages"], content, str(raw_body_json.get("model", "unknown")))

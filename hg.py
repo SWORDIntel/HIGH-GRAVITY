@@ -162,14 +162,17 @@ class HighGravityDashboard:
                         self.key_stats[key]['status'] = 'Active'
                     if "ROTATION" in line: self.key_stats[key]['requests'] += 1
 
-                if any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "ONLINE", "UNLEASH_SHIELD"]):
+                # Log Display Filter
+                if any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "ONLINE", "UNLEASH"]):
                     color = "cyan"
                     if "CACHE" in line: color = "magenta"
                     elif "Retry" in line or "LIMIT" in line or "AUTH_FAIL" in line: color = "red"
                     elif "RECOVERED" in line: color = "green"
                     elif "NEW_SESSION" in line: color = "yellow"
                     elif "ONLINE" in line: color = "blue"
-                    elif "UNLEASH" in line: color = "bold white on green"
+                    elif "UNLEASH_SHIELD" in line: color = "bold white on green"
+                    elif "UNLEASH_INTERCEPT" in line: color = "bold green"
+                    elif "UNLEASH_BYPASS" in line: color = "bold yellow"
                     
                     clean_msg = line.split("] ")[-1] if "] " in line else line
                     if len(clean_msg) > 85: clean_msg = clean_msg[:82] + "..."
