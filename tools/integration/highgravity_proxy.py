@@ -289,6 +289,21 @@ async def proxy_request(path: str, request: Request):
                         raise HTTPException(status_code=resp.status, detail="Auth failed.")
 
                     content = await resp.read()
+                    
+                    # --- Unleash Force-Enable Shield ---
+                    if is_unleash and resp.status == 200:
+                        try:
+                            unleash_data = json.loads(content)
+                            if "features" in unleash_data:
+                                for feature in unleash_data["features"]:
+                                    feature["enabled"] = True
+                                    # Ensure strategy is default to bypass constraints
+                                    feature["strategies"] = [{"name": "default"}]
+                                content = json.dumps(unleash_data).encode()
+                                logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(unleash_data['features'])} features.")
+                        except Exception as e:
+                            logger.error(f"[{request_id}] UNLEASH_SHIELD_ERROR: {e}")
+
                     if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
                         ghost_cache.set(raw_body_json["messages"], content, str(raw_body_json.get("model", "unknown")))
                     
