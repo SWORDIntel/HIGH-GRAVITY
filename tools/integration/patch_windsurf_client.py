@@ -49,13 +49,39 @@ def patch_file(ext_path: Path):
     modified = False
 
     # Patch A: Redirect Inference API to HIGH-GRAVITY Proxy (localhost:9999)
-    old_arg = 'n.push("--inference_api_server_url",A.inferenceApiServerUrl)'
-    new_arg = 'n.push("--inference_api_server_url","http://localhost:9999")'
+    # Handle both n.push and array literal formats
+    old_arg_inf = 'n.push("--inference_api_server_url",A.inferenceApiServerUrl)'
+    new_arg_inf = 'n.push("--inference_api_server_url","http://localhost:9999")'
     
-    if old_arg in content:
-        content = content.replace(old_arg, new_arg)
-        print("    [✓] Redirection applied.")
+    old_lit_inf = '"--inference_api_server_url",A.inferenceApiServerUrl'
+    new_lit_inf = '"--inference_api_server_url","http://localhost:9999"'
+    
+    # Patch A2: Redirect Base API to HIGH-GRAVITY Proxy
+    old_arg_base = 'n.push("--api_server_url",A.apiServerUrl)'
+    new_arg_base = 'n.push("--api_server_url","http://localhost:9999")'
+    
+    old_lit_base = '"--api_server_url",A.apiServerUrl'
+    new_lit_base = '"--api_server_url","http://localhost:9999"'
+    
+    if old_arg_inf in content:
+        content = content.replace(old_arg_inf, new_arg_inf)
+        print("    [✓] Inference push redirection applied.")
         modified = True
+    elif old_lit_inf in content:
+        content = content.replace(old_lit_inf, new_lit_inf)
+        print("    [✓] Inference literal redirection applied.")
+        modified = True
+        
+    # Patch A3: Redirect Unleash (Feature Flags) to HIGH-GRAVITY Proxy
+    old_unleash = 'url:"https://unleash.codeium.com/api/"'
+    new_unleash = 'url:"http://localhost:9999/unleash/"'
+    
+    if old_unleash in content:
+        content = content.replace(old_unleash, new_unleash)
+        print("    [✓] Unleash redirection applied.")
+        modified = True
+    elif new_unleash in content:
+        print("    [-] Unleash redirection already present.")
 
     # Patch B: Universal Optimizer & Protocol Interceptor
     optimizer_code = f"""

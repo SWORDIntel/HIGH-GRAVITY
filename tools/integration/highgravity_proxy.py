@@ -233,11 +233,17 @@ async def proxy_request(path: str, request: Request):
             logger.info(f"[{request_id}] GHOST_CACHE_HIT: KEY=LOCAL")
             return StreamingResponse(iter([cr]), media_type="application/json")
 
-    is_windsurf_rpc = "exa.api_server_pb" in path
+    is_windsurf_rpc = "exa." in path
+    is_unleash = "unleash/" in path
     max_retries = max(5, len(pool.keys))
     for attempt in range(max_retries):
         try:
-            if is_windsurf_rpc:
+            if is_unleash:
+                target_base_url = "https://unleash.codeium.com"
+                resolved_api_key = "NONE" # Unleash usually uses custom auth headers or none
+                # Clean path for unleash
+                tp = path.replace("unleash/", "api/")
+            elif is_windsurf_rpc:
                 target_base_url = "https://server.self-serve.windsurf.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 

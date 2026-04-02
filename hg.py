@@ -37,7 +37,7 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "3.1.1-HG"
+VERSION = "3.1.3-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
@@ -49,23 +49,30 @@ class HighGravityDashboard:
     def __init__(self):
         self.proxy_proc = None
         self.running = True
-        self.last_logs = []
+        self.last_logs = deque(maxlen=15)
         self.status_msg = "Dashboard initialized."
         self.proxy_status = "Stopped"
         self.proxy_port = PROXY_PORT
-        self.active_keys_count = 0
-        self.exhausted_keys_count = 0
+        
+        # Cumulative Metrics
         self.request_count = 0
         self.cache_hits = 0
         self.retry_count = 0
+        self.active_keys_count = 0
+        self.exhausted_keys_count = 0
+        
         self.rotation_mode = "round-robin"
         self.last_request_time = None
         self.selected_model = "auto"
         self.detected_model = "None"
 
-        # High Sensitivity Pulse Data
+        # Decay Pulse Data (Visual Enhancement)
         self.pulse_data = deque([0]*50, maxlen=50)
+        self._last_pulse_val = 0
+        
         self.key_stats = {}
+        self._last_log_size = 0
+        self._initial_scan_done = False
 
     def check_proxy_alive(self) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -82,33 +89,51 @@ class HighGravityDashboard:
             self.status_msg = "[red]Proxy connection failed for toggle.[/red]"
 
     def start_proxy(self):
-        if self.check_proxy_alive(): return
+        if self.check_proxy_alive():
+            self.status_msg = "[yellow]Attached to existing proxy process.[/yellow]"
+            return
+            
         env = {**os.environ, "HG_PROXY_PORT": str(self.proxy_port), "HG_ROTATION_MODE": self.rotation_mode}
-        # Ensure log directory exists
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
+        self.status_msg = "Proxy starting..."
         time.sleep(1)
 
     def stop_proxy(self):
-        if self.proxy_proc:
-            try: os.killpg(os.getpgid(self.proxy_proc.pid), signal.SIGTERM)
-            except: pass
-            self.proxy_proc = None
+        # Kill any and all proxy processes
+        subprocess.run(["pkill", "-f", "highgravity_proxy.py"], stderr=subprocess.DEVNULL)
+        self.proxy_proc = None
+        self.status_msg = "Proxy stopped."
 
     def update_stats(self):
-        if not LOG_FILE.exists(): 
-            self.last_logs = [f"[dim]Log file not found: {LOG_FILE}[/dim]"]
-            return
+        if not LOG_FILE.exists(): return
 
         try:
-            # Use tail approach for better responsiveness
-            cmd = ["tail", "-n", "100", str(LOG_FILE)]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            lines = result.stdout.splitlines()
-
-            new_display_logs = []
-            current_pulse = 0
+            current_size = LOG_FILE.stat().st_size
             
+            # Reset if log was cleared or first run
+            if current_size < self._last_log_size or not self._initial_scan_done:
+                # Historical scan
+                with open(LOG_FILE, 'r') as f:
+                    f.seek(max(0, current_size - 100000)) # Last 100KB for history
+                    lines = f.readlines()
+                self._initial_scan_done = True
+                self._last_log_size = current_size
+            elif current_size == self._last_log_size:
+                # Decay visual pulse if no new data
+                self._last_pulse_val = max(0, self._last_pulse_val - 1)
+                self.pulse_data.append(self._last_pulse_val)
+                return
+            else:
+                # Read delta
+                read_bytes = current_size - self._last_log_size
+                with open(LOG_FILE, 'rb') as f:
+                    f.seek(self._last_log_size)
+                    data = f.read(read_bytes).decode('utf-8', errors='ignore')
+                    lines = data.splitlines()
+                self._last_log_size = current_size
+
+            current_activity_spike = 0
             key_pattern = re.compile(r'KEY=([\w-]+)')
             ts_pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
@@ -116,22 +141,22 @@ class HighGravityDashboard:
                 line = line.strip()
                 if not line: continue
                 
-                # Check for timestamp but don't strictly require it for all display lines
                 match = ts_pattern.match(line)
                 ts = match.group(1) if match else None
 
+                # Metric Tracking
                 if "CONNECTION ATTEMPT" in line:
                     self.request_count += 1
                     if ts: self.last_request_time = ts
+                    current_activity_spike = 10 # Max pulse on new connection
                 elif "GHOST_CACHE_HIT" in line:
                     self.cache_hits += 1
-                elif "Silent Retry" in line or "KEY_LIMIT" in line:
+                    current_activity_spike = 8
+                elif "Silent Retry" in line or "KEY_LIMIT" in line or "AUTH_FAIL" in line:
                     self.retry_count += 1
+                    current_activity_spike = 6
                 elif "PULSE_METRIC" in line:
-                    try: 
-                        bytes_val = int(line.split("BYTES=")[1].split(" ")[0])
-                        current_pulse += bytes_val
-                    except: pass
+                    current_activity_spike = max(current_activity_spike, 4)
                 
                 # Key Tracking
                 km = key_pattern.search(line)
@@ -142,45 +167,36 @@ class HighGravityDashboard:
                         self.key_stats[key]['status'] = 'Exhausted'
                     elif "KEY_RECOVERED" in line or "ROTATION" in line or "NEW_SESSION" in line:
                         self.key_stats[key]['status'] = 'Active'
-                    
                     if "ROTATION" in line: self.key_stats[key]['requests'] += 1
 
-                # Filter lines for display
-                relevant = any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "PULSE_METRIC"])
-                if not relevant: continue
+                # Log Display Filter
+                if any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "ONLINE"]):
+                    color = "cyan"
+                    if "CACHE" in line: color = "magenta"
+                    elif "Retry" in line or "LIMIT" in line or "AUTH_FAIL" in line: color = "red"
+                    elif "RECOVERED" in line: color = "green"
+                    elif "NEW_SESSION" in line: color = "yellow"
+                    elif "ONLINE" in line: color = "blue"
+                    
+                    clean_msg = line.split("] ")[-1] if "] " in line else line
+                    if len(clean_msg) > 85: clean_msg = clean_msg[:82] + "..."
+                    self.last_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
 
-                # Format Display Line
-                color = "cyan"
-                if "CACHE" in line: color = "magenta"
-                elif "Retry" in line or "LIMIT" in line or "AUTH_FAIL" in line: color = "red"
-                elif "RECOVERED" in line: color = "green"
-                elif "NEW_SESSION" in line: color = "yellow"
-                elif "PULSE" in line: color = "blue"
-                
-                clean_msg = line.split("] ")[-1] if "] " in line else line
-                # Truncate clean_msg if too long
-                if len(clean_msg) > 80: clean_msg = clean_msg[:77] + "..."
-                
-                new_display_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
-
-            # Sensitive Pulse Scaling (Logarithmic view)
-            if current_pulse > 0:
-                scaled = min(10, (current_pulse.bit_length() // 2) + 1)
-                self.pulse_data.append(scaled)
+            # Apply Pulse Spike or Decay
+            if current_activity_spike > 0:
+                self._last_pulse_val = current_activity_spike
             else:
-                self.pulse_data.append(0)
+                self._last_pulse_val = max(0, self._last_pulse_val - 1)
             
+            self.pulse_data.append(self._last_pulse_val)
+            
+            # Key Counts
             all_keys = self.key_stats.keys()
             self.active_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Active'])
             self.exhausted_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Exhausted'])
-            
-            if new_display_logs:
-                self.last_logs = new_display_logs[-15:]
-            elif not self.last_logs:
-                self.last_logs = ["[dim]Waiting for traffic events...[/dim]"]
 
         except Exception as e:
-            self.last_logs = [f"[red]Error parsing logs: {e}[/red]"]
+            self.status_msg = f"[red]Update error: {e}[/red]"
 
     def generate_dashboard(self) -> Layout:
         self.update_stats()
@@ -215,7 +231,7 @@ class HighGravityDashboard:
         metrics.add_row(Text("Last Request:", style="bold"), f"[dim]{self.last_request_time or 'Never'}[/dim]")
         layout["metrics"].update(Panel(metrics, title="System Metrics", border_style="white"))
 
-        # Visual Pulse (Highly Sensitive)
+        # Visual Pulse (Decay scale)
         pulse_str = ""
         chars = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█", "█", "█"]
         for val in self.pulse_data:
@@ -227,18 +243,18 @@ class HighGravityDashboard:
         layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str)), title="Activity Pulse (Data Flow)", border_style="cyan"))
 
         # Logs
-        log_content = Text.from_markup("\n".join(self.last_logs)) if self.last_logs else Text("Monitoring proxy.log...", style="dim")
+        log_content = Text.from_markup("\n".join(list(self.last_logs))) if self.last_logs else Text("Monitoring proxy.log...", style="dim")
         layout["logs"].update(Panel(log_content, title="Intercepted Events (Live)", border_style="dim"))
 
         # Sidebar
         sidebar = Table.grid(expand=True)
         sidebar.add_row("[cyan]W[/cyan] - Launch Windsurf")
-        sidebar.add_row("[cyan]P[/cyan] - Toggle Proxy")
+        sidebar.add_row("[cyan]P[/cyan] - Force Restart Proxy")
         sidebar.add_row("[cyan]R[/cyan] - Toggle Rotation")
         sidebar.add_row("[cyan]Q[/cyan] - Quit")
         sidebar_panel = Table.grid(expand=True)
         sidebar_panel.add_row(Panel(sidebar, title="Actions", border_style="cyan"))
-        sidebar_panel.add_row(Panel(Text(f"Proxy: {'ON' if is_alive else 'OFF'}", style="bold green" if is_alive else "bold red"), title="Status", border_style="dim"))
+        sidebar_panel.add_row(Panel(Text(f"Proxy: {'CONNECTED' if is_alive else 'OFF'}", style="bold green" if is_alive else "bold red"), title="Status", border_style="dim"))
         layout["sidebar"].update(sidebar_panel)
 
         layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | Log: {LOG_FILE}", justify="center", style="dim blue"), border_style="blue"))
@@ -249,7 +265,9 @@ class HighGravityDashboard:
         fd = sys.stdin.fileno()
         is_tty = os.isatty(fd)
         if is_tty: old_settings = termios.tcgetattr(fd)
-        if not self.check_proxy_alive(): self.start_proxy()
+        
+        # Start or Attach
+        self.start_proxy()
 
         try:
             if is_tty: tty.setcbreak(fd)
@@ -261,7 +279,7 @@ class HighGravityDashboard:
                         if r:
                             c = sys.stdin.read(1).lower()
                             if c == 'q': self.running = False
-                            elif c == 'p': (self.stop_proxy() if self.check_proxy_alive() else self.start_proxy())
+                            elif c == 'p': self.stop_proxy(); time.sleep(0.5); self.start_proxy()
                             elif c == 'r': self.toggle_rotation()
         finally:
             if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
