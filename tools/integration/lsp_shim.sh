@@ -3,7 +3,7 @@
 # Transparently forces proxy arguments and executes the real binary.
 
 REAL_BIN="$(dirname "$0")/language_server_linux_x64.real"
-PROXY_URL="http://localhost:9999"
+PROXY_URL="http://shield.windsurf.com:9999"
 
 # Rebuild arguments to force proxy
 NEW_ARGS=()
