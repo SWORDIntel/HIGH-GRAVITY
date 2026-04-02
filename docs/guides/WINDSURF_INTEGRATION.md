@@ -5,110 +5,52 @@ Windsurf support in this repo is built from:
 - [.windsurf/hooks.json](.windsurf/hooks.json)
 - [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py)
 - [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py)
+- [tools/integration/detect_and_wire_windsurf.py](tools/integration/detect_and_wire_windsurf.py)
 
-## Fastest setup
+## Modern Setup (Recommended)
 
-Export your key and defaults before opening the repo in Windsurf:
+The preferred way to manage Windsurf integration is via the **Unified Dashboard**:
 
 ```bash
-export WINDSURF_API_KEY='AIzaSy...'
-export HIGHGRAVITY_MODE='windsurf'
-export HIGHGRAVITY_PROVIDER='proxy'
-export HIGHGRAVITY_PROXY_URL='http://localhost:9999'
-export HIGHGRAVITY_DRY_RUN='true'
+python3 hg.py
 ```
 
-Then open this repo in Windsurf and trigger Cascade once.
+1. **Press [W]**: This will automatically detect your running Windsurf session, "wire-in" the necessary hooks, and launch a new optimized instance.
+2. **Dynamic Profiles**: The system now searches `windsurf_profiles/` for the most recently updated profile, supporting both named profiles (`high-gravity`) and workspace-specific IDs (`untitled-12345`).
 
-## What happens
+## Automated "Wire-In"
 
-1. Windsurf sends hook JSON on `stdin`.
+If you are already inside a Windsurf session and want to connect it to the HIGH-GRAVITY proxy:
+
+```bash
+python3 tools/integration/detect_and_wire_windsurf.py
+```
+
+This script:
+1. Detects the `workspace_id` of the running Windsurf Next process.
+2. Resolves the local filesystem path for that workspace.
+3. Generates a profile environment (`profile.env`).
+4. Deploys Cascade hooks into your workspace's `.windsurf/` directory.
+
+## What happens under the hood
+
+1. Windsurf sends hook JSON on `stdin` when you run commands or set up a worktree.
 2. [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py) reads that payload.
 3. The bridge merges env defaults such as `WINDSURF_API_KEY` and `HIGHGRAVITY_PROXY_URL`.
 4. The bridge forwards normalized JSON into [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py).
 5. The launcher writes a profile under `windsurf_profiles/<profile>/`.
 
-The included hooks run on:
+## Model Autodetection
 
-- `post_run_command`
-- `post_setup_worktree`
+The proxy automatically sniffs the model being requested by Windsurf. In the dashboard, you can see this in the **"Live Detected"** field.
 
-## First-run recommendation
-
-Start with:
-
-```bash
-export HIGHGRAVITY_DRY_RUN='true'
-```
-
-Then confirm these files were created:
-
-- `windsurf_profiles/<profile>/profile.env`
-- `windsurf_profiles/<profile>/profile.json`
-- `windsurf_profiles/<profile>/launch_windsurf.sh`
-
-When that looks correct:
-
-```bash
-export HIGHGRAVITY_DRY_RUN='false'
-```
-
-## Direct launcher test
-
-```bash
-python3 tools/integration/gemini_session_launcher.py \
-  --api-key "$WINDSURF_API_KEY" \
-  --mode windsurf \
-  --provider proxy \
-  --proxy-url "$HIGHGRAVITY_PROXY_URL" \
-  --window-name manual-test \
-  --dry-run
-```
-
-## Key and config files
-
-The launcher checks for keys in this order:
-
-1. `config/gemini_keys.json`
-2. `gemini_keys.json`
-
-Use [config/gemini_keys.example.json](config/gemini_keys.example.json) as your template, or update [config/gemini_keys.json](config/gemini_keys.json) directly.
-
-## Example hook payload
-
-```json
-{
-  "agent_action_name": "post_run_command",
-  "trajectory_id": "traj-123",
-  "execution_id": "exec-456",
-  "tool_info": {
-    "command_line": "echo hello",
-    "cwd": "/workspace/project",
-    "variables": {
-      "apiKey": "AIzaSy...",
-      "mode": "windsurf",
-      "provider": "proxy",
-      "proxyUrl": "http://localhost:9999",
-      "dryRun": true
-    }
-  }
-}
-```
+If you need to force a specific model (e.g., force Sonnet to act like Gemini 1.5 Pro):
+1. Press **[M]** in the dashboard to cycle through models.
+2. The proxy will restart with the `HIGHGRAVITY_MODEL` override.
 
 ## Troubleshooting
 
-If nothing happens:
-
-- Make sure Windsurf opened this repo root.
-- Make sure `WINDSURF_API_KEY`, `HIGHGRAVITY_API_KEY`, or `HIGHGRAVITY_KEY_INDEX` is exported in the shell environment Windsurf inherits.
-- Start with `HIGHGRAVITY_DRY_RUN='true'`.
-
-If the hook runs but no profile is created:
-
-- Trigger a Cascade action that fires `post_run_command` or `post_setup_worktree`.
-- Run the direct launcher test above.
-
-If the profile is created but launch behavior is wrong:
-
-- Inspect `windsurf_profiles/<profile>/profile.json`.
-- Check `HIGHGRAVITY_PROVIDER`, `HIGHGRAVITY_PROXY_URL`, and `WINDSURF_BIN`.
+If traffic isn't reaching the proxy:
+1. Check that your Windsurf instance was launched via `launch_windsurf.sh` (The dashboard does this automatically).
+2. Run `./launch_debug.sh` to see raw traffic hex-dumps and gRPC routing logs.
+3. Confirm `OPENAI_API_BASE=http://localhost:9999` is set in the Windsurf terminal.

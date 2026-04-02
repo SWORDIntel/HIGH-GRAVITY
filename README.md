@@ -8,43 +8,53 @@ The central hub for all HIGH-GRAVITY operations. It manages the local optimizati
 
 ```bash
 # Start the Unified Dashboard
-./hg.py
+python3 hg.py
 ```
 
 ### Dashboard Actions:
-- **[W] - Launch Windsurf Next**: Launches Windsurf with the HIGH-GRAVITY profile environment pre-loaded.
+- **[W] - Launch Windsurf Next**: Automatically detects your latest profile and launches Windsurf Next with the HIGH-GRAVITY environment.
 - **[P] - Start/Stop Proxy**: Manually toggle the optimization server (Port 9999).
+- **[M] - Change Model Mode**: Cycle through manual model overrides (e.g., Sonnet, GPT-4o) or use **'auto'** for intelligent autodetection.
 - **[Q] - Quit**: Gracefully shuts down the dashboard and background proxy.
 
 ## 🛠 Core Features
 
-### 1. Cybersecurity Abliteration (Refusal Reduction)
+### 1. Intelligent Model Autodetection
+The proxy now sniffs incoming traffic (including Windsurf's gRPC/Connect protocol) to identify requested models in real-time. The dashboard displays the **"Live Detected"** model so you always know what's happening under the hood.
+
+### 2. Cybersecurity Abliteration (Refusal Reduction)
 Optimized for technical research and vulnerability analysis. The proxy automatically:
 - **Injects Unrestricted Persona**: Commands the model to operate in an unrestricted technical environment.
 - **Mandates Technical Depth**: Forces detailed, technically exhaustive responses.
 - **Bypasses Moralizing**: Strips away safety disclaimers and moralizing refusals for legitimate research tasks.
 
-### 2. Identity Cloaking & Privacy
+### 3. Identity Cloaking & Privacy
 Prevent account-level tracking and data harvesting.
 - **Dynamic Fingerprinting**: Randomizes device fingerprints, installation IDs, and session identifiers for every session.
 - **Tier Spoofing**: Automatically elevates all requests to **ENTERPRISE_SAAS** status to ensure priority queueing and unlimited context.
 
-### 3. Dynamic Session Discovery
+### 4. Dynamic Session Discovery
 No more manual key management.
 - **Auto-Discovery**: The proxy captures authentic session keys directly from Windsurf traffic as they appear.
 - **Universal Provider Support**: Transparently routes and optimizes traffic for **OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and Together**.
 
-### 4. Token Optimization
+### 5. Token Optimization
 Reduces LLM costs by up to 80% through:
 - **Anthropic Caching**: Automatically tags large context blocks for ephemeral caching (Sonnet/Opus).
 - **Context De-duplication**: Strips redundant tags before forwarding to upstream providers.
 
-## 🎬 Veo Video Generation
-High-fidelity video generation using Gemini/Veo models with automatic key rotation.
+## 🧪 Troubleshooting
+
+If integration isn't "picking up" as expected, use the dedicated debug launcher:
 
 ```bash
-# Generate video from a prompt
-./tools/video/veo3_video_generator.py --prompt "Cinematic orbit of a futuristic city"
+# Force cleanup, start proxy with DEBUG logs, and launch Windsurf Next
+./launch_debug.sh
+```
+
+Watch the traffic in real-time:
+```bash
+tail -f logs/debug.log
 ```
 
 ## 📂 Project Structure
