@@ -250,6 +250,45 @@ class HighGravityDashboard:
         layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | Log: {LOG_FILE}", justify="center", style="dim blue"), border_style="blue"))
         return layout
 
+    def launch_windsurf(self):
+        """Attempts to launch via profile script first, then system binary."""
+        self.status_msg = "Locating latest Windsurf profile..."
+        
+        # 1. Try to find the latest profile-specific launch script
+        try:
+            import glob
+            profile_scripts = sorted(glob.glob(str(REPO_ROOT / "windsurf_profiles" / "*" / "launch_windsurf.sh")), 
+                                   key=os.path.getmtime, reverse=True)
+            if profile_scripts:
+                script_path = profile_scripts[0]
+                self.status_msg = f"Launching via profile: [bold cyan]{Path(script_path).parent.name}[/bold cyan]..."
+                # Profile scripts usually expect WINDSURF_BIN to be set
+                env = {**os.environ, "WINDSURF_BIN": "windsurf-next"}
+                if not shutil.which("windsurf-next"): env["WINDSURF_BIN"] = "windsurf"
+                
+                subprocess.Popen(["bash", script_path], 
+                               stdout=subprocess.DEVNULL, 
+                               stderr=subprocess.DEVNULL, 
+                               env=env,
+                               start_new_session=True)
+                return
+        except Exception as e:
+            logger.debug(f"Profile launch failed: {e}")
+
+        # 2. Fallback to system binary
+        potential_cmds = ["windsurf-next", "windsurf", "codeium-windsurf"]
+        for cmd in potential_cmds:
+            cmd_path = shutil.which(cmd)
+            if cmd_path:
+                self.status_msg = f"Launching binary: [bold cyan]{cmd_path}[/bold cyan]..."
+                subprocess.Popen([cmd_path, "--new-window"], 
+                               stdout=subprocess.DEVNULL, 
+                               stderr=subprocess.DEVNULL, 
+                               start_new_session=True)
+                return
+        
+        self.status_msg = "[red]Error: Could not find launch script or binary.[/red]"
+
     def run(self):
         import select, tty, termios
         fd = sys.stdin.fileno()
@@ -269,6 +308,7 @@ class HighGravityDashboard:
                             if c == 'q': self.running = False
                             elif c == 'p': self.stop_proxy(); time.sleep(0.5); self.start_proxy()
                             elif c == 'r': self.toggle_rotation()
+                            elif c == 'w': self.launch_windsurf()
         finally:
             if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
