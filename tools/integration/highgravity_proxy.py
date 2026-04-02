@@ -240,8 +240,7 @@ async def proxy_request(path: str, request: Request):
         try:
             if is_unleash:
                 target_base_url = "https://unleash.codeium.com"
-                resolved_api_key = "NONE" # Unleash usually uses custom auth headers or none
-                # Clean path for unleash
+                resolved_api_key = "NONE"
                 tp = path.replace("unleash/", "api/")
             elif is_windsurf_rpc:
                 target_base_url = "https://server.self-serve.windsurf.com"
@@ -251,6 +250,7 @@ async def proxy_request(path: str, request: Request):
                     if wk: pool.add_key(wk)
                 if not wk: raise HTTPException(status_code=503, detail="No Windsurf keys.")
                 resolved_api_key = f"Bearer {wk}"
+                tp = path # Preserve RPC path
             else:
                 model = raw_body_json.get("model", "unknown") if is_json else "unknown"
                 if "gpt" in str(model): target_base_url = "https://api.openai.com"
@@ -261,9 +261,11 @@ async def proxy_request(path: str, request: Request):
                     pk = pool.get_key(is_windsurf=False)
                     if not pk: raise HTTPException(status_code=503, detail="No LLM keys.")
                     resolved_api_key = f"Bearer {pk}"
+                
+                # LLM path logic
+                tp = path if path.startswith("v1/") else f"v1/{path}"
+                if "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
-            tp = path if is_windsurf_rpc else (path if path.startswith("v1/") else f"v1/{path}")
-            if not is_windsurf_rpc and "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
             fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "content-length"]}
             
@@ -303,11 +305,12 @@ async def proxy_request(path: str, request: Request):
                             try:
                                 unleash_data = json.loads(content)
                                 if "features" in unleash_data:
+                                    flag_names = [f["name"] for f in unleash_data["features"]]
                                     for feature in unleash_data["features"]:
                                         feature["enabled"] = True
                                         feature["strategies"] = [{"name": "default"}]
                                     content = json.dumps(unleash_data).encode()
-                                    logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(unleash_data['features'])} features.")
+                                    logger.info(f"[{request_id}] UNLEASH_SHIELD: Force-enabled {len(flag_names)} features: {', '.join(flag_names)}")
                             except Exception as e:
                                 logger.error(f"[{request_id}] UNLEASH_SHIELD_ERROR: {e}")
                         else:
