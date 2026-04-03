@@ -1,0 +1,104 @@
+# High-Gravity Rules - Absolute Strict Implementation Directives
+# CRITICAL: These rules prevent fake implementation accumulation. Read carefully.
+
+## THE GOLDEN RULE: SEARCH → FIND → USE → ASK
+
+1. **SEARCH** the codebase thoroughly before writing new code.
+2. **FIND** the real API/implementation or established patterns.
+3. **USE** it immediately. Do not reinvent the wheel.
+4. **ASK** the user if you absolutely cannot find a necessary API or pattern.
+
+**NEVER: Create fake implementations that look real but don't use real APIs.**
+
+## RULE #1: MANDATORY API SEARCH-FIRST WORKFLOW [CRITICAL]
+
+**BEFORE implementing ANY function/API/feature:**
+1. Search the codebase for function names mentioned in comments or requirements.
+2. Search relevant directories (tools/, lib/, src/, core/) for related APIs.
+
+**If a Real API Exists:** USE IT IMMEDIATELY. Do not create alternatives or wrappers unless explicitly requested.
+- Call the real functions with proper parameters.
+
+**If a Real API Doesn't Exist:** ASK the user. Do NOT create fake implementations to placate the request.
+
+## RULE #2: ANTI-PATTERN CATALOG - NEVER CREATE FAKE IMPLEMENTATIONS [CRITICAL]
+
+### ❌ FORBIDDEN PATTERNS:
+
+**FAKE STRUCTS/CLASSES THAT MIMIC APIs:**
+Do not create stub classes or data structures just to make code compile if they don't connect to underlying logic.
+
+**PLACEHOLDER ALLOCATIONS:**
+Do not allocate memory or define variables "for later use" without implementing the logic that uses them.
+
+**COMMENTED-OUT REAL CODE:**
+```javascript
+// BAD: /* Would call api.initialize() when integrated */
+// GOOD: Actually call api.initialize() and handle errors.
+```
+
+**FORBIDDEN COMMENT PATTERNS:**
+- "For now..." / "Simplified..." / "Placeholder..." / "Stub..."
+- "Would call..." / "Would use..." / "Would be..."
+- "In production, would..." / "Actual X would..."
+- "simulate" / "demonstrate" / "mock" (ABSOLUTELY FORBIDDEN unless explicitly writing test files)
+
+**CODE PATTERNS (Always Fake):**
+- Functions that always return a static success value (e.g., `return true;`, `return 0;`) without doing real work.
+- Setting flags (e.g., `isActive = true`) without triggering actual state changes.
+
+## RULE #100: THE ULTIMATE RULE - THE META-PATTERN [CRITICAL]
+
+**THE ULTIMATE TEST:**
+
+Before writing ANY code, ask yourself:
+
+1. **"Does this code do what it claims to do?"** If NO → It's fake. Find real implementation.
+2. **"Would a real implementation do more?"** If YES → You're creating a fake. Implement fully.
+3. **"Am I creating infrastructure without using it?"** If YES → Use real APIs.
+4. **"Does this code compile but not function?"** If YES → It's fake. Make it function.
+
+**If you have to ask "is this fake?", it probably is.**
+
+**When in doubt:**
+1. STOP writing.
+2. SEARCH for real API.
+3. USE real API.
+4. ASK user if not found.
+
+**NEVER:** Create code that "looks like" it works, "almost" works, or "will work later".
+**ALWAYS:** Create code that ACTUALLY works, uses real APIs, and handles errors.
+
+## RULE #102: IMPLEMENTATION QUALITY ASSURANCE [CRITICAL]
+
+**FULL IMPLEMENTATION MANDATE:**
+
+**NEVER:**
+- Create "minimal" implementations that "work for now".
+- Write "basic" versions that "can be enhanced later".
+- Implement "simplified" solutions that skip complex functionality.
+
+**ALWAYS:**
+- **FULLY IMPLEMENT** all required functionality from day one.
+- Handle all error cases, timeouts, and edge conditions robustly.
+- Write production-ready code from the start.
+
+## RULE #103: ABSOLUTE PROHIBITION OF SIMULATION/DEMONSTRATION/MOCK LANGUAGE [CRITICAL]
+
+**EVERY OPERATION MUST BE REAL:**
+- File operations → Use actual file I/O libraries, not in-memory arrays.
+- Network operations → Use actual network calls (fetch, axios, requests), not delayed timeouts returning static JSON.
+- Cryptographic operations → Use standard crypto libraries.
+
+**NEVER:** Say "simulate" when you mean "execute", "demonstrate" when you mean "implement".
+
+## COMMON MISTAKES CHECKLIST
+
+Before finalizing a response, check you're NOT doing:
+- [ ] Writing "would call X" comments instead of calling X.
+- [ ] Setting boolean flags without executing corresponding logic.
+- [ ] Creating fake success returns without actual functionality.
+- [ ] Writing "for now" or "simplified" comments.
+- [ ] Using "simulate", "demonstrate", or "mock" language.
+
+If ANY checkbox is checked, STOP, revise the code to be real, or ask the user for clarification.
