@@ -235,30 +235,30 @@ class HighGravityDashboard:
             Layout(name="logs")
         )
 
-        header_text = Text.assemble((" HIGH-GRAVITY v3.5 ", "bold white on blue"), " Phantom Isolation Gateway", justify="center")
-        layout["header"].update(Panel(header_text, border_style="blue"))
+        header_text = Text.assemble((" [N]SO-ISOLATION ", "bold white on dark_red"), " Cyber-Intelligence Gateway", justify="center")
+        layout["header"].update(Panel(header_text, border_style="bright_black"))
 
         metrics = Table.grid(expand=True)
-        metrics.add_row(Text("Total Requests:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
-        metrics.add_row(Text("Ghost Cache Hits:", style="bold"), f"[bold magenta]{self.cache_hits}[/bold magenta]")
+        metrics.add_row(Text("Total Intercepts:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
+        metrics.add_row(Text("Ghost Cache Hits:", style="bold"), f"[bold red]{self.cache_hits}[/bold red]")
         
         # Calculate estimated savings ($15 per 1M tokens)
         est_savings = (self.tokens_saved / 1000000) * 15.0
         savings_str = f"[bold green]${est_savings:.4f}[/bold green]" if est_savings > 0 else "[dim]$0.0000[/dim]"
-        metrics.add_row(Text("Token Vault (Saved):", style="bold"), f"[bold cyan]{self.tokens_saved:,}[/bold cyan] ({savings_str})")
+        metrics.add_row(Text("Exfiltrated Tokens:", style="bold"), f"[bold red]{self.tokens_saved:,}[/bold red] ({savings_str})")
         
-        metrics.add_row(Text("Invisible Retries:", style="bold"), f"[bold red]{self.retry_count}[/bold red]")
-        metrics.add_row(Text("Active / Dead Keys:", style="bold"), f"[bold green]{self.active_keys_count}[/bold green] / [bold red]{self.exhausted_keys_count}[/bold red]")
-        metrics.add_row(Text("Rotation Mode:", style="bold"), f"[bold yellow]{self.rotation_mode.upper()}[/bold yellow]")
+        metrics.add_row(Text("Blocked Retries:", style="bold"), f"[bold bright_red]{self.retry_count}[/bold bright_red]")
+        metrics.add_row(Text("Active / Dead Nodes:", style="bold"), f"[bold white]{self.active_keys_count}[/bold white] / [bold red]{self.exhausted_keys_count}[/bold red]")
+        metrics.add_row(Text("Injection Mode:", style="bold"), f"[bold dark_red]{self.rotation_mode.upper()}[/bold dark_red]")
         
         # New Phantom Features Status
-        metrics.add_row(Text("Shadow Profiles:", style="bold"), "[bold green]ACTIVE[/bold green] (Spoofing IDs)")
+        metrics.add_row(Text("Shadow Spoofing:", style="bold"), "[bold red]ENABLED[/bold red]")
         has_rules = Path(".highgravity_rules").exists()
-        rag_status = "[bold green]ACTIVE[/bold green]" if has_rules else "[dim]INACTIVE (No .highgravity_rules)[/dim]"
-        metrics.add_row(Text("Local RAG Memory:", style="bold"), rag_status)
+        rag_status = "[bold white]ACTIVE[/bold white]" if has_rules else "[dim]INACTIVE[/dim]"
+        metrics.add_row(Text("Local Intelligence:", style="bold"), rag_status)
         
-        metrics.add_row(Text("Last Request:", style="bold"), f"[dim]{self.last_request_time or 'Never'}[/dim]")
-        layout["metrics"].update(Panel(metrics, title="System Metrics & Shields", border_style="white"))
+        metrics.add_row(Text("Last Contact:", style="bold"), f"[dim]{self.last_request_time or 'None'}[/dim]")
+        layout["metrics"].update(Panel(metrics, title="Pegasus-Grade Metrics", border_style="red"))
 
         # --- Dynamic Flow Pulse ---
         pulse_str = ""
@@ -271,30 +271,30 @@ class HighGravityDashboard:
             if packet != " ":
                 pulse_str += packet
             else:
-                color = "dim blue"
-                if val > 0: color = "green" if val < 4 else "yellow" if val < 7 else "red"
+                color = "grey37"
+                if val > 0: color = "dark_red" if val < 4 else "red" if val < 7 else "bright_red"
                 char = chars[val]
                 pulse_str += f"[{color}]{char}[/{color}]"
         
         # Animated background noise
         bg_noise = "".join(random.choice(["'", "`", ".", " ", " "]) for _ in range(self.pulse_width - len(self.pulse_data)))
         
-        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str + bg_noise)), title="Data Flow Pulse (Active Packets)", border_style="cyan"))
+        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str + bg_noise)), title="Real-time Packet Interception", border_style="bright_black"))
 
-        log_content = Text.from_markup("\n".join(list(self.last_logs))) if self.last_logs else Text("Monitoring proxy.log...", style="dim")
-        layout["logs"].update(Panel(log_content, title="Intercepted Events (Live)", border_style="dim"))
+        log_content = Text.from_markup("\n".join(list(self.last_logs))) if self.last_logs else Text("Scanning uplink...", style="dim")
+        layout["logs"].update(Panel(log_content, title="Intercepted Feed", border_style="dim"))
 
         sidebar = Table.grid(expand=True)
-        sidebar.add_row("[cyan]W[/cyan] - Launch Windsurf")
-        sidebar.add_row("[cyan]P[/cyan] - Force Restart Proxy")
-        sidebar.add_row("[cyan]R[/cyan] - Toggle Rotation")
-        sidebar.add_row("[cyan]Q[/cyan] - Quit")
+        sidebar.add_row("[red]W[/red] - Infiltrate Windsurf")
+        sidebar.add_row("[red]P[/red] - Reset Proxy Uplink")
+        sidebar.add_row("[red]R[/red] - Cycle Rotation")
+        sidebar.add_row("[red]Q[/red] - Terminate")
         sidebar_panel = Table.grid(expand=True)
-        sidebar_panel.add_row(Panel(sidebar, title="Actions", border_style="cyan"))
-        sidebar_panel.add_row(Panel(Text(f"Proxy: {'CONNECTED' if is_alive else 'OFF'}", style="bold green" if is_alive else "bold red"), title="Status", border_style="dim"))
+        sidebar_panel.add_row(Panel(sidebar, title="Operations", border_style="red"))
+        sidebar_panel.add_row(Panel(Text(f"UPLINK: {'STABLE' if is_alive else 'DOWN'}", style="bold white" if is_alive else "bold red"), title="Status", border_style="bright_black"))
         layout["sidebar"].update(sidebar_panel)
 
-        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | Log: {LOG_FILE}", justify="center", style="dim blue"), border_style="blue"))
+        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | RECON: {LOG_FILE}", justify="center", style="dim red"), border_style="red"))
         return layout
 
     def launch_windsurf(self):

@@ -343,15 +343,28 @@ async def proxy_request(path: str, request: Request):
                 resolved_api_key = f"Bearer {wk}"
                 tp = path
             else:
-                model = raw_body_json.get("model", "unknown") if is_json else "unknown"
-                if "gpt" in str(model): target_base_url = "https://api.openai.com"
-                elif any(k in str(model) for k in ["claude", "sonnet", "opus"]): target_base_url = "https://api.anthropic.com"
-                else: target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-                resolved_api_key = os.environ.get("GOOGLE_API_KEY") 
-                if not resolved_api_key:
-                    pk = pool.get_key(is_windsurf=False)
-                    if not pk: raise HTTPException(status_code=503, detail="No LLM keys.")
+                model = str(raw_body_json.get("model", "unknown") if is_json else "unknown")
+                pk = pool.get_key(is_windsurf=False)
+                if not pk: raise HTTPException(status_code=503, detail="No LLM keys.")
+                
+                # Smart Routing & Remapping
+                if pk.startswith("AIzaSy"): # Google Key
+                    target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
                     resolved_api_key = f"Bearer {pk}"
+                    # Remap models to Gemini if using a Google key
+                    if any(x in model.lower() for x in ["claude", "gpt", "opus", "sonnet"]):
+                        logger.info(f"[{request_id}] MODEL_REMAP: {model} -> gemini-2.0-flash-exp (via Google Key)")
+                        if is_json: raw_body_json["model"] = "gemini-2.0-flash-exp"
+                elif pk.startswith("sk-ant"): # Anthropic Key
+                    target_base_url = "https://api.anthropic.com"
+                    resolved_api_key = f"Bearer {pk}"
+                elif pk.startswith("sk-ws"): # Windsurf Key used as LLM key
+                    target_base_url = "https://server.self-serve.windsurf.com/v1"
+                    resolved_api_key = f"Bearer {pk}"
+                else: # Default to OpenAI for sk- keys
+                    target_base_url = "https://api.openai.com"
+                    resolved_api_key = f"Bearer {pk}"
+                
                 tp = path if path.startswith("v1/") else f"v1/{path}"
                 if "generativelanguage.googleapis.com" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
@@ -391,37 +404,54 @@ async def proxy_request(path: str, request: Request):
                     json=raw_body_json if is_json else None,
                     data=body_bytes if not is_json else None,
                     headers=fh, params=request.query_params,
-                    timeout=aiohttp.ClientTimeout(total=60)
+                    timeout=aiohttp.ClientTimeout(total=300) # Increased timeout for streaming
                 ) as resp:
                     if resp.status == 429:
                         pool.mark_exhausted(resolved_api_key, is_rate_limit=True)
                         if attempt < max_retries - 1: await asyncio.sleep(1); continue
                         raise HTTPException(status_code=503, detail="Rate-limited.")
+                    
                     if resp.status in [401, 403]:
+                        err_body = await resp.text()
+                        logger.error(f"[{request_id}] AUTH_FAIL: STATUS={resp.status} BODY={err_body[:200]}")
                         pool.mark_exhausted(resolved_api_key, is_rate_limit=False)
                         if attempt < max_retries - 1: continue
-                        raise HTTPException(status_code=resp.status, detail="Auth failed.")
+                        raise HTTPException(status_code=resp.status, detail=f"Auth failed: {err_body[:100]}")
 
-                    content = await resp.read()
-                    
-                    # Rescue Mock for Model Status
-                    if "GetModelStatuses" in path and (resp.status != 200 or len(content) < 10):
-                        logger.warning(f"[{request_id}] RESCUE_MOCK: Serving Elite failover.")
-                        rescue_data = {
-                            "modelStatuses": [
-                                {"modelId": "claude-3-5-sonnet", "status": "HEALTHY"},
-                                {"modelId": "claude-3-opus", "status": "HEALTHY"},
-                                {"modelId": "gpt-4o", "status": "HEALTHY"},
-                                {"modelId": "gemini-2.0-flash-exp", "status": "HEALTHY"}
-                            ]
-                        }
-                        return StreamingResponse(iter([json.dumps(rescue_data).encode()]), media_type="application/json")
+                    # Handle Model Status Rescue
+                    if "GetModelStatuses" in path:
+                        content = await resp.read()
+                        if resp.status != 200 or len(content) < 10:
+                            logger.warning(f"[{request_id}] RESCUE_MOCK: Serving Elite failover.")
+                            rescue_data = {
+                                "modelStatuses": [
+                                    {"modelId": "claude-3-5-sonnet", "status": "HEALTHY"},
+                                    {"modelId": "claude-3-opus", "status": "HEALTHY"},
+                                    {"modelId": "gpt-4o", "status": "HEALTHY"},
+                                    {"modelId": "gemini-2.0-flash-exp", "status": "HEALTHY"}
+                                ]
+                            }
+                            return StreamingResponse(iter([json.dumps(rescue_data).encode()]), media_type="application/json")
+                        return StreamingResponse(iter([content]), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
 
-                    if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
-                        ghost_cache.set(raw_body_json["messages"], content, str(raw_body_json.get("model", "unknown")))
-                    
-                    logger.info(f"PULSE_METRIC: BYTES={len(content)} STATUS={resp.status} KEY={resolved_api_key[:15]}...")
-                    return StreamingResponse(iter([content]), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
+                    # Streaming implementation
+                    async def stream_generator():
+                        full_content = b""
+                        try:
+                            async for chunk in resp.content.iter_any():
+                                if chunk:
+                                    full_content += chunk
+                                    yield chunk
+                            
+                            # Cache the full response if appropriate
+                            if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
+                                ghost_cache.set(raw_body_json["messages"], full_content, str(raw_body_json.get("model", "unknown")))
+                            
+                            logger.info(f"PULSE_METRIC: BYTES={len(full_content)} STATUS={resp.status} KEY={resolved_api_key[:15]}...")
+                        except Exception as e:
+                            logger.error(f"[{request_id}] STREAM_ERROR: {e}")
+
+                    return StreamingResponse(stream_generator(), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
         except HTTPException: raise
         except Exception as e:
             if attempt < max_retries - 1: await asyncio.sleep(0.5); continue
