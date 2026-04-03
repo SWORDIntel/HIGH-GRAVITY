@@ -61,6 +61,7 @@ class HighGravityDashboard:
         self.retry_count = 0
         self.active_keys_count = 0
         self.exhausted_keys_count = 0
+        self.tokens_saved = 0
         
         self.rotation_mode = "round-robin"
         self.last_request_time = None
@@ -161,6 +162,11 @@ class HighGravityDashboard:
                     self.cache_hits += 1
                     current_activity_spike = 8
                     self.packet_track[-1] = "[magenta]⚡[/magenta]"
+                    
+                    tok_match = re.search(r'\(Saved:\s*(\d+)\s*tokens\)', line)
+                    if tok_match:
+                        self.tokens_saved = int(tok_match.group(1))
+                        
                 elif "Silent Retry" in line or "KEY_LIMIT" in line or "AUTH_FAIL" in line:
                     self.retry_count += 1
                     current_activity_spike = 6
@@ -235,6 +241,12 @@ class HighGravityDashboard:
         metrics = Table.grid(expand=True)
         metrics.add_row(Text("Total Requests:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
         metrics.add_row(Text("Ghost Cache Hits:", style="bold"), f"[bold magenta]{self.cache_hits}[/bold magenta]")
+        
+        # Calculate estimated savings ($15 per 1M tokens)
+        est_savings = (self.tokens_saved / 1000000) * 15.0
+        savings_str = f"[bold green]${est_savings:.4f}[/bold green]" if est_savings > 0 else "[dim]$0.0000[/dim]"
+        metrics.add_row(Text("Token Vault (Saved):", style="bold"), f"[bold cyan]{self.tokens_saved:,}[/bold cyan] ({savings_str})")
+        
         metrics.add_row(Text("Invisible Retries:", style="bold"), f"[bold red]{self.retry_count}[/bold red]")
         metrics.add_row(Text("Active / Dead Keys:", style="bold"), f"[bold green]{self.active_keys_count}[/bold green] / [bold red]{self.exhausted_keys_count}[/bold red]")
         metrics.add_row(Text("Rotation Mode:", style="bold"), f"[bold yellow]{self.rotation_mode.upper()}[/bold yellow]")

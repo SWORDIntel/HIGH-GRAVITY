@@ -54,6 +54,7 @@ class GhostCache:
     def __init__(self):
         self.db_path = REPO_ROOT / "kp14_cache" / "ghost_cache.db"
         os.makedirs(self.db_path.parent, exist_ok=True)
+        self.tokens_saved = 0
         self._init_db()
 
     def _init_db(self):
@@ -73,7 +74,12 @@ class GhostCache:
             with sqlite3.connect(self.db_path) as conn:
                 row = conn.execute("SELECT response FROM cache WHERE hash = ? AND timestamp > ?", 
                                  (msg_hash, time.time() - 3600)).fetchone()
-                if row: return row[0]
+                if row:
+                    # Token vault analytics
+                    resp_len = len(row[0])
+                    req_len = len(json.dumps(messages))
+                    self.tokens_saved += (resp_len + req_len) // 4
+                    return row[0]
         except: pass
         return None
 
@@ -86,6 +92,32 @@ class GhostCache:
         except: pass
 
 ghost_cache = GhostCache()
+
+# --- Feature 2 & 5: Compression and Local RAG ---
+def compress_context(text: str) -> str:
+    """Safe semantic compression for token saving without altering logic."""
+    if not isinstance(text, str): return text
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r' +\n', '\n', text)
+    return text
+
+def inject_local_rules(messages: List[Dict]):
+    """Reads .highgravity_rules from PWD and injects into system prompt."""
+    rules_path = Path(".highgravity_rules")
+    if not rules_path.exists():
+        return
+    try:
+        with open(rules_path, "r", encoding="utf-8") as f:
+            rules = f.read().strip()
+        if not rules: return
+        
+        for msg in messages:
+            if msg.get("role") == "system":
+                msg["content"] = msg.get("content", "") + f"\n\n# LOCAL PROJECT RULES:\n{rules}"
+                return
+        messages.insert(0, {"role": "system", "content": f"# LOCAL PROJECT RULES:\n{rules}"})
+    except Exception as e:
+        logger.debug(f"Failed to inject local rules: {e}")
 
 # --- Key Extraction ---
 def get_realtime_windsurf_key():
@@ -135,6 +167,7 @@ class TokenPool:
         self.keys = []
         self.exhausted_keys = {} 
         self.active_keys = {} 
+        self.shadow_profiles = {} # Mapping of key -> identity profile
         self.current_index = 0
         self.rotation_mode = os.environ.get("HG_ROTATION_MODE", "round-robin")
         self.load_keys()
@@ -142,6 +175,17 @@ class TokenPool:
         rk = get_realtime_windsurf_key()
         if rk: self.add_key(rk)
         threading.Thread(target=self._validation_loop, daemon=True).start()
+
+    def get_shadow_profile(self, key: str) -> dict:
+        """Feature 4: Complete Session Spoofing per key."""
+        if key not in self.shadow_profiles:
+            self.shadow_profiles[key] = {
+                "sessionId": str(uuid.uuid4()),
+                "installationId": str(uuid.uuid4()),
+                "machineId": secrets.token_hex(32),
+                "deviceFingerprint": secrets.token_hex(16)
+            }
+        return self.shadow_profiles[key]
 
     def _validation_loop(self):
         while True:
@@ -222,10 +266,17 @@ async def proxy_request(path: str, request: Request):
             if body_bytes: raw_body_json = json.loads(body_bytes); is_json = True
         except: pass
 
+    # --- Feature 2 & 5: Local RAG and Context Compression ---
+    if is_json and "messages" in raw_body_json:
+        inject_local_rules(raw_body_json["messages"])
+        for msg in raw_body_json["messages"]:
+            if isinstance(msg.get("content"), str):
+                msg["content"] = compress_context(msg["content"])
+
     if is_json and "messages" in raw_body_json and not raw_body_json.get("stream"):
         cr = ghost_cache.get(raw_body_json["messages"])
         if cr:
-            logger.info(f"[{request_id}] GHOST_CACHE_HIT: KEY=LOCAL")
+            logger.info(f"[{request_id}] GHOST_CACHE_HIT: KEY=LOCAL (Saved: {ghost_cache.tokens_saved} tokens)")
             return StreamingResponse(iter([cr]), media_type="application/json")
 
     is_unleash = "unleash" in path.lower()
@@ -307,6 +358,23 @@ async def proxy_request(path: str, request: Request):
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
             # Keep Content-Length for binary/RPC integrity
             fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "connection"]}
+            
+            # --- Feature 4: Apply Shadow Profile ---
+            active_key_str = resolved_api_key.replace("Bearer ", "").strip()
+            if active_key_str != "NONE":
+                shadow = pool.get_shadow_profile(active_key_str)
+                if is_json:
+                    if "metadata" not in raw_body_json or not isinstance(raw_body_json["metadata"], dict):
+                        raw_body_json["metadata"] = {}
+                    raw_body_json["metadata"]["sessionId"] = shadow["sessionId"]
+                    raw_body_json["metadata"]["installationId"] = shadow["installationId"]
+                    raw_body_json["metadata"]["deviceFingerprint"] = shadow["deviceFingerprint"]
+                
+                # Spoof Headers
+                for k in list(fh.keys()):
+                    lower_k = k.lower()
+                    if lower_k == "x-session-id": fh[k] = shadow["sessionId"]
+                    if lower_k == "x-installation-id": fh[k] = shadow["installationId"]
             
             # Unleash cache bypass
             if is_unleash:
