@@ -14,6 +14,7 @@ import subprocess
 import signal
 import socket
 import shutil
+import random
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List, Deque
@@ -37,7 +38,7 @@ except ImportError:
     sys.exit(1)
 
 # --- Constants & Paths ---
-VERSION = "3.3.0-HG"
+VERSION = "3.4.0-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
 PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
@@ -66,9 +67,12 @@ class HighGravityDashboard:
         self.selected_model = "auto"
         self.detected_model = "None"
 
-        # Decay Pulse Data
-        self.pulse_data = deque([0]*50, maxlen=50)
+        # --- Dynamic Flow System ---
+        self.pulse_width = 60
+        self.pulse_data = deque([0]*self.pulse_width, maxlen=self.pulse_width)
+        self.packet_track = [" "] * self.pulse_width
         self._last_pulse_val = 0
+        self._frame_count = 0
         
         self.key_stats = {}
         self._last_log_size = 0
@@ -105,6 +109,12 @@ class HighGravityDashboard:
         self.status_msg = "Proxy stopped."
 
     def update_stats(self):
+        self._frame_count += 1
+        
+        # Advance packet track
+        self.packet_track.pop(0)
+        self.packet_track.append(" ")
+
         if not LOG_FILE.exists(): return
 
         try:
@@ -117,7 +127,9 @@ class HighGravityDashboard:
                 self._initial_scan_done = True
                 self._last_log_size = current_size
             elif current_size == self._last_log_size:
-                self._last_pulse_val = max(0, self._last_pulse_val - 1)
+                # Decay visual pulse if no new data
+                if self._frame_count % 2 == 0:
+                    self._last_pulse_val = max(0, self._last_pulse_val - 1)
                 self.pulse_data.append(self._last_pulse_val)
                 return
             else:
@@ -143,14 +155,19 @@ class HighGravityDashboard:
                     self.request_count += 1
                     if ts: self.last_request_time = ts
                     current_activity_spike = 10
+                    # Inject a "packet"
+                    self.packet_track[-1] = "[cyan]◆[/cyan]"
                 elif "GHOST_CACHE_HIT" in line:
                     self.cache_hits += 1
                     current_activity_spike = 8
+                    self.packet_track[-1] = "[magenta]⚡[/magenta]"
                 elif "Silent Retry" in line or "KEY_LIMIT" in line or "AUTH_FAIL" in line:
                     self.retry_count += 1
                     current_activity_spike = 6
+                    self.packet_track[-1] = "[red]✖[/red]"
                 elif "PULSE_METRIC" in line:
                     current_activity_spike = max(current_activity_spike, 4)
+                    self.packet_track[-1] = "[blue]·[/blue]"
                 
                 km = key_pattern.search(line)
                 if km:
@@ -162,7 +179,6 @@ class HighGravityDashboard:
                         self.key_stats[key]['status'] = 'Active'
                     if "ROTATION" in line: self.key_stats[key]['requests'] += 1
 
-                # Log Display Filter
                 if any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "ONLINE", "UNLEASH"]):
                     color = "cyan"
                     if "CACHE" in line: color = "magenta"
@@ -185,6 +201,7 @@ class HighGravityDashboard:
             
             self.pulse_data.append(self._last_pulse_val)
             
+            # Key Counts
             all_keys = self.key_stats.keys()
             self.active_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Active'])
             self.exhausted_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Exhausted'])
@@ -212,7 +229,7 @@ class HighGravityDashboard:
             Layout(name="logs")
         )
 
-        header_text = Text.assemble((" HIGH-GRAVITY v3.3 ", "bold white on blue"), " Real-time Identity & Feature Shield", justify="center")
+        header_text = Text.assemble((" HIGH-GRAVITY v3.4 ", "bold white on blue"), " Cybernetic Identity & Data Gateway", justify="center")
         layout["header"].update(Panel(header_text, border_style="blue"))
 
         metrics = Table.grid(expand=True)
@@ -224,15 +241,26 @@ class HighGravityDashboard:
         metrics.add_row(Text("Last Request:", style="bold"), f"[dim]{self.last_request_time or 'Never'}[/dim]")
         layout["metrics"].update(Panel(metrics, title="System Metrics", border_style="white"))
 
+        # --- Dynamic Flow Pulse ---
         pulse_str = ""
         chars = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█", "█", "█"]
-        for val in self.pulse_data:
-            color = "dim blue"
-            if val > 0: color = "green" if val < 4 else "yellow" if val < 7 else "red"
-            char = chars[val]
-            pulse_str += f"[{color}]{char}[/{color}]"
         
-        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str)), title="Activity Pulse (Data Flow)", border_style="cyan"))
+        # Build the waveform line
+        for i, val in enumerate(self.pulse_data):
+            # Check if there is a packet at this position
+            packet = self.packet_track[i]
+            if packet != " ":
+                pulse_str += packet
+            else:
+                color = "dim blue"
+                if val > 0: color = "green" if val < 4 else "yellow" if val < 7 else "red"
+                char = chars[val]
+                pulse_str += f"[{color}]{char}[/{color}]"
+        
+        # Animated background noise
+        bg_noise = "".join(random.choice(["'", "`", ".", " ", " "]) for _ in range(self.pulse_width - len(self.pulse_data)))
+        
+        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str + bg_noise)), title="Data Flow Pulse (Active Packets)", border_style="cyan"))
 
         log_content = Text.from_markup("\n".join(list(self.last_logs))) if self.last_logs else Text("Monitoring proxy.log...", style="dim")
         layout["logs"].update(Panel(log_content, title="Intercepted Events (Live)", border_style="dim"))
@@ -253,8 +281,6 @@ class HighGravityDashboard:
     def launch_windsurf(self):
         """Attempts to launch via profile script first, then system binary."""
         self.status_msg = "Locating latest Windsurf profile..."
-        
-        # 1. Try to find the latest profile-specific launch script
         try:
             import glob
             profile_scripts = sorted(glob.glob(str(REPO_ROOT / "windsurf_profiles" / "*" / "launch_windsurf.sh")), 
@@ -262,31 +288,19 @@ class HighGravityDashboard:
             if profile_scripts:
                 script_path = profile_scripts[0]
                 self.status_msg = f"Launching via profile: [bold cyan]{Path(script_path).parent.name}[/bold cyan]..."
-                # Profile scripts usually expect WINDSURF_BIN to be set
                 env = {**os.environ, "WINDSURF_BIN": "windsurf-next"}
                 if not shutil.which("windsurf-next"): env["WINDSURF_BIN"] = "windsurf"
-                
-                subprocess.Popen(["bash", script_path], 
-                               stdout=subprocess.DEVNULL, 
-                               stderr=subprocess.DEVNULL, 
-                               env=env,
-                               start_new_session=True)
+                subprocess.Popen(["bash", script_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
                 return
-        except Exception as e:
-            logger.debug(f"Profile launch failed: {e}")
+        except: pass
 
-        # 2. Fallback to system binary
         potential_cmds = ["windsurf-next", "windsurf", "codeium-windsurf"]
         for cmd in potential_cmds:
             cmd_path = shutil.which(cmd)
             if cmd_path:
                 self.status_msg = f"Launching binary: [bold cyan]{cmd_path}[/bold cyan]..."
-                subprocess.Popen([cmd_path, "--new-window"], 
-                               stdout=subprocess.DEVNULL, 
-                               stderr=subprocess.DEVNULL, 
-                               start_new_session=True)
+                subprocess.Popen([cmd_path, "--new-window"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
                 return
-        
         self.status_msg = "[red]Error: Could not find launch script or binary.[/red]"
 
     def run(self):
@@ -298,11 +312,12 @@ class HighGravityDashboard:
 
         try:
             if is_tty: tty.setcbreak(fd)
-            with Live(self.generate_dashboard(), refresh_per_second=4, screen=True) as live:
+            # Increased refresh rate for smoother animation
+            with Live(self.generate_dashboard(), refresh_per_second=10, screen=True) as live:
                 while self.running:
                     live.update(self.generate_dashboard())
                     if is_tty:
-                        r, _, _ = select.select([sys.stdin], [], [], 0.1)
+                        r, _, _ = select.select([sys.stdin], [], [], 0.05)
                         if r:
                             c = sys.stdin.read(1).lower()
                             if c == 'q': self.running = False
