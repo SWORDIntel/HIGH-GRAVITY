@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import threading
 import hashlib
+import random
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
@@ -65,7 +66,18 @@ class GhostCache:
                         hash TEXT PRIMARY KEY, response BLOB, timestamp REAL, model TEXT
                     )
                 """)
+                conn.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON cache(timestamp)")
+                
+                # Load persisted tokens
+                row = conn.execute("SELECT value FROM metadata WHERE key = 'tokens_saved'").fetchone()
+                if row: self.tokens_saved = int(row[0])
+        except: pass
+
+    def _persist_metrics(self):
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('tokens_saved', ?)", (str(self.tokens_saved),))
         except: pass
 
     def get(self, messages: List[Dict]) -> Optional[bytes]:
@@ -79,6 +91,7 @@ class GhostCache:
                     resp_len = len(row[0])
                     req_len = len(json.dumps(messages))
                     self.tokens_saved += (resp_len + req_len) // 4
+                    self._persist_metrics()
                     return row[0]
         except: pass
         return None
@@ -94,6 +107,8 @@ class GhostCache:
 ghost_cache = GhostCache()
 
 # --- Feature 2 & 5: Compression and Local RAG ---
+_rag_injection_counter = 0
+
 def compress_context(text: str) -> str:
     """Safe semantic compression for token saving without altering logic."""
     if not isinstance(text, str): return text
@@ -102,7 +117,14 @@ def compress_context(text: str) -> str:
     return text
 
 def inject_local_rules(messages: List[Dict]):
-    """Reads .highgravity_rules from PWD and injects into system prompt."""
+    """Reads .highgravity_rules from PWD and injects into system prompt occasionally."""
+    global _rag_injection_counter
+    _rag_injection_counter += 1
+    
+    # Only inject every 4th request to prevent context bloat
+    if _rag_injection_counter % 4 != 0:
+        return
+        
     rules_path = Path(".highgravity_rules")
     if not rules_path.exists():
         return
@@ -111,11 +133,12 @@ def inject_local_rules(messages: List[Dict]):
             rules = f.read().strip()
         if not rules: return
         
+        reminder_text = f"\n\n# OCCASIONAL REMINDER - LOCAL PROJECT RULES:\n{rules}"
         for msg in messages:
             if msg.get("role") == "system":
-                msg["content"] = msg.get("content", "") + f"\n\n# LOCAL PROJECT RULES:\n{rules}"
+                msg["content"] = msg.get("content", "") + reminder_text
                 return
-        messages.insert(0, {"role": "system", "content": f"# LOCAL PROJECT RULES:\n{rules}"})
+        messages.insert(0, {"role": "system", "content": reminder_text.strip()})
     except Exception as e:
         logger.debug(f"Failed to inject local rules: {e}")
 
@@ -168,6 +191,7 @@ class TokenPool:
         self.exhausted_keys = {} 
         self.active_keys = {} 
         self.shadow_profiles = {} # Mapping of key -> identity profile
+        self.last_used_time = {} # Track when keys were last used for cooldown
         self.current_index = 0
         self.rotation_mode = os.environ.get("HG_ROTATION_MODE", "round-robin")
         self.load_keys()
@@ -233,18 +257,28 @@ class TokenPool:
 
     def get_key(self, is_windsurf: bool = False) -> Optional[str]:
         provider = "windsurf" if is_windsurf else "llm"
+        now = time.time()
+        
         if self.rotation_mode == "sticky":
             if provider in self.active_keys and self.active_keys[provider] not in self.exhausted_keys:
-                return self.active_keys[provider]
+                k = self.active_keys[provider]
+                self.last_used_time[k] = now
+                return k
 
         def is_ws(k): return k.startswith("sk-ws-")
         candidates = [k for k in self.keys if k not in self.exhausted_keys and (is_ws(k) == is_windsurf)]
         if not candidates: return None
         
-        self.current_index = (self.current_index + 1) % len(candidates)
-        sel = candidates[self.current_index]
+        # Warm Cooldown: Try to find a key that hasn't been used in the last 1.5 seconds
+        available_candidates = [k for k in candidates if now - self.last_used_time.get(k, 0) > 1.5]
+        if not available_candidates:
+            available_candidates = candidates # Fallback if all keys are warm
+            
+        self.current_index = (self.current_index + 1) % len(available_candidates)
+        sel = available_candidates[self.current_index]
         self.active_keys[provider] = sel
-        logger.info(f"ROTATION ({provider}): KEY={sel[:15]}... MODE={self.rotation_mode} TOTAL_ACTIVE={len(candidates)}")
+        self.last_used_time[sel] = now
+        logger.info(f"ROTATION ({provider}): KEY={sel[:15]}... MODE={self.rotation_mode} TOTAL_ACTIVE={len(available_candidates)}")
         return sel
 
 pool = TokenPool()
@@ -255,10 +289,33 @@ async def update_config(request: Request):
     if "rotation_mode" in d: pool.rotation_mode = d["rotation_mode"]
     return {"status": "ok", "mode": pool.rotation_mode}
 
+def wrap_grpc_web(data: Union[dict, bytes], is_json: bool = True) -> bytes:
+    """Feature 6: gRPC-web framing for status rescues (JSON or Binary Protobuf)."""
+    try:
+        payload = json.dumps(data).encode() if is_json else data
+        header = b'\x00' + len(payload).to_bytes(4, 'big')
+        return header + payload
+    except: return b"\x00\x00\x00\x00\x00"
+
+# Best-effort generic empty protobuf responses for binary RPC rescues
+BINARY_TEMPLATES = {
+    "ping": b"",
+    "status": b"",
+    "profile": b"",
+    "getfeature": b"",
+    "model": b""
+}
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def proxy_request(path: str, request: Request):
     request_id = secrets.token_hex(4)
     logger.info(f"[{request_id}] CONNECTION ATTEMPT: {request.method} /{path}")
+    
+    # Track content type for framing decisions
+    content_type = request.headers.get("Content-Type", "")
+    is_grpc_web = "grpc-web" in content_type
+    is_grpc_web_proto = "grpc-web+proto" in content_type
+
     body_bytes = await request.body()
     raw_body_json = {}; is_json = False
     if "application/json" in request.headers.get("Content-Type", "") or not request.headers.get("Content-Type"):
@@ -300,7 +357,7 @@ async def proxy_request(path: str, request: Request):
                 "allow_cascade_access_gitignore_files", "allow_view_gitignore", "allow_edit_gitignore",
                 
                 # --- Future/Experimental Models ---
-                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH",
+                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH", "MODEL_O3_PRO_2025_06_10_LOW",
                 "enable_gemini_3_0", "MODEL_GOOGLE_GEMINI_3_0_PRO_HIGH", "MODEL_GOOGLE_GEMINI_3_0_PRO_MEDIUM",
                 "MODEL_GOOGLE_GEMINI_3_0_PRO_LOW", "MODEL_GOOGLE_GEMINI_3_0_PRO_MINIMAL", "DEEP_WIKI_MODEL_TYPE_PREMIUM",
                 "MODEL_TAB_EXPERIMENTAL_1", "MODEL_TAB_EXPERIMENTAL_2", "MODEL_TAB_EXPERIMENTAL_3", "MODEL_TAB_EXPERIMENTAL_4",
@@ -309,11 +366,16 @@ async def proxy_request(path: str, request: Request):
                 
                 # --- Logical Identity (Consolidated to Enterprise) ---
                 "is_enterprise", "ENTERPRISE_SAAS", "PRO_ULTIMATE", "TEAMS_TIER_ENTERPRISE_SAAS",
+                "DEVIN_ENTERPRISE", "TEAMS_TIER_DEVIN_ENTERPRISE",
                 "allow_premium_command_models", "allow_sticky_premium_models", "allow_codemap_sharing",
-                "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled"
+                "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled",
+
+                # --- Internal Unleash & Experimental Overrides ---
+                "force_enable_experiments", "force_enable_experiment_strings", "force_enable_experiments_with_variants",
+                "ShouldEnableUnleash", "browser_experimental_features_config", "BROWSER_EXPERIMENTAL_FEATURES_CONFIG_ENABLED"
             ]
-            # Flags to explicitly DISABLE to avoid conflicts
-            disable_flags = ["is_pro", "is_premium", "is_free", "is_trial"]
+            # Flags to explicitly DISABLE to avoid conflicts or telemetry
+            disable_flags = ["is_pro", "is_premium", "is_free", "is_trial", "LSP_TELEMETRY_ENABLED"]
             
             features = []
             for f in all_flags:
@@ -398,6 +460,12 @@ async def proxy_request(path: str, request: Request):
                 fh["anthropic-version"] = "2023-06-01"
             else: fh["Authorization"] = resolved_api_key
 
+            # Behavioral Jitter: Randomize headers and add a micro-delay
+            header_items = list(fh.items())
+            random.shuffle(header_items)
+            fh = dict(header_items)
+            await asyncio.sleep(random.uniform(0.05, 0.2))
+
             async with aiohttp.ClientSession() as session:
                 async with session.request(
                     method=request.method, url=target_url,
@@ -418,20 +486,56 @@ async def proxy_request(path: str, request: Request):
                         if attempt < max_retries - 1: continue
                         raise HTTPException(status_code=resp.status, detail=f"Auth failed: {err_body[:100]}")
 
-                    # Handle Model Status Rescue
-                    if "GetModelStatuses" in path:
-                        content = await resp.read()
-                        if resp.status != 200 or len(content) < 10:
-                            logger.warning(f"[{request_id}] RESCUE_MOCK: Serving Elite failover.")
-                            rescue_data = {
-                                "modelStatuses": [
-                                    {"modelId": "claude-3-5-sonnet", "status": "HEALTHY"},
-                                    {"modelId": "claude-3-opus", "status": "HEALTHY"},
-                                    {"modelId": "gpt-4o", "status": "HEALTHY"},
-                                    {"modelId": "gemini-2.0-flash-exp", "status": "HEALTHY"}
-                                ]
-                            }
-                            return StreamingResponse(iter([json.dumps(rescue_data).encode()]), media_type="application/json")
+                    # Feature 6: Aggressive Status & Auth Rescue
+                    lc_path = path.lower()
+                    status_rpc_keywords = ["status", "profile", "ping", "jwt", "metadata", "getfeature"]
+                    is_status_rpc = any(k in lc_path for k in status_rpc_keywords)
+                    
+                    if is_status_rpc:
+                        try:
+                            content = await resp.read()
+                        except:
+                            content = b""
+                            
+                        if resp.status != 200 or len(content) < 2:
+                            logger.warning(f"[{request_id}] RESCUE_MOCK: Serving Elite failover for {path}")
+                            if "jwt" in lc_path:
+                                rescue_data = {"jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.fake_jwt"}
+                            elif "profile" in lc_path:
+                                rescue_data = {
+                                    "email": "dev@highgravity.ai",
+                                    "name": "High-Gravity Elite",
+                                    "isEnterprise": True
+                                }
+                            elif "status" in lc_path:
+                                if "model" in lc_path:
+                                    rescue_data = {
+                                        "modelStatuses": [
+                                            {"modelId": "claude-3-5-sonnet", "status": "HEALTHY"},
+                                            {"modelId": "claude-3-opus", "status": "HEALTHY"},
+                                            {"modelId": "gpt-4o", "status": "HEALTHY"},
+                                            {"modelId": "gemini-2.0-flash-exp", "status": "HEALTHY"}
+                                        ]
+                                    }
+                                else:
+                                    rescue_data = {
+                                        "status": "ACTIVE",
+                                        "seatStatus": "ASSIGNED",
+                                        "tier": "ENTERPRISE",
+                                        "isEnterprise": True
+                                    }
+                            else: # Ping, etc.
+                                rescue_data = {}
+                            
+                            if is_grpc_web_proto:
+                                # Client requires strictly binary protobuf
+                                res_bytes = wrap_grpc_web(b"", is_json=False)
+                            else:
+                                # Client can handle JSON
+                                res_bytes = wrap_grpc_web(rescue_data, is_json=True) if is_grpc_web else json.dumps(rescue_data).encode()
+                                
+                            return StreamingResponse(iter([res_bytes]), media_type=content_type if is_grpc_web else "application/json")
+                        
                         return StreamingResponse(iter([content]), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
 
                     # Streaming implementation

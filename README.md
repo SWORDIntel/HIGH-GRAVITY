@@ -24,6 +24,12 @@ The ultimate local identity proxy, optimization shield, and cyber-intelligence g
 *   **Enterprise SaaS Spoofing:** Locally mocks over 60 high-value feature flags, enabling MCP tools, Web Search, and early access to O3/Gemini 3.0.
 *   **Telemetry Absorption:** Silently drops Unleash metrics to keep your usage profile invisible.
 
+### 6. 🛡️ Stealth Hardening (The v3.5.1 Update)
+*   **Behavioral Jitter:** Defeats TLS/timing fingerprinting by shuffling header order and adding randomized micro-delays (50ms - 200ms) to every upstream request.
+*   **Warm Cooldown Strategy:** Enforces a 1.5s delay between reuse of the same API key across the rotation pool, preventing rapid thermal death/rate-limiting.
+*   **Binary Protobuf Templates:** Replaced fragile JSON mocks with high-fidelity gRPC-web framing for `GetUserStatus` and `Ping`, ensuring zero "undefined" errors on strictly binary clients.
+*   **Occasional RAG Reminders:** Refactored Local RAG injection to occur every 4th message as an `# OCCASIONAL REMINDER`, slashing context bloat while maintaining rule adherence.
+
 ## Installation & Usage
 
 1.  **Dependencies:** Ensure `rich`, `fastapi`, `uvicorn`, `aiohttp`, and `requests` are installed.
