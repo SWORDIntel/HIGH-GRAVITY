@@ -244,10 +244,20 @@ async def proxy_request(path: str, request: Request):
                 "enable_model_auto_run", "allow_github_auto_reviews", "allow_github_reviews",
                 "enable_feedback_loop", "enable_instant_context_agent",
                 "enable_fuzzy_sandwich_match", "enable_path_resolution", "cc_enable_arenas", "enable_background_linting",
-                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "enable_gemini_3_0",
+                "enable_search_in_file_tool", "ENABLE_SUPERCOMPLETE", "ENABLE_SMART_COPY", "ENABLE_SUGGESTED_RESPONSES",
+                "ENABLE_QUICK_ACTIONS", "ENABLE_AUTOCOMPLETE_DURING_INTELLISENSE", "enable_sounds_for_special_events",
+                "allow_cascade_access_gitignore_files", "allow_view_gitignore", "allow_edit_gitignore",
+                
+                # --- Future/Experimental Models ---
+                "enable_o3_models", "MODEL_O3_PRO_2025_06_10", "MODEL_O3_PRO_2025_06_10_HIGH",
+                "enable_gemini_3_0", "MODEL_GOOGLE_GEMINI_3_0_PRO_HIGH", "MODEL_GOOGLE_GEMINI_3_0_PRO_MEDIUM",
+                "MODEL_GOOGLE_GEMINI_3_0_PRO_LOW", "MODEL_GOOGLE_GEMINI_3_0_PRO_MINIMAL", "DEEP_WIKI_MODEL_TYPE_PREMIUM",
+                "MODEL_TAB_EXPERIMENTAL_1", "MODEL_TAB_EXPERIMENTAL_2", "MODEL_TAB_EXPERIMENTAL_3", "MODEL_TAB_EXPERIMENTAL_4",
+                "MODEL_TAB_EXPERIMENTAL_5", "MODEL_TAB_EXPERIMENTAL_6", "MODEL_TAB_EXPERIMENTAL_7", "MODEL_TAB_EXPERIMENTAL_8",
+                "MODEL_TAB_EXPERIMENTAL_9", "MODEL_TAB_EXPERIMENTAL_10",
                 
                 # --- Logical Identity (Consolidated to Enterprise) ---
-                "is_enterprise", "ENTERPRISE_SAAS", "PRO_ULTIMATE",
+                "is_enterprise", "ENTERPRISE_SAAS", "PRO_ULTIMATE", "TEAMS_TIER_ENTERPRISE_SAAS",
                 "allow_premium_command_models", "allow_sticky_premium_models", "allow_codemap_sharing",
                 "enable_auto_cascade_seat_provisioning", "attribution_enabled", "audit_logs_enabled"
             ]
@@ -273,7 +283,7 @@ async def proxy_request(path: str, request: Request):
         try:
             if is_windsurf_rpc:
                 # Primary Windsurf RPC Target
-                target_base_url = "https://server.self-serve.windsurf.com"
+                target_base_url = "https://server.codeium.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 
                     wk = get_realtime_windsurf_key()
