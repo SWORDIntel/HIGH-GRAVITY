@@ -1,8 +1,8 @@
-# HIGH-GRAVITY v3.3.8
+# HIGH-GRAVITY v3.4.1
 
 The ultimate local identity proxy and optimization shield for Windsurf.
 
-## New in v3.3.x: The Elite Isolation Update
+## New in v3.4.x: The Elite Isolation Update
 
 ### 1. 🌐 Domain Shield (Local DNS Alias)
 *   **Bypass Validation:** Circumvents the language server's internal domain check by using `shield.windsurf.com`.
@@ -11,6 +11,7 @@ The ultimate local identity proxy and optimization shield for Windsurf.
 
 ### 2. 🚀 Unleash Shield (Elite Feature Activation)
 *   **Force-Enable Elite Features:** Locally mocks the Unleash server with a curated list of over 60 high-value flags.
+*   **Telemetry Absorption:** Silently intercepts and absorbs Unleash metrics and registration requests. Prevents your editor from sending anomalous usage data (like a Free user accessing Enterprise features) back to the servers, protecting your account from being flagged.
 *   **Logical Identity Consolidation:** Consistently masquerades as an **Enterprise SaaS** profile (`is_enterprise`, `PRO_ULTIMATE`) while disabling conflicting lower-tier markers.
 *   **Future Model Access:** Unlocks early access strings for `O3-Pro` and `Gemini 3.0 Pro`.
 *   **Advanced Tools:** Force-enables **MCP tools**, Web Search, Browser tools, and Terminal auto-suggestions.
