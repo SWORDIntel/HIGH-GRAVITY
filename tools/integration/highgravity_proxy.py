@@ -283,7 +283,7 @@ async def proxy_request(path: str, request: Request):
         try:
             if is_windsurf_rpc:
                 # Primary Windsurf RPC Target
-                target_base_url = "https://server.codeium.com"
+                target_base_url = "https://server.self-serve.windsurf.com"
                 wk = pool.get_key(is_windsurf=True)
                 if not wk: 
                     wk = get_realtime_windsurf_key()
