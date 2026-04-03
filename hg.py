@@ -230,12 +230,12 @@ class HighGravityDashboard:
             Layout(name="body", ratio=4)
         )
         layout["body"].split_column(
-            Layout(name="metrics", size=10),
+            Layout(name="metrics", size=12),
             Layout(name="pulse", size=8),
             Layout(name="logs")
         )
 
-        header_text = Text.assemble((" HIGH-GRAVITY v3.4 ", "bold white on blue"), " Cybernetic Identity & Data Gateway", justify="center")
+        header_text = Text.assemble((" HIGH-GRAVITY v3.5 ", "bold white on blue"), " Phantom Isolation Gateway", justify="center")
         layout["header"].update(Panel(header_text, border_style="blue"))
 
         metrics = Table.grid(expand=True)
@@ -250,8 +250,15 @@ class HighGravityDashboard:
         metrics.add_row(Text("Invisible Retries:", style="bold"), f"[bold red]{self.retry_count}[/bold red]")
         metrics.add_row(Text("Active / Dead Keys:", style="bold"), f"[bold green]{self.active_keys_count}[/bold green] / [bold red]{self.exhausted_keys_count}[/bold red]")
         metrics.add_row(Text("Rotation Mode:", style="bold"), f"[bold yellow]{self.rotation_mode.upper()}[/bold yellow]")
+        
+        # New Phantom Features Status
+        metrics.add_row(Text("Shadow Profiles:", style="bold"), "[bold green]ACTIVE[/bold green] (Spoofing IDs)")
+        has_rules = Path(".highgravity_rules").exists()
+        rag_status = "[bold green]ACTIVE[/bold green]" if has_rules else "[dim]INACTIVE (No .highgravity_rules)[/dim]"
+        metrics.add_row(Text("Local RAG Memory:", style="bold"), rag_status)
+        
         metrics.add_row(Text("Last Request:", style="bold"), f"[dim]{self.last_request_time or 'Never'}[/dim]")
-        layout["metrics"].update(Panel(metrics, title="System Metrics", border_style="white"))
+        layout["metrics"].update(Panel(metrics, title="System Metrics & Shields", border_style="white"))
 
         # --- Dynamic Flow Pulse ---
         pulse_str = ""
