@@ -48,4 +48,5 @@ The ultimate local identity proxy, optimization shield, and cyber-intelligence g
 *   `tools/integration/highgravity_proxy.py`: The core high-performance FastAPI proxy with streaming support.
 *   `tools/integration/lsp_shim.sh`: The process-level Bash shield for the language server.
 *   `config/windsurf_session_keys.json`: Persistent storage for discovered session keys.
+*   `src/pegasus/network/`: Directory containing WireGuard configuration files for the Pegasus network proxy.
 *   `kp14_cache/ghost_cache.db`: The SQLite backend for local semantic caching.
