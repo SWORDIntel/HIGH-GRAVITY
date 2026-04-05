@@ -219,6 +219,46 @@ class TokenPool:
 
 pool = TokenPool()
 
+# --- Stealth Hardening ---
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
+]
+
+def get_stealth_headers(original_headers: dict) -> dict:
+    stealth = {k: v for k, v in original_headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "connection", "user-agent"]}
+    stealth["User-Agent"] = secrets.choice(USER_AGENTS)
+    # Add common headers to look like a browser
+    stealth["Accept"] = "*/*"
+    stealth["Accept-Language"] = "en-US,en;q=0.9"
+    stealth["Sec-Ch-Ua"] = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"'
+    stealth["Sec-Ch-Ua-Mobile"] = "?0"
+    stealth["Sec-Ch-Ua-Platform"] = '"Windows"'
+    stealth["Sec-Fetch-Dest"] = "empty"
+    stealth["Sec-Fetch-Mode"] = "cors"
+    stealth["Sec-Fetch-Site"] = "same-origin"
+    return stealth
+
+# --- Smart Model Remapping ---
+MODEL_FALLBACKS = {
+    "gpt-4": ["gpt-4-turbo", "gpt-4-0125-preview", "gemini-1.5-pro"],
+    "gpt-3.5": ["gpt-3.5-turbo-0125", "gemini-1.5-flash"],
+    "claude-3-opus": ["claude-3-sonnet", "gemini-1.5-pro"],
+    "claude-3-sonnet": ["gemini-1.5-flash", "gpt-3.5-turbo"]
+}
+
+def remap_model(model: str, attempt: int) -> str:
+    if attempt == 0: return model
+    for base, fallbacks in MODEL_FALLBACKS.items():
+        if base in model.lower():
+            idx = (attempt - 1) % len(fallbacks)
+            remapped = fallbacks[idx]
+            logger.info(f"SMART_REMAPPING: {model} -> {remapped} (Attempt {attempt})")
+            return remapped
+    return model
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def proxy_request(path: str, request: Request):
     request_id = secrets.token_hex(4)
@@ -251,17 +291,26 @@ async def proxy_request(path: str, request: Request):
                 if not wk: raise HTTPException(503, "No Windsurf keys"); resolved_api_key = f"Bearer {wk}"; tp = path
             else:
                 model = str(raw_body_json.get("model", "unknown") if is_json else "unknown")
+                # Apply smart remapping on retries
+                if is_json and attempt > 0:
+                    raw_body_json["model"] = remap_model(model, attempt)
+                
                 pk = pool.get_key(is_windsurf=False)
                 if not pk: raise HTTPException(503, "No LLM keys")
                 if pk.startswith("AIzaSy"):
                     target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"; resolved_api_key = f"Bearer {pk}"
-                    if any(x in model.lower() for x in ["claude", "gpt"]): raw_body_json["model"] = "gemini-2.0-flash-exp"
+                    # Gemini fallback if using Google key
+                    if is_json and any(x in str(raw_body_json.get("model", "")).lower() for x in ["claude", "gpt"]):
+                        raw_body_json["model"] = "gemini-2.0-flash-exp"
                 else: target_base_url = "https://api.openai.com"; resolved_api_key = f"Bearer {pk}"
                 tp = path if path.startswith("v1/") else f"v1/{path}"
                 if "generativelanguage" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
 
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
-            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "authorization", "x-api-key", "connection"]}
+            
+            # --- Stealth Hardening ---
+            fh = get_stealth_headers(request.headers)
+            
             active_key_str = resolved_api_key.replace("Bearer ", "").strip()
             if active_key_str != "NONE":
                 shadow = pool.get_shadow_profile(active_key_str)
@@ -270,8 +319,18 @@ async def proxy_request(path: str, request: Request):
                     meta.update({"sessionId": shadow["sessionId"], "installationId": shadow["installationId"], "deviceFingerprint": shadow["deviceFingerprint"]})
                 fh.update({"x-session-id": shadow["sessionId"], "x-installation-id": shadow["installationId"], "Authorization": resolved_api_key})
 
+            # --- True Response Streaming (Zero-Buffer) ---
             async with aiohttp.ClientSession() as session:
-                async with session.request(method=request.method, url=target_url, json=raw_body_json if is_json else None, data=body_bytes if not is_json else None, headers=fh, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+                async with session.request(
+                    method=request.method, 
+                    url=target_url, 
+                    json=raw_body_json if is_json else None, 
+                    data=body_bytes if not is_json else None, 
+                    headers=fh, 
+                    timeout=aiohttp.ClientTimeout(total=300),
+                    # Stealth: Disable compression to avoid fingerprinting
+                    compress=False
+                ) as resp:
                     if resp.status == 429: pool.mark_exhausted(resolved_api_key); await asyncio.sleep(1); continue
                     if resp.status in [401, 403] and not is_ws_rpc: pool.mark_exhausted(resolved_api_key, False); continue
                     
@@ -283,11 +342,20 @@ async def proxy_request(path: str, request: Request):
                     async def stream_generator():
                         full_content = b""
                         try:
+                            # Zero-buffer iteration
                             async for chunk in resp.content.iter_any():
-                                if chunk: full_content += chunk; yield chunk
-                            if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"): ghost_cache.set(raw_body_json["messages"], full_content, str(raw_body_json.get("model", "unknown")))
-                            logger.info(f"PULSE: BYTES={len(full_content)} STATUS={resp.status}")
-                        except: pass
+                                if chunk: 
+                                    if is_json and not raw_body_json.get("stream"):
+                                        full_content += chunk
+                                    yield chunk
+                            
+                            if resp.status == 200 and is_json and "messages" in raw_body_json and not raw_body_json.get("stream"): 
+                                ghost_cache.set(raw_body_json["messages"], full_content, str(raw_body_json.get("model", "unknown")))
+                            
+                            logger.info(f"PULSE: BYTES={len(full_content) if full_content else 'streamed'} STATUS={resp.status}")
+                        except Exception as e:
+                            logger.error(f"STREAM_ERROR: {e}")
+                    
                     return StreamingResponse(stream_generator(), status_code=resp.status, media_type=resp.headers.get("Content-Type"))
         except Exception as e:
             if attempt < max_retries - 1: await asyncio.sleep(0.5); continue
