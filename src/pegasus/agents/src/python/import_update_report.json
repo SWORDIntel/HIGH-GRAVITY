@@ -1,0 +1,332 @@
+{
+  "timestamp": "2025-08-28T14:56:39.965911",
+  "files_updated": 37,
+  "total_updates": 57,
+  "errors": 1,
+  "updates": [
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/database_orchestrator.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/database_orchestrator.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/agent_registry.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/production_orchestrator.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/production_orchestrator.py",
+      "old": "from agent_dynamic_loader import",
+      "new": "from claude_agents.core.agent_dynamic_loader import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/orchestration/learning_system_tandem_orchestrator.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/database/docker/learning_api_server.py",
+      "old": "from postgresql_learning_system import",
+      "new": "from claude_agents.learning.postgresql_learning_system import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/cli/learning_cli.py",
+      "old": "from postgresql_learning_system import",
+      "new": "from claude_agents.learning.postgresql_learning_system import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/cli/learning_cli.py",
+      "old": "from learning_orchestrator_bridge import",
+      "new": "from claude_agents.learning.learning_orchestrator_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/VOICE_TOGGLE.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/quick_voice.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/voice_system.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/utils/parallel_orchestration_enhancements.py",
+      "old": "from tandem_orchestration_base import",
+      "new": "from claude_agents.orchestration.tandem_orchestration_base import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/utils/test_parallel_enhancements.py",
+      "old": "from tandem_integration import",
+      "new": "from claude_agents.orchestration.tandem_integration import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/utils/test_parallel_enhancements.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/binary_bridge_connector.py",
+      "old": "from ENHANCED_AGENT_INTEGRATION import",
+      "new": "from claude_agents.implementations.specialized.ENHANCED_AGENT_INTEGRATION import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/claude_orchestration_bridge.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/claude_orchestration_bridge.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/claude_orchestration_bridge.py",
+      "old": "from agent_dynamic_loader import",
+      "new": "from claude_agents.core.agent_dynamic_loader import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/agent_registry.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_examples.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_integration.py",
+      "old": "from tandem_orchestration_base import",
+      "new": "from claude_agents.orchestration.tandem_orchestration_base import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_integration.py",
+      "old": "from tandem_integration import",
+      "new": "from claude_agents.orchestration.tandem_integration import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_integration.py",
+      "old": "from production_orchestrator_bridge import",
+      "new": "from claude_agents.implementations.specialized.production_orchestrator_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/ENHANCED_AGENT_INTEGRATION.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/VOICE_INPUT_SYSTEM.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/learning_orchestrator_bridge.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/learning_orchestrator_bridge.py",
+      "old": "from postgresql_learning_system import",
+      "new": "from claude_agents.learning.postgresql_learning_system import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator.py",
+      "old": "from agent_dynamic_loader import",
+      "new": "from claude_agents.core.agent_dynamic_loader import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator_bridge.py",
+      "old": "from tandem_orchestration_base import",
+      "new": "from claude_agents.orchestration.tandem_orchestration_base import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator_bridge.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator_bridge.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/database_orchestrator.py",
+      "old": "from production_orchestrator import",
+      "new": "from claude_agents.orchestration.production_orchestrator import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/database_orchestrator.py",
+      "old": "from agent_registry import",
+      "new": "from claude_agents.orchestration.agent_registry import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/enhanced_pygui_impl.py",
+      "old": "from pygui_impl import",
+      "new": "from claude_agents.implementations.platform.pygui_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/enhanced_pygui_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/pygui_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/tui_impl.py",
+      "old": "from tui_impl import",
+      "new": "from claude_agents.implementations.platform.tui_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/bridge_health_monitor.py",
+      "old": "from claude_agent_bridge import",
+      "new": "from claude_agents.bridges.claude_agent_bridge import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/enhanced_monitor_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/enhanced_monitor_impl.py",
+      "old": "from monitor_impl import",
+      "new": "from claude_agents.implementations.infrastructure.monitor_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/monitor_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_redteamorchestrator_impl.py",
+      "old": "from redteamorchestrator_impl import",
+      "new": "from claude_agents.implementations.security.redteamorchestrator_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_redteamorchestrator_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_securitychaosagent_impl.py",
+      "old": "from securitychaosagent_impl import",
+      "new": "from claude_agents.implementations.security.securitychaosagent_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_securitychaosagent_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/nsa_impl.py",
+      "old": "from tandem_orchestration_base import",
+      "new": "from claude_agents.orchestration.tandem_orchestration_base import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/redteamorchestrator_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/securitychaosagent_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/constructor_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_constructor_impl.py",
+      "old": "from tandem_orchestration_base import",
+      "new": "from claude_agents.orchestration.tandem_orchestration_base import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_constructor_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_constructor_impl.py",
+      "old": "from constructor_impl import",
+      "new": "from claude_agents.implementations.core.constructor_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_linter_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_linter_impl.py",
+      "old": "from linter_impl import",
+      "new": "from claude_agents.implementations.core.linter_impl import"
+    },
+    {
+      "file": "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/linter_impl.py",
+      "old": "from parallel_orchestration_enhancements import",
+      "new": "from claude_agents.utils.parallel_orchestration_enhancements import"
+    }
+  ],
+  "files": [
+    "/home/ubuntu/claude-backups/orchestration/database_orchestrator.py",
+    "/home/ubuntu/claude-backups/orchestration/agent_registry.py",
+    "/home/ubuntu/claude-backups/orchestration/production_orchestrator.py",
+    "/home/ubuntu/claude-backups/orchestration/learning_system_tandem_orchestrator.py",
+    "/home/ubuntu/claude-backups/database/docker/learning_api_server.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/cli/learning_cli.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/VOICE_TOGGLE.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/quick_voice.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/voice/voice_system.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/utils/parallel_orchestration_enhancements.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/utils/test_parallel_enhancements.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/binary_bridge_connector.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/bridges/claude_orchestration_bridge.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/agent_registry.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_examples.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/orchestration/tandem_integration.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/ENHANCED_AGENT_INTEGRATION.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/VOICE_INPUT_SYSTEM.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/learning_orchestrator_bridge.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/specialized/production_orchestrator_bridge.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/database_orchestrator.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/enhanced_pygui_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/pygui_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/platform/tui_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/bridge_health_monitor.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/enhanced_monitor_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/infrastructure/monitor_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_redteamorchestrator_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/enhanced_securitychaosagent_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/nsa_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/redteamorchestrator_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/security/securitychaosagent_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/constructor_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_constructor_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/enhanced_linter_impl.py",
+    "/home/ubuntu/claude-backups/agents/src/python/claude_agents/implementations/core/linter_impl.py"
+  ]
+}

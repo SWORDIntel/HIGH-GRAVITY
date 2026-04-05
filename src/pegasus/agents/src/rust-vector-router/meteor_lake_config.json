@@ -1,0 +1,46 @@
+{
+  "meteor_lake_optimization": {
+    "enabled": true,
+    "cpu_model": "Intel Core Ultra 7 155H",
+    "architecture": "Meteor Lake",
+    "cores": {
+      "p_cores": {
+        "count": 6,
+        "ids": [0, 2, 4, 6, 8, 10],
+        "usage": "high_performance_tasks"
+      },
+      "e_cores": {
+        "count": 8,
+        "ids": [12, 13, 14, 15, 16, 17, 18, 19],
+        "usage": "background_tasks"
+      },
+      "lp_e_cores": {
+        "count": 2,
+        "ids": [20, 21],
+        "usage": "maintenance_tasks"
+      }
+    },
+    "features": {
+      "hidden_avx512": {
+        "detection_enabled": true,
+        "force_enable": false,
+        "optimization_level": "aggressive"
+      },
+      "npu": {
+        "enabled": true,
+        "ai_acceleration": true,
+        "inference_optimization": true
+      },
+      "thermal_management": {
+        "monitoring": true,
+        "throttle_threshold_c": 95,
+        "warning_threshold_c": 85
+      }
+    },
+    "memory": {
+      "numa_aware": true,
+      "huge_pages": true,
+      "prefetch_optimization": true
+    }
+  }
+}

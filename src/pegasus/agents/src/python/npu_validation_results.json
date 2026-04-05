@@ -1,0 +1,13 @@
+{
+  "timestamp": 1758453949.432844,
+  "delay_removal_test": true,
+  "npu_detection_test": true,
+  "benchmark_results": {
+    "raw_ops_per_sec": 24404.59320584745,
+    "total_time_seconds": 0.040975893003633246,
+    "npu_enabled": true,
+    "agents_available": 0,
+    "npu_inferences": 1000
+  },
+  "overall_success": true
+}

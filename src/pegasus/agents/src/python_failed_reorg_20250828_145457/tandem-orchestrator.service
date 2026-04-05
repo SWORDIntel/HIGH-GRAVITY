@@ -1,0 +1,47 @@
+[Unit]
+Description=Claude Agent Framework - Tandem Orchestration System
+Documentation=file:///home/ubuntu/claude-backups/docs/TANDEM_ORCHESTRATION_SYSTEM.md
+After=network.target multi-user.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/claude-backups/agents/src/python
+Environment=PYTHONPATH=/home/ubuntu/claude-backups/agents/src/python:/home/ubuntu/claude-backups/agents/src/python
+Environment=ENABLE_METEOR_LAKE_OPT=1
+Environment=ENABLE_AVX512=0
+Environment=TANDEM_LOG_LEVEL=INFO
+Environment=TANDEM_CONFIG_DIR=/home/ubuntu/claude-backups/agents/src/python/config
+Environment=OPENVINO_AVAILABLE=0
+Environment=NPU_ACCELERATION_ENABLED=0
+Environment=INTEL_OPENVINO_DIR=
+ExecStartPre=/bin/bash -c "[ -f '/home/ubuntu/openvino_ml_env/bin/setupvars.sh' ] && source '/home/ubuntu/openvino_ml_env/bin/setupvars.sh' || true"
+ExecStartPre=/home/ubuntu/claude-backups/agents/src/python/venv_production/bin/python -c "import production_orchestrator; print('Tandem Orchestrator module check: OK')"
+ExecStart=/home/ubuntu/claude-backups/agents/src/python/venv_production/bin/python -m production_orchestrator --mode=production --config=/home/ubuntu/claude-backups/agents/src/python/config/production.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tandem-orchestrator
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/ubuntu/claude-backups/agents/src/python /home/ubuntu/claude-backups/agents/monitoring/logs
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=32768
+MemoryLimit=16G
+CPUQuota=800%
+
+[Install]
+WantedBy=multi-user.target

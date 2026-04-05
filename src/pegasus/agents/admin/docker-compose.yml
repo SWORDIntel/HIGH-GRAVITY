@@ -1,0 +1,440 @@
+version: '3.8'
+
+# Claude Agent Communication System - Administration Tools
+# Docker Compose configuration for complete administration stack
+# Supports web console, API services, monitoring, and database backend
+
+services:
+  # ============================================================================
+  # ADMINISTRATION WEB CONSOLE
+  # ============================================================================
+  
+  claude-admin-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: claude-admin-web
+    ports:
+      - "8080:8080"
+    environment:
+      - CLAUDE_ENV=production
+      - CLAUDE_DEBUG=false
+      - CLAUDE_CONFIG_DIR=/app/config
+      - CLAUDE_DATA_DIR=/app/data
+      - CLAUDE_LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://claude_admin:${POSTGRES_PASSWORD}@postgres:5432/claude_admin
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_URL=http://prometheus:9090
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./config:/app/config:ro
+      - claude-admin-data:/app/data
+      - claude-admin-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - claude-admin
+      - claude-agents
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================================================
+  # ADMINISTRATION API SERVER
+  # ============================================================================
+  
+  claude-admin-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: claude-admin-api
+    ports:
+      - "8081:8081"
+    environment:
+      - CLAUDE_ENV=production
+      - CLAUDE_DEBUG=false
+      - CLAUDE_CONFIG_DIR=/app/config
+      - CLAUDE_DATA_DIR=/app/data
+      - CLAUDE_LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://claude_admin:${POSTGRES_PASSWORD}@postgres:5432/claude_admin
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_URL=http://prometheus:9090
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./config:/app/config:ro
+      - claude-admin-data:/app/data
+      - claude-admin-logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - claude-admin
+      - claude-agents
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ============================================================================
+  # DATABASE SERVICES
+  # ============================================================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: claude-admin-postgres
+    environment:
+      - POSTGRES_DB=claude_admin
+      - POSTGRES_USER=claude_admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claude_admin -d claude_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    command: >
+      postgres -c max_connections=100
+               -c shared_buffers=256MB
+               -c effective_cache_size=1GB
+               -c maintenance_work_mem=64MB
+               -c checkpoint_completion_target=0.9
+               -c wal_buffers=16MB
+               -c default_statistics_target=100
+               -c random_page_cost=1.1
+               -c effective_io_concurrency=200
+
+  redis:
+    image: redis:7-alpine
+    container_name: claude-admin-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # MONITORING SERVICES
+  # ============================================================================
+  
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: claude-admin-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    restart: unless-stopped
+    networks:
+      - claude-admin
+      - claude-agents
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: claude-admin-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_INSTALL_PLUGINS=redis-datasource,grafana-polystat-panel
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: claude-admin-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--cluster.listen-address=0.0.0.0:9094'
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # LOG AGGREGATION
+  # ============================================================================
+  
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: claude-admin-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: claude-admin-promtail
+    volumes:
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - claude-admin-logs:/var/log/claude-agents:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # REVERSE PROXY AND SSL TERMINATION
+  # ============================================================================
+  
+  nginx:
+    image: nginx:1.24-alpine
+    container_name: claude-admin-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - claude-admin-web
+      - claude-admin-api
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # BACKUP SERVICE
+  # ============================================================================
+  
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    container_name: claude-admin-backup
+    environment:
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - BACKUP_RETENTION_DAYS=30
+      - DATABASE_URL=postgresql://claude_admin:${POSTGRES_PASSWORD}@postgres:5432/claude_admin
+      - S3_BUCKET=${S3_BACKUP_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - claude-admin-data:/app/data:ro
+      - backup-storage:/backup
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - claude-admin
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+  loki-data:
+    driver: local
+  claude-admin-data:
+    driver: local
+  claude-admin-logs:
+    driver: local
+  nginx-logs:
+    driver: local
+  backup-storage:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+
+networks:
+  claude-admin:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  claude-agents:
+    external: true
+    name: claude-agents

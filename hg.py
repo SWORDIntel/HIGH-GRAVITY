@@ -62,6 +62,7 @@ class HighGravityDashboard:
         self.active_keys_count = 0
         self.exhausted_keys_count = 0
         self.tokens_saved = 0
+        self.total_bytes_transmitted = 0
         
         self.rotation_mode = "round-robin"
         self.last_request_time = None
@@ -174,6 +175,10 @@ class HighGravityDashboard:
                 elif "PULSE_METRIC" in line:
                     current_activity_spike = max(current_activity_spike, 4)
                     self.packet_track[-1] = "[blue]·[/blue]"
+                    
+                    byte_match = re.search(r'BYTES=(\d+)', line)
+                    if byte_match:
+                        self.total_bytes_transmitted += int(byte_match.group(1))
                 
                 km = key_pattern.search(line)
                 if km:
@@ -247,12 +252,33 @@ class HighGravityDashboard:
         savings_str = f"[bold green]${est_savings:.4f}[/bold green]" if est_savings > 0 else "[dim]$0.0000[/dim]"
         metrics.add_row(Text("Exfiltrated Tokens:", style="bold"), f"[bold red]{self.tokens_saved:,}[/bold red] ({savings_str})")
         
+        # Calculate Overage (Optimization Gain over normal LAN)
+        # Normal tokens = total_bytes / 4 (est) + tokens_saved
+        est_total_tokens = (self.total_bytes_transmitted // 4) + self.tokens_saved
+        overage_pct = (self.tokens_saved / (est_total_tokens + 1)) * 100
+        metrics.add_row(Text("Uplink Overage:", style="bold"), f"[bold white]{overage_pct:.2f}%[/bold white] (vs Normal LAN)")
+        
         metrics.add_row(Text("Blocked Retries:", style="bold"), f"[bold bright_red]{self.retry_count}[/bold bright_red]")
         metrics.add_row(Text("Active / Dead Nodes:", style="bold"), f"[bold white]{self.active_keys_count}[/bold white] / [bold red]{self.exhausted_keys_count}[/bold red]")
         metrics.add_row(Text("Injection Mode:", style="bold"), f"[bold dark_red]{self.rotation_mode.upper()}[/bold dark_red]")
         
         # New Phantom Features Status
         metrics.add_row(Text("Shadow Spoofing:", style="bold"), "[bold red]ENABLED[/bold red]")
+        metrics.add_row(Text("RAM Cache:", style="bold"), "[bold green]VOLATILE (SHM)[/bold green]")
+        
+        # Check if QIHSE is active (proxy-side info, here mocked based on availability)
+        try:
+            from tools.integration.qihse_wrapper import QIHSE
+            q = QIHSE()
+            if q.is_available():
+                search_status = "[bold blue]QIHSE (QUANTUM-INSPIRED)[/bold blue]"
+            else:
+                search_status = "[bold yellow]CLASSICAL (LINEAR)[/bold yellow]"
+        except:
+            search_status = "[bold dim]DISABLED[/bold dim]"
+            
+        metrics.add_row(Text("Search Engine:", style="bold"), search_status)
+        
         has_rules = Path(".highgravity_rules").exists()
         rag_status = "[bold white]ACTIVE[/bold white]" if has_rules else "[dim]INACTIVE[/dim]"
         metrics.add_row(Text("Local Intelligence:", style="bold"), rag_status)
@@ -281,70 +307,63 @@ class HighGravityDashboard:
         
         layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str + bg_noise)), title="Real-time Packet Interception", border_style="bright_black"))
 
-        log_content = Text.from_markup("\n".join(list(self.last_logs))) if self.last_logs else Text("Scanning uplink...", style="dim")
-        layout["logs"].update(Panel(log_content, title="Intercepted Feed", border_style="dim"))
-
-        sidebar = Table.grid(expand=True)
-        sidebar.add_row("[red]W[/red] - Infiltrate Windsurf")
-        sidebar.add_row("[red]P[/red] - Reset Proxy Uplink")
-        sidebar.add_row("[red]R[/red] - Cycle Rotation")
-        sidebar.add_row("[red]Q[/red] - Terminate")
-        sidebar_panel = Table.grid(expand=True)
-        sidebar_panel.add_row(Panel(sidebar, title="Operations", border_style="red"))
-        sidebar_panel.add_row(Panel(Text(f"UPLINK: {'STABLE' if is_alive else 'DOWN'}", style="bold white" if is_alive else "bold red"), title="Status", border_style="bright_black"))
-        layout["sidebar"].update(sidebar_panel)
-
-        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | RECON: {LOG_FILE}", justify="center", style="dim red"), border_style="red"))
-        return layout
-
-    def launch_windsurf(self):
-        """Attempts to launch via profile script first, then system binary."""
-        self.status_msg = "Locating latest Windsurf profile..."
+        # Swarm Monitor Section
+        swarm_logs = Table(title="Pegasus Swarm - Granular Telemetry", expand=True)
+        swarm_logs.add_column("Agent ID", style="cyan")
+        swarm_logs.add_column("Task", style="white")
+        swarm_logs.add_column("Progress", style="green")
+        swarm_logs.add_column("CPU %", style="yellow")
+        swarm_logs.add_column("Memory", style="magenta")
+        swarm_logs.add_column("Status", style="bold green")
+        
+        # Dynamically fetch granular data
+        found_agent = False
         try:
-            import glob
-            profile_scripts = sorted(glob.glob(str(REPO_ROOT / "windsurf_profiles" / "*" / "launch_windsurf.sh")), 
-                                   key=os.path.getmtime, reverse=True)
-            if profile_scripts:
-                script_path = profile_scripts[0]
-                self.status_msg = f"Launching via profile: [bold cyan]{Path(script_path).parent.name}[/bold cyan]..."
-                env = {**os.environ, "WINDSURF_BIN": "windsurf-next"}
-                if not shutil.which("windsurf-next"): env["WINDSURF_BIN"] = "windsurf"
-                subprocess.Popen(["bash", script_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
-                return
-        except: pass
+            import psutil
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cpu_percent', 'memory_info']):
+                if proc.info['cmdline'] and 'dist/cli.mjs' in ' '.join(proc.info['cmdline']):
+                    cmd = ' '.join(proc.info['cmdline'])
+                    
+                    task = "GENERAL_OPS"
+                    if "RESEARCHER" in cmd: task = "INDEXING_REPO"
+                    elif "SECURITYAUDITOR" in cmd: task = "AUDITING_SRC"
+                    elif "ARCHITECT" in cmd: task = "MAPPING_FLOW"
+                    elif "COMPRESSOR" in cmd: task = "OPTIMIZING_CONTEXT"
+                    elif "SHUFFLER" in cmd: task = "ENTROPY_INJECTION"
+                    elif "MONITOR" in cmd: task = "TELEMETRY_GATING"
+                    
+                    cpu = proc.cpu_percent(interval=0.01)
+                    mem = proc.memory_info().rss / (1024 * 1024)
+                    
+                    # Detect Idle Status
+                    status = "ACTIVE"
+                    progress = f"{int(cpu * 5)}%" # Simulated progress
+                    if cpu < 0.5:
+                        status = "REASSIGNING"
+                        progress = "0%"
+                        task = f"IDLE -> DISCOVERING_VULNS"
+                    
+                    # Map task to human-readable names
+                    agent_name = "OPERATIVE"
+                    if "INDEXING_REPO" in task: agent_name = "RESEARCHER"
+                    elif "AUDITING_SRC" in task: agent_name = "AUDITOR"
+                    elif "MAPPING_FLOW" in task: agent_name = "ARCHITECT"
+                    elif "OPTIMIZING_CONTEXT" in task: agent_name = "COMPRESSOR"
+                    elif "ENTROPY_INJECTION" in task: agent_name = "SHUFFLER"
+                    elif "TELEMETRY_GATING" in task: agent_name = "MONITOR"
+                    
+                    swarm_logs.add_row(
+                        f"{agent_name}-{proc.pid}", 
+                        task,
+                        progress,
+                        f"{cpu}%", 
+                        f"{mem:.1f}MB", 
+                        status
+                    )
+                    found_agent = True
+        except Exception as e:
+            swarm_logs.add_row("Monitor Error", "N/A", "N/A", "N/A", "N/A", str(e))
+            
+        if not found_agent:
+            swarm_logs.add_row("No agents active", "IDLE", "0%", "0%", "0MB", "IDLE")
 
-        potential_cmds = ["windsurf-next", "windsurf", "codeium-windsurf"]
-        for cmd in potential_cmds:
-            cmd_path = shutil.which(cmd)
-            if cmd_path:
-                self.status_msg = f"Launching binary: [bold cyan]{cmd_path}[/bold cyan]..."
-                subprocess.Popen([cmd_path, "--new-window"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-                return
-        self.status_msg = "[red]Error: Could not find launch script or binary.[/red]"
-
-    def run(self):
-        import select, tty, termios
-        fd = sys.stdin.fileno()
-        is_tty = os.isatty(fd)
-        if is_tty: old_settings = termios.tcgetattr(fd)
-        self.start_proxy()
-
-        try:
-            if is_tty: tty.setcbreak(fd)
-            # Increased refresh rate for smoother animation
-            with Live(self.generate_dashboard(), refresh_per_second=10, screen=True) as live:
-                while self.running:
-                    live.update(self.generate_dashboard())
-                    if is_tty:
-                        r, _, _ = select.select([sys.stdin], [], [], 0.05)
-                        if r:
-                            c = sys.stdin.read(1).lower()
-                            if c == 'q': self.running = False
-                            elif c == 'p': self.stop_proxy(); time.sleep(0.5); self.start_proxy()
-                            elif c == 'r': self.toggle_rotation()
-                            elif c == 'w': self.launch_windsurf()
-        finally:
-            if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-if __name__ == "__main__":
-    HighGravityDashboard().run()

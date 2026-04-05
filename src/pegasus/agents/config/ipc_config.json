@@ -1,0 +1,10 @@
+{
+  "methods": {
+    "CRITICAL": "shared_memory_50ns",
+    "HIGH": "io_uring_500ns",
+    "NORMAL": "unix_sockets_2us",
+    "LOW": "mmap_files_10us"
+  },
+  "buffer_size": 1048576,
+  "ring_buffer_slots": 1024
+}

@@ -1,0 +1,776 @@
+# Claude Agent Communication System - Docker Compose
+# Multi-agent orchestration with ultra-fast binary protocol (4.2M+ msg/sec)
+
+version: '3.9'
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  agent-internal:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: claude-agents
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  agent-external:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  agent-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  agent-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
+  agent-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./models
+  shared-memory:
+    driver: tmpfs
+    driver_opts:
+      tmpfs-size: 256m
+      tmpfs-mode: 0777
+
+# ============================================================================
+# BASE SERVICE TEMPLATE
+# ============================================================================
+x-agent-base: &agent-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: production
+  restart: unless-stopped
+  networks:
+    - agent-internal
+  volumes:
+    - agent-data:/app/data
+    - agent-logs:/app/logs
+    - agent-models:/app/models
+    - shared-memory:/dev/shm
+  environment:
+    - AGENT_HOME=/app
+    - UFP_SHARED_MEMORY_PATH=/dev/shm/claude_agents
+    - UFP_LOG_LEVEL=INFO
+    - AGENT_NETWORK=agent-internal
+    - AGENT_DISCOVERY_MODE=multicast
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  cap_add:
+    - NET_BIND_SERVICE
+  ulimits:
+    nofile:
+      soft: 65536
+      hard: 65536
+    memlock:
+      soft: -1
+      hard: -1
+
+# ============================================================================
+# CORE ORCHESTRATION SERVICES
+# ============================================================================
+services:
+
+  # Message Router - Ultra-Fast Protocol Hub
+  message-router:
+    <<: *agent-base
+    container_name: claude-message-router
+    hostname: message-router
+    command: ["/app/bin/ultra_message_router"]
+    ports:
+      - "8080:8080"  # Admin interface
+      - "8081:8081"  # Agent discovery
+    environment:
+      - AGENT_TYPE=MESSAGE_ROUTER
+      - AGENT_ID=1
+      - UFP_MAX_CONNECTIONS=1000
+      - UFP_BUFFER_SIZE=67108864
+      - UFP_WORKER_THREADS=8
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "/app/bin/healthcheck.sh", "message-router"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+
+  # Director Agent - Strategic Executive
+  director:
+    <<: *agent-base
+    container_name: claude-director
+    hostname: director
+    command: ["python3", "/app/python/director_agent.py"]
+    depends_on:
+      - message-router
+    environment:
+      - AGENT_TYPE=DIRECTOR
+      - AGENT_ID=2
+      - AGENT_ROLE=orchestrator
+      - AGENT_PRIORITY=critical
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD", "/app/bin/healthcheck.sh", "director"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Project Orchestrator - Tactical Coordination
+  project-orchestrator:
+    <<: *agent-base
+    container_name: claude-project-orchestrator
+    hostname: project-orchestrator
+    command: ["python3", "/app/python/project_orchestrator.py"]
+    depends_on:
+      - director
+    environment:
+      - AGENT_TYPE=PROJECT_ORCHESTRATOR
+      - AGENT_ID=3
+      - AGENT_ROLE=coordinator
+      - AGENT_PRIORITY=high
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.21
+
+  # Architect Agent - System Design
+  architect:
+    <<: *agent-base
+    container_name: claude-architect
+    hostname: architect
+    command: ["python3", "/app/python/architect_agent.py"]
+    depends_on:
+      - director
+    environment:
+      - AGENT_TYPE=ARCHITECT
+      - AGENT_ID=4
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.22
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+
+# ============================================================================
+# DEVELOPMENT & BUILD SERVICES
+# ============================================================================
+
+  # Constructor Agent - Project Initialization
+  constructor:
+    <<: *agent-base
+    container_name: claude-constructor
+    hostname: constructor
+    command: ["python3", "/app/python/constructor_agent.py"]
+    depends_on:
+      - architect
+    environment:
+      - AGENT_TYPE=CONSTRUCTOR
+      - AGENT_ID=5
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.30
+
+  # Security Agent - Security Analysis
+  security:
+    <<: *agent-base
+    container_name: claude-security
+    hostname: security
+    command: ["python3", "/app/python/security_agent.py"]
+    depends_on:
+      - message-router
+    environment:
+      - AGENT_TYPE=SECURITY
+      - AGENT_ID=6
+      - AGENT_VETO_POWER=true
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.31
+    cap_add:
+      - SYS_ADMIN  # For security scanning
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+
+  # Testbed Agent - Quality Assurance
+  testbed:
+    <<: *agent-base
+    container_name: claude-testbed
+    hostname: testbed
+    command: ["python3", "/app/python/testbed_agent.py"]
+    depends_on:
+      - constructor
+    environment:
+      - AGENT_TYPE=TESTBED
+      - AGENT_ID=7
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.32
+    volumes:
+      - agent-data:/app/data
+      - agent-logs:/app/logs
+      - /tmp/testbed:/tmp/testbed
+
+  # Optimizer Agent - Performance Engineering
+  optimizer:
+    <<: *agent-base
+    container_name: claude-optimizer
+    hostname: optimizer
+    command: ["/app/bin/ultra_optimizer_agent"]
+    depends_on:
+      - testbed
+    environment:
+      - AGENT_TYPE=OPTIMIZER
+      - AGENT_ID=8
+      - MESSAGE_ROUTER_HOST=message-router:8081
+      - OPTIMIZATION_TARGET=throughput
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.33
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+
+# ============================================================================
+# SPECIALIZED DEVELOPMENT AGENTS
+# ============================================================================
+
+  # API Designer Agent
+  api-designer:
+    <<: *agent-base
+    container_name: claude-api-designer
+    hostname: api-designer
+    command: ["python3", "/app/python/api_designer_agent.py"]
+    depends_on:
+      - architect
+      - database
+    environment:
+      - AGENT_TYPE=API_DESIGNER
+      - AGENT_ID=9
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.40
+
+  # Database Agent - Data Architecture
+  database:
+    <<: *agent-base
+    container_name: claude-database
+    hostname: database
+    command: ["python3", "/app/python/database_agent.py"]
+    depends_on:
+      - architect
+    environment:
+      - AGENT_TYPE=DATABASE
+      - AGENT_ID=10
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.41
+    volumes:
+      - agent-data:/app/data
+      - ./database:/var/lib/database
+
+  # Web Agent - Frontend Development
+  web:
+    <<: *agent-base
+    container_name: claude-web
+    hostname: web
+    command: ["python3", "/app/python/web_agent.py"]
+    depends_on:
+      - api-designer
+    environment:
+      - AGENT_TYPE=WEB
+      - AGENT_ID=11
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.42
+    ports:
+      - "3000:3000"  # Development server
+
+  # Mobile Agent - Mobile Development  
+  mobile:
+    <<: *agent-base
+    container_name: claude-mobile
+    hostname: mobile
+    command: ["python3", "/app/python/mobile_agent.py"]
+    depends_on:
+      - api-designer
+    environment:
+      - AGENT_TYPE=MOBILE
+      - AGENT_ID=12
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.43
+
+# ============================================================================
+# AI/ML SERVICES
+# ============================================================================
+
+  # MLOps Agent - ML Pipeline Management
+  mlops:
+    <<: *agent-base
+    container_name: claude-mlops
+    hostname: mlops
+    command: ["python3", "/app/python/mlops_agent.py"]
+    depends_on:
+      - database
+    environment:
+      - AGENT_TYPE=MLOPS
+      - AGENT_ID=13
+      - MESSAGE_ROUTER_HOST=message-router:8081
+      - CUDA_VISIBLE_DEVICES=0
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.50
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+    # Uncomment for GPU support
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=0
+
+  # Data Science Agent - Analytics & Research
+  data-science:
+    <<: *agent-base
+    container_name: claude-data-science
+    hostname: data-science
+    command: ["python3", "/app/python/data_science_agent.py"]
+    depends_on:
+      - database
+    environment:
+      - AGENT_TYPE=DATA_SCIENCE
+      - AGENT_ID=14
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.51
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '3.0'
+
+# ============================================================================
+# VOICE & MULTIMEDIA SERVICES
+# ============================================================================
+
+  # Voice Recognition System
+  voice-recognition:
+    <<: *agent-base
+    container_name: claude-voice-recognition
+    hostname: voice-recognition
+    command: ["/app/bin/voice-agent-system", "--config", "/app/config/voice_config.json"]
+    depends_on:
+      - message-router
+    environment:
+      - AGENT_TYPE=VOICE_RECOGNITION
+      - AGENT_ID=15
+      - MESSAGE_ROUTER_HOST=message-router:8081
+      - INTEL_GNA_ENABLED=1
+      - INTEL_NPU_ENABLED=1
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.60
+    devices:
+      - "/dev/snd:/dev/snd"  # Audio devices
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '3.0'
+
+  # Voice Biometric Agent
+  voice-biometric:
+    <<: *agent-base
+    container_name: claude-voice-biometric
+    hostname: voice-biometric
+    command: ["/app/bin/voice_biometric_agent"]
+    depends_on:
+      - voice-recognition
+    environment:
+      - AGENT_TYPE=VOICE_BIOMETRIC
+      - AGENT_ID=16
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.61
+
+# ============================================================================
+# QUALITY ASSURANCE SERVICES
+# ============================================================================
+
+  # Linter Agent - Code Quality
+  linter:
+    <<: *agent-base
+    container_name: claude-linter
+    hostname: linter
+    command: ["python3", "/app/python/linter_agent.py"]
+    depends_on:
+      - constructor
+    environment:
+      - AGENT_TYPE=LINTER
+      - AGENT_ID=17
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.70
+
+  # Debugger Agent - Failure Analysis
+  debugger:
+    <<: *agent-base
+    container_name: claude-debugger
+    hostname: debugger
+    command: ["/app/bin/debugger_agent"]
+    depends_on:
+      - testbed
+    environment:
+      - AGENT_TYPE=DEBUGGER
+      - AGENT_ID=18
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.71
+    cap_add:
+      - SYS_PTRACE  # For debugging
+
+  # Patcher Agent - Bug Fixing
+  patcher:
+    <<: *agent-base
+    container_name: claude-patcher
+    hostname: patcher
+    command: ["python3", "/app/python/patcher_agent.py"]
+    depends_on:
+      - linter
+      - security
+    environment:
+      - AGENT_TYPE=PATCHER
+      - AGENT_ID=19
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.72
+
+# ============================================================================
+# DEPLOYMENT & OPERATIONS SERVICES
+# ============================================================================
+
+  # Packager Agent - Build Automation
+  packager:
+    <<: *agent-base
+    container_name: claude-packager
+    hostname: packager
+    command: ["python3", "/app/python/packager_agent.py"]
+    depends_on:
+      - testbed
+      - optimizer
+    environment:
+      - AGENT_TYPE=PACKAGER
+      - AGENT_ID=20
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Deployer Agent - Deployment Orchestration
+  deployer:
+    <<: *agent-base
+    container_name: claude-deployer
+    hostname: deployer
+    command: ["python3", "/app/python/deployer_agent.py"]
+    depends_on:
+      - packager
+      - security
+    environment:
+      - AGENT_TYPE=DEPLOYER
+      - AGENT_ID=21
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.81
+      agent-external:
+        ipv4_address: 172.21.0.10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Monitor Agent - Observability
+  monitor:
+    <<: *agent-base
+    container_name: claude-monitor
+    hostname: monitor
+    command: ["python3", "/app/python/monitor_agent.py"]
+    depends_on:
+      - deployer
+    environment:
+      - AGENT_TYPE=MONITOR
+      - AGENT_ID=22
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.82
+    ports:
+      - "9090:9090"  # Prometheus metrics
+      - "3001:3001"  # Grafana dashboard
+    volumes:
+      - ./monitoring:/app/monitoring
+      - agent-logs:/app/logs:ro
+
+# ============================================================================
+# DOCUMENTATION & INTEGRATION SERVICES  
+# ============================================================================
+
+  # Documentation Generator
+  docgen:
+    <<: *agent-base
+    container_name: claude-docgen
+    hostname: docgen
+    command: ["python3", "/app/python/docgen_agent.py"]
+    depends_on:
+      - api-designer
+      - testbed
+    environment:
+      - AGENT_TYPE=DOCGEN
+      - AGENT_ID=23
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.90
+    volumes:
+      - ./docs:/app/docs
+
+  # Integration Agent - External Systems
+  integration:
+    <<: *agent-base
+    container_name: claude-integration
+    hostname: integration
+    command: ["python3", "/app/python/integration_agent.py"]
+    depends_on:
+      - api-designer
+    environment:
+      - AGENT_TYPE=INTEGRATION
+      - AGENT_ID=24
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.91
+      agent-external:
+        ipv4_address: 172.21.0.20
+
+# ============================================================================
+# SPECIALIZED LANGUAGE SERVICES
+# ============================================================================
+
+  # C/C++ Internal Agent
+  c-internal:
+    <<: *agent-base
+    container_name: claude-c-internal
+    hostname: c-internal
+    command: ["/app/bin/ultra_c_agent"]
+    depends_on:
+      - architect
+      - linter
+    environment:
+      - AGENT_TYPE=C_INTERNAL
+      - AGENT_ID=25
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.100
+
+  # Python Internal Agent
+  python-internal:
+    <<: *agent-base
+    container_name: claude-python-internal
+    hostname: python-internal
+    command: ["python3", "/app/python/python_internal_agent.py"]
+    depends_on:
+      - architect
+      - linter
+    environment:
+      - AGENT_TYPE=PYTHON_INTERNAL
+      - AGENT_ID=26
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.101
+
+  # GUI Agent - Desktop Interface
+  pygui:
+    <<: *agent-base
+    container_name: claude-pygui
+    hostname: pygui
+    command: ["python3", "/app/python/pygui_agent.py"]
+    depends_on:
+      - architect
+      - python-internal
+    environment:
+      - AGENT_TYPE=PYGUI
+      - AGENT_ID=27
+      - MESSAGE_ROUTER_HOST=message-router:8081
+      - DISPLAY=${DISPLAY:-:0}
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.102
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+  # Infrastructure Agent - Resource Management
+  infrastructure:
+    <<: *agent-base
+    container_name: claude-infrastructure
+    hostname: infrastructure
+    command: ["python3", "/app/python/infrastructure_agent.py"]
+    depends_on:
+      - message-router
+    environment:
+      - AGENT_TYPE=INFRASTRUCTURE
+      - AGENT_ID=28
+      - MESSAGE_ROUTER_HOST=message-router:8081
+    networks:
+      agent-internal:
+        ipv4_address: 172.20.0.103
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    privileged: false
+    cap_add:
+      - SYS_ADMIN
+
+# ============================================================================
+# MONITORING & MANAGEMENT SERVICES
+# ============================================================================
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: claude-prometheus
+    hostname: prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    ports:
+      - "9091:9090"
+    networks:
+      - agent-internal
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    depends_on:
+      - message-router
+
+  # Grafana - Visualization Dashboard
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: claude-grafana
+    hostname: grafana
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    networks:
+      - agent-internal
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.49
+    container_name: claude-jaeger
+    hostname: jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Web UI
+      - "14268:14268"  # Jaeger collector
+    networks:
+      - agent-internal
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    depends_on:
+      - message-router
+
+# ============================================================================
+# ADDITIONAL VOLUMES FOR EXTERNAL SERVICES
+# ============================================================================
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ============================================================================
+# SERVICE PROFILES FOR DIFFERENT DEPLOYMENT SCENARIOS
+# ============================================================================
+
+# Development profile - core services only
+profiles:
+  - dev
+  - production
+  - minimal

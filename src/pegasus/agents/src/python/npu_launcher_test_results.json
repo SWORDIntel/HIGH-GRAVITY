@@ -1,0 +1,106 @@
+{
+  "summary": {
+    "total_tests": 19,
+    "passed_tests": 18,
+    "failed_tests": 1,
+    "pass_rate": 94.73684210526315,
+    "timestamp": 1757979661.5813556
+  },
+  "detailed_results": {
+    "File Existence: Main NPU launcher": {
+      "status": "PASS",
+      "details": "/home/john/.local/bin/claude-npu",
+      "timestamp": 1757979660.8321095
+    },
+    "File Existence: Integration wrapper": {
+      "status": "PASS",
+      "details": "/home/john/.local/bin/claude-with-npu",
+      "timestamp": 1757979660.832121
+    },
+    "File Existence: Health checker": {
+      "status": "PASS",
+      "details": "/home/john/.local/bin/claude-npu-health",
+      "timestamp": 1757979660.8321285
+    },
+    "File Existence: Configuration file": {
+      "status": "PASS",
+      "details": "${CLAUDE_PROJECT_ROOT:-$(dirname "$0")/../../}config/npu_launcher.json",
+      "timestamp": 1757979660.8321354
+    },
+    "File Existence: Documentation": {
+      "status": "PASS",
+      "details": "${CLAUDE_PROJECT_ROOT:-$(dirname "$0")/../../}docs/npu_launcher_system.md",
+      "timestamp": 1757979660.832142
+    },
+    "File Existence: Constructor integration": {
+      "status": "PASS",
+      "details": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/npu_constructor_integration.py",
+      "timestamp": 1757979660.8321483
+    },
+    "File Existence: NPU orchestrator": {
+      "status": "PASS",
+      "details": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/npu_optimized_final.py",
+      "timestamp": 1757979660.8321538
+    },
+    "Permissions: claude-npu": {
+      "status": "PASS",
+      "details": "Mode: 0o100755",
+      "timestamp": 1757979660.8321707
+    },
+    "Permissions: claude-with-npu": {
+      "status": "PASS",
+      "details": "Mode: 0o100755",
+      "timestamp": 1757979660.8321798
+    },
+    "Permissions: claude-npu-health": {
+      "status": "PASS",
+      "details": "Mode: 0o100755",
+      "timestamp": 1757979660.8321855
+    },
+    "Configuration File": {
+      "status": "PASS",
+      "details": "All 8 fields present",
+      "timestamp": 1757979660.8322823
+    },
+    "Claude Wrapper Integration": {
+      "status": "PASS",
+      "details": "Found 4/4 integration markers",
+      "timestamp": 1757979660.83241
+    },
+    "NPU Launcher Help": {
+      "status": "PASS",
+      "details": "Found 7/6 expected elements",
+      "timestamp": 1757979660.8405693
+    },
+    "NPU Launcher Version": {
+      "status": "PASS",
+      "details": "Version info correct",
+      "timestamp": 1757979660.8466907
+    },
+    "NPU Launcher Config": {
+      "status": "PASS",
+      "details": "Found 5/5 config items",
+      "timestamp": 1757979660.8527176
+    },
+    "NPU Health Checker": {
+      "status": "FAIL",
+      "details": "Command failed: 2025-09-16 00:41:00,932 - INFO - \ud83d\ude80 Running full NPU system validation...\n2025-09-16 00:41:00,932 - INFO - \ud83d\udd0d Validating NPU hardware...\n2025-09-16 00:41:00,991 - INFO - \ud83d\udd0d Validating OpenVINO installation...\n2025-09-16 00:41:00,991 - ERROR - OpenVINO not available in current environment\n2025-09-16 00:41:00,991 - INFO - \ud83d\udd0d Validating NPU orchestrator...\n2025-09-16 00:41:00,991 - INFO - Running NPU baseline performance test...\n2025-09-16 00:41:01,551 - INFO - \u2705 Validation complete: 60/100 points (60.0%)\n",
+      "timestamp": 1757979661.5669465
+    },
+    "Claude Wrapper NPU Integration": {
+      "status": "PASS",
+      "details": "NPU integration working",
+      "timestamp": 1757979661.5761352
+    },
+    "Integration Wrapper": {
+      "status": "PASS",
+      "details": "Wrapper functionality working",
+      "timestamp": 1757979661.5812383
+    },
+    "Documentation Quality": {
+      "status": "PASS",
+      "details": "Found 7/7 expected sections",
+      "timestamp": 1757979661.5813375
+    }
+  }
+}

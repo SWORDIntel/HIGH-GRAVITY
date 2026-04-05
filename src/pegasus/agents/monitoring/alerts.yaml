@@ -1,0 +1,464 @@
+# Claude Agent System - Prometheus Alerting Rules
+# Production-ready alerting for comprehensive monitoring and observability
+#
+# Features:
+# - Agent health and performance alerts
+# - Transport layer failure detection
+# - Resource utilization warnings
+# - Failure prediction alerts
+# - Hardware monitoring alerts
+# - SLO compliance monitoring
+
+groups:
+  - name: claude_agent_critical
+    interval: 30s
+    rules:
+      - alert: AgentSystemDown
+        expr: up{job="claude-agents"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: claude-agents
+          team: platform
+        annotations:
+          summary: "Claude Agent system is down"
+          description: "The Claude Agent system has been unreachable for more than 30 seconds."
+          runbook_url: "https://docs.claude.ai/runbooks/agent-system-down"
+
+      - alert: TransportLayerFailure
+        expr: rate(agent_transport_errors_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: critical
+          service: transport-layer
+          team: platform
+        annotations:
+          summary: "High transport layer error rate detected"
+          description: "Transport layer error rate is {{ $value }} errors/sec, which exceeds the critical threshold of 100 errors/sec."
+          runbook_url: "https://docs.claude.ai/runbooks/transport-layer-failure"
+
+      - alert: MessageThroughputCriticallyLow
+        expr: agent_transport_throughput_mps < 1000000
+        for: 5m
+        labels:
+          severity: critical
+          service: transport-layer
+          team: platform
+        annotations:
+          summary: "Message throughput critically low"
+          description: "Current message throughput is {{ $value }} msg/s, below critical threshold of 1M msg/s."
+          runbook_url: "https://docs.claude.ai/runbooks/low-throughput"
+
+      - alert: AgentHealthCritical
+        expr: agent_health_score < 20
+        for: 1m
+        labels:
+          severity: critical
+          service: agent
+          team: platform
+          agent_id: "{{ $labels.agent_id }}"
+          agent_type: "{{ $labels.agent_type }}"
+        annotations:
+          summary: "Agent {{ $labels.agent_type }}-{{ $labels.agent_id }} health critical"
+          description: "Agent {{ $labels.agent_type }}-{{ $labels.agent_id }} health score is {{ $value }}%, below critical threshold of 20%."
+          runbook_url: "https://docs.claude.ai/runbooks/agent-health-critical"
+
+      - alert: SystemMemoryExhaustion
+        expr: (system_memory_usage_bytes{type="used"} / system_memory_usage_bytes{type="total"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+          team: platform
+        annotations:
+          summary: "System memory exhaustion imminent"
+          description: "System memory usage is {{ $value }}%, exceeding critical threshold of 95%."
+          runbook_url: "https://docs.claude.ai/runbooks/memory-exhaustion"
+
+      - alert: CPUOverheating
+        expr: hardware_temperature_celsius > 90
+        for: 1m
+        labels:
+          severity: critical
+          service: hardware
+          team: platform
+          component: "{{ $labels.component }}"
+        annotations:
+          summary: "CPU overheating detected"
+          description: "{{ $labels.component }} temperature is {{ $value }}°C, exceeding critical threshold of 90°C."
+          runbook_url: "https://docs.claude.ai/runbooks/cpu-overheating"
+
+  - name: claude_agent_warning
+    interval: 60s
+    rules:
+      - alert: TransportLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: platform
+        annotations:
+          summary: "High transport layer latency"
+          description: "95th percentile transport latency is {{ $value }}s, exceeding warning threshold of 100ms."
+          runbook_url: "https://docs.claude.ai/runbooks/high-latency"
+
+      - alert: AgentHealthDegraded
+        expr: agent_health_score < 50 and agent_health_score >= 20
+        for: 5m
+        labels:
+          severity: warning
+          service: agent
+          team: platform
+          agent_id: "{{ $labels.agent_id }}"
+          agent_type: "{{ $labels.agent_type }}"
+        annotations:
+          summary: "Agent {{ $labels.agent_type }}-{{ $labels.agent_id }} health degraded"
+          description: "Agent {{ $labels.agent_type }}-{{ $labels.agent_id }} health score is {{ $value }}%, below warning threshold of 50%."
+          runbook_url: "https://docs.claude.ai/runbooks/agent-health-degraded"
+
+      - alert: HighQueueDepth
+        expr: agent_queue_depth > 1000
+        for: 3m
+        labels:
+          severity: warning
+          service: agent
+          team: platform
+          agent_id: "{{ $labels.agent_id }}"
+          agent_type: "{{ $labels.agent_type }}"
+        annotations:
+          summary: "High queue depth for agent {{ $labels.agent_type }}-{{ $labels.agent_id }}"
+          description: "Queue depth for agent {{ $labels.agent_type }}-{{ $labels.agent_id }} is {{ $value }}, exceeding warning threshold of 1000."
+          runbook_url: "https://docs.claude.ai/runbooks/high-queue-depth"
+
+      - alert: CPUUtilizationHigh
+        expr: system_cpu_utilization_ratio / 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+          team: platform
+        annotations:
+          summary: "High CPU utilization"
+          description: "System CPU utilization is {{ $value }}%, exceeding warning threshold of 80%."
+          runbook_url: "https://docs.claude.ai/runbooks/high-cpu-utilization"
+
+      - alert: MemoryUtilizationHigh
+        expr: (system_memory_usage_bytes{type="used"} / system_memory_usage_bytes{type="total"}) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+          team: platform
+        annotations:
+          summary: "High memory utilization"
+          description: "System memory utilization is {{ $value }}%, exceeding warning threshold of 85%."
+          runbook_url: "https://docs.claude.ai/runbooks/high-memory-utilization"
+
+      - alert: ErrorRateIncreasing
+        expr: increase(agent_transport_errors_total[10m]) > increase(agent_transport_errors_total[10m] offset 10m) * 2
+        for: 5m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: platform
+        annotations:
+          summary: "Transport error rate increasing"
+          description: "Transport layer error rate has doubled in the last 10 minutes."
+          runbook_url: "https://docs.claude.ai/runbooks/increasing-error-rate"
+
+  - name: claude_agent_predictive
+    interval: 300s  # 5 minutes
+    rules:
+      - alert: AgentFailurePredicted
+        expr: failure_prediction_score > 70
+        for: 10m
+        labels:
+          severity: warning
+          service: agent
+          team: platform
+          agent_id: "{{ $labels.agent_id }}"
+          agent_type: "{{ $labels.agent_type }}"
+          alert_type: predictive
+        annotations:
+          summary: "Agent failure predicted for {{ $labels.agent_type }}-{{ $labels.agent_id }}"
+          description: "Failure prediction score for agent {{ $labels.agent_type }}-{{ $labels.agent_id }} is {{ $value }}%, indicating high risk of failure."
+          runbook_url: "https://docs.claude.ai/runbooks/agent-failure-prediction"
+
+      - alert: MemoryExhaustionPredicted
+        expr: predict_linear(system_memory_usage_bytes{type="used"}[1h], 4*3600) / on() system_memory_usage_bytes{type="total"} > 0.95
+        for: 15m
+        labels:
+          severity: warning
+          service: system
+          team: platform
+          alert_type: predictive
+        annotations:
+          summary: "Memory exhaustion predicted within 4 hours"
+          description: "Based on current trends, system memory will be exhausted within 4 hours."
+          runbook_url: "https://docs.claude.ai/runbooks/memory-exhaustion-prediction"
+
+      - alert: ThroughputDegradationPredicted
+        expr: predict_linear(agent_transport_throughput_mps[30m], 1800) < 2000000
+        for: 10m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: platform
+          alert_type: predictive
+        annotations:
+          summary: "Throughput degradation predicted"
+          description: "Based on current trends, message throughput will drop below 2M msg/s within 30 minutes."
+          runbook_url: "https://docs.claude.ai/runbooks/throughput-degradation-prediction"
+
+  - name: claude_agent_anomaly
+    interval: 120s  # 2 minutes
+    rules:
+      - alert: AnomalousMessagePattern
+        expr: anomaly_detection_score > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: security
+          agent_id: "{{ $labels.agent_id }}"
+          detector_type: "{{ $labels.detector_type }}"
+        annotations:
+          summary: "Anomalous message pattern detected"
+          description: "Anomaly score of {{ $value }}% detected by {{ $labels.detector_type }} for agent {{ $labels.agent_id }}."
+          runbook_url: "https://docs.claude.ai/runbooks/anomalous-message-pattern"
+
+      - alert: UnusualAgentBehavior
+        expr: |
+          (
+            (rate(agent_messages_processed_total[10m]) > 
+             avg_over_time(rate(agent_messages_processed_total[10m])[1h:10m]) * 3)
+            or
+            (rate(agent_messages_processed_total[10m]) < 
+             avg_over_time(rate(agent_messages_processed_total[10m])[1h:10m]) * 0.1)
+          ) and on(agent_id) agent_status == 1
+        for: 5m
+        labels:
+          severity: info
+          service: agent
+          team: platform
+          agent_id: "{{ $labels.agent_id }}"
+          agent_type: "{{ $labels.agent_type }}"
+        annotations:
+          summary: "Unusual behavior detected for agent {{ $labels.agent_type }}-{{ $labels.agent_id }}"
+          description: "Agent {{ $labels.agent_type }}-{{ $labels.agent_id }} processing rate is significantly different from normal pattern."
+          runbook_url: "https://docs.claude.ai/runbooks/unusual-agent-behavior"
+
+  - name: claude_agent_performance
+    interval: 60s
+    rules:
+      - alert: ThroughputBelowSLO
+        expr: agent_transport_throughput_mps < 4000000
+        for: 5m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: platform
+          slo: throughput
+        annotations:
+          summary: "Throughput below SLO"
+          description: "Message throughput of {{ $value }} msg/s is below SLO target of 4M msg/s."
+          runbook_url: "https://docs.claude.ai/runbooks/throughput-slo-violation"
+
+      - alert: LatencyAboveSLO
+        expr: histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: transport-layer
+          team: platform
+          slo: latency
+        annotations:
+          summary: "Latency above SLO"
+          description: "99th percentile latency of {{ $value }}s exceeds SLO target of 100ms."
+          runbook_url: "https://docs.claude.ai/runbooks/latency-slo-violation"
+
+      - alert: AvailabilityBelowSLO
+        expr: |
+          (
+            1 - (
+              sum(rate(agent_transport_errors_total[5m])) / 
+              sum(rate(agent_transport_messages_total[5m]))
+            )
+          ) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          service: transport-layer
+          team: platform
+          slo: availability
+        annotations:
+          summary: "Availability below SLO"
+          description: "System availability of {{ $value }} is below SLO target of 99.9%."
+          runbook_url: "https://docs.claude.ai/runbooks/availability-slo-violation"
+
+  - name: claude_agent_capacity
+    interval: 300s  # 5 minutes
+    rules:
+      - alert: AgentCapacityNearLimit
+        expr: count(agent_status == 1) by (agent_type) > 50
+        for: 10m
+        labels:
+          severity: warning
+          service: agent
+          team: platform
+          agent_type: "{{ $labels.agent_type }}"
+        annotations:
+          summary: "{{ $labels.agent_type }} agent capacity near limit"
+          description: "Number of active {{ $labels.agent_type }} agents ({{ $value }}) is approaching capacity limits."
+          runbook_url: "https://docs.claude.ai/runbooks/agent-capacity-planning"
+
+      - alert: CoreUtilizationImbalance
+        expr: |
+          (
+            avg(hardware_core_utilization_ratio{core_type="performance"}) / 100 -
+            avg(hardware_core_utilization_ratio{core_type="efficiency"}) / 100
+          ) > 0.3
+        for: 10m
+        labels:
+          severity: info
+          service: hardware
+          team: platform
+        annotations:
+          summary: "CPU core utilization imbalance detected"
+          description: "Performance cores are significantly more utilized than efficiency cores (difference: {{ $value }})."
+          runbook_url: "https://docs.claude.ai/runbooks/core-utilization-imbalance"
+
+  - name: claude_agent_security
+    interval: 60s
+    rules:
+      - alert: SecurityAnomalyDetected
+        expr: anomaly_detection_score{detector_type="security"} > 90
+        for: 2m
+        labels:
+          severity: critical
+          service: security
+          team: security
+          agent_id: "{{ $labels.agent_id }}"
+        annotations:
+          summary: "Security anomaly detected"
+          description: "High-confidence security anomaly ({{ $value }}%) detected for agent {{ $labels.agent_id }}."
+          runbook_url: "https://docs.claude.ai/runbooks/security-anomaly"
+
+      - alert: UnauthorizedMessageFlow
+        expr: |
+          sum(rate(message_flow_matrix[5m])) by (source_agent, target_agent) > 
+          avg_over_time(sum(rate(message_flow_matrix[5m])) by (source_agent, target_agent)[1h:5m]) * 10
+        for: 3m
+        labels:
+          severity: warning
+          service: security
+          team: security
+          source_agent: "{{ $labels.source_agent }}"
+          target_agent: "{{ $labels.target_agent }}"
+        annotations:
+          summary: "Unusual message flow detected"
+          description: "Message flow from agent {{ $labels.source_agent }} to {{ $labels.target_agent }} is {{ $value }}x higher than normal."
+          runbook_url: "https://docs.claude.ai/runbooks/unusual-message-flow"
+
+  - name: claude_agent_infrastructure
+    interval: 120s  # 2 minutes
+    rules:
+      - alert: DiskSpaceRunningLow
+        expr: |
+          (
+            (node_filesystem_size_bytes - node_filesystem_free_bytes) / 
+            node_filesystem_size_bytes
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: infrastructure
+          team: platform
+          mountpoint: "{{ $labels.mountpoint }}"
+        annotations:
+          summary: "Disk space running low"
+          description: "Disk usage on {{ $labels.mountpoint }} is {{ $value | humanizePercentage }}, exceeding 85% threshold."
+          runbook_url: "https://docs.claude.ai/runbooks/disk-space-low"
+
+      - alert: NetworkConnectivityIssue
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: infrastructure
+          team: platform
+          instance: "{{ $labels.instance }}"
+        annotations:
+          summary: "Network connectivity issue detected"
+          description: "Node exporter on {{ $labels.instance }} is unreachable, indicating potential network issues."
+          runbook_url: "https://docs.claude.ai/runbooks/network-connectivity"
+
+      - alert: TooManyOpenFiles
+        expr: node_filefd_allocated / node_filefd_maximum > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+          team: platform
+          instance: "{{ $labels.instance }}"
+        annotations:
+          summary: "Too many open files"
+          description: "File descriptor usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}, exceeding 80% threshold."
+          runbook_url: "https://docs.claude.ai/runbooks/too-many-open-files"
+
+# Recording rules for efficient querying
+  - name: claude_agent_recording_rules
+    interval: 30s
+    rules:
+      - record: claude:transport_throughput_5m
+        expr: rate(agent_transport_messages_total[5m])
+
+      - record: claude:transport_error_rate_5m
+        expr: rate(agent_transport_errors_total[5m]) / rate(agent_transport_messages_total[5m])
+
+      - record: claude:agent_health_by_type
+        expr: avg(agent_health_score) by (agent_type)
+
+      - record: claude:system_resource_utilization
+        expr: |
+          (
+            label_replace(
+              system_cpu_utilization_ratio / 100, "resource", "cpu", "", ""
+            ) or
+            label_replace(
+              (system_memory_usage_bytes{type="used"} / system_memory_usage_bytes{type="total"}), 
+              "resource", "memory", "", ""
+            )
+          )
+
+      - record: claude:message_flow_rate_matrix
+        expr: rate(message_flow_matrix[5m])
+
+      - record: claude:transport_latency_quantiles
+        expr: |
+          label_replace(
+            histogram_quantile(0.50, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)),
+            "quantile", "p50", "", ""
+          ) or
+          label_replace(
+            histogram_quantile(0.95, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)),
+            "quantile", "p95", "", ""
+          ) or
+          label_replace(
+            histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)),
+            "quantile", "p99", "", ""
+          )
+
+      - record: claude:slo_availability
+        expr: |
+          1 - (
+            sum(rate(agent_transport_errors_total[5m])) / 
+            sum(rate(agent_transport_messages_total[5m]))
+          )
+
+      - record: claude:agent_failure_risk_high
+        expr: count(failure_prediction_score > 70) by (agent_type)
+
+      - record: claude:core_utilization_by_type
+        expr: avg(hardware_core_utilization_ratio / 100) by (core_type)

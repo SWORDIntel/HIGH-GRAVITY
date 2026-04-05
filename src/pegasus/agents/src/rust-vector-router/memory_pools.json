@@ -1,0 +1,28 @@
+{
+  "memory_pools": {
+    "agent_messages": {
+      "pool_size": "64MB",
+      "block_size": "4KB",
+      "alignment": 64,
+      "numa_aware": true
+    },
+    "communication_buffers": {
+      "pool_size": "256MB", 
+      "block_size": "16KB",
+      "alignment": 64,
+      "numa_aware": true
+    },
+    "temporary_data": {
+      "pool_size": "128MB",
+      "block_size": "8KB", 
+      "alignment": 32,
+      "numa_aware": false
+    }
+  },
+  "garbage_collection": {
+    "enabled": true,
+    "aggressive_mode": false,
+    "frequency_ms": 1000,
+    "threshold_mb": 512
+  }
+}

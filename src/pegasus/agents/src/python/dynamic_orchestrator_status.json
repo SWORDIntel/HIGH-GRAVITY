@@ -1,0 +1,76 @@
+{
+  "launcher_config": {
+    "mode": "auto",
+    "monitoring_enabled": true,
+    "monitoring_interval": 5.0,
+    "performance_threshold": 100.0,
+    "auto_switch_enabled": true,
+    "fallback_enabled": true,
+    "benchmark_on_start": true
+  },
+  "hardware_capabilities": {
+    "system_id": "sys_806d972e279e",
+    "hostname": "johnmilbox",
+    "platform": "Linux",
+    "architecture": "x86_64",
+    "cpu_brand": "Intel(R) Core(TM) Ultra 7 165H",
+    "cpu_cores": 15,
+    "cpu_threads": 20,
+    "cpu_base_freq": 0.9034327499999999,
+    "cpu_max_freq": 4.18,
+    "has_avx": true,
+    "has_avx2": true,
+    "has_avx512": false,
+    "has_sse4_2": true,
+    "total_memory_gb": 62.2722282409668,
+    "available_memory_gb": 32.37228775024414,
+    "memory_speed_mhz": null,
+    "has_npu": true,
+    "npu_tops": 11.0,
+    "has_gna": false,
+    "has_gpu_compute": true,
+    "gpu_memory_gb": 1.0,
+    "openvino_available": true,
+    "openvino_devices": [
+      "CPU",
+      "GPU",
+      "NPU"
+    ],
+    "openvino_version": "2025.3.0-19807-44526285f24-releases/2025/3",
+    "thermal_design_power": 28,
+    "current_temp_celsius": 27.5,
+    "thermal_throttling": false,
+    "performance_tier": "ultra",
+    "orchestrator_mode": "npu",
+    "fallback_level": 1
+  },
+  "current_orchestrator": "UnifiedOrchestrator",
+  "available_orchestrators": [
+    "unified",
+    "cpu"
+  ],
+  "orchestrator_performance": {
+    "unified": {
+      "score": 1.0,
+      "stability": 1.0
+    },
+    "cpu": {
+      "score": 0.8,
+      "stability": 0.95
+    }
+  },
+  "current_metrics": {
+    "ops_per_sec": 3.3020139723167374,
+    "avg_response_time_ms": 202.00157165527344,
+    "success_rate": 1.0,
+    "memory_usage_mb": 258.109375,
+    "cpu_utilization": 4.5,
+    "temperature_celsius": 27.5,
+    "orchestrator_mode": "UnifiedOrchestrator",
+    "timestamp": 1757995050.3504717
+  },
+  "performance_history_size": 20,
+  "switch_count": 1,
+  "uptime_seconds": 12.699934482574463,
+  "monitoring_active": true
+}

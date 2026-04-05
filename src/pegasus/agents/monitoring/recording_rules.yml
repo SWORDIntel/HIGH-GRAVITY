@@ -1,0 +1,296 @@
+# Recording Rules for Claude Agent Communication System
+# Pre-compute expensive queries for faster dashboard performance
+
+groups:
+  - name: transport_layer_recording
+    interval: 5s
+    rules:
+      # Transport throughput aggregations
+      - record: transport:message_rate_5m
+        expr: sum(rate(agent_transport_messages_total[5m]))
+        
+      - record: transport:message_rate_by_type_5m
+        expr: sum(rate(agent_transport_messages_total[5m])) by (msg_type)
+        
+      - record: transport:message_rate_by_priority_5m
+        expr: sum(rate(agent_transport_messages_total[5m])) by (priority)
+        
+      # Transport latency percentiles
+      - record: transport:latency_p50_5m
+        expr: histogram_quantile(0.50, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))
+        
+      - record: transport:latency_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))
+        
+      - record: transport:latency_p99_5m
+        expr: histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))
+        
+      - record: transport:latency_p999_5m
+        expr: histogram_quantile(0.999, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))
+        
+      # Error rates
+      - record: transport:error_rate_5m
+        expr: sum(rate(agent_transport_errors_total[5m])) / sum(rate(agent_transport_messages_total[5m]))
+        
+      - record: transport:error_rate_by_type_5m
+        expr: sum(rate(agent_transport_errors_total[5m])) by (error_type) / sum(rate(agent_transport_messages_total[5m]))
+
+  - name: agent_performance_recording
+    interval: 10s
+    rules:
+      # Agent message processing rates
+      - record: agent:message_rate_5m
+        expr: sum(rate(agent_messages_processed_total[5m])) by (agent_id, agent_type)
+        
+      - record: agent:message_rate_by_type_5m
+        expr: sum(rate(agent_messages_processed_total[5m])) by (agent_type)
+        
+      - record: agent:message_rate_by_action_5m
+        expr: sum(rate(agent_messages_processed_total[5m])) by (action)
+        
+      # Agent processing time percentiles
+      - record: agent:processing_time_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(agent_processing_time_seconds_bucket[5m])) by (agent_id, le))
+        
+      - record: agent:processing_time_p99_5m
+        expr: histogram_quantile(0.99, sum(rate(agent_processing_time_seconds_bucket[5m])) by (agent_id, le))
+        
+      # Agent error rates
+      - record: agent:error_rate_5m
+        expr: sum(rate(agent_errors_total[5m])) by (agent_id, agent_type)
+        
+      # Agent resource utilization trends
+      - record: agent:cpu_usage_avg_5m
+        expr: avg_over_time(agent_resource_usage{resource="cpu"}[5m])
+        
+      - record: agent:memory_usage_avg_5m
+        expr: avg_over_time(agent_resource_usage{resource="memory"}[5m])
+        
+      # Agent queue depth trends
+      - record: agent:queue_depth_avg_5m
+        expr: avg_over_time(agent_queue_depth[5m])
+        
+      - record: agent:queue_depth_max_5m
+        expr: max_over_time(agent_queue_depth[5m])
+
+  - name: system_capacity_recording
+    interval: 30s
+    rules:
+      # System-wide capacity metrics
+      - record: system:total_active_agents
+        expr: count(agent_health_score > 0)
+        
+      - record: system:healthy_agents_ratio
+        expr: count(agent_health_score > 80) / count(agent_health_score > 0)
+        
+      - record: system:active_agents_by_type
+        expr: count(agent_health_score > 0) by (agent_type)
+        
+      # Resource utilization aggregations
+      - record: system:cpu_utilization_avg
+        expr: avg(capacity_utilization_ratio{resource_type="cpu"})
+        
+      - record: system:memory_utilization_avg
+        expr: avg(capacity_utilization_ratio{resource_type="memory"})
+        
+      - record: system:network_utilization_avg
+        expr: avg(capacity_utilization_ratio{resource_type="network"})
+        
+      # Message flow aggregations
+      - record: system:total_message_flow_5m
+        expr: sum(rate(message_flow_matrix[5m]))
+        
+      - record: system:message_flow_by_source_5m
+        expr: sum(rate(message_flow_matrix[5m])) by (source_agent)
+        
+      - record: system:message_flow_by_target_5m
+        expr: sum(rate(message_flow_matrix[5m])) by (target_agent)
+
+  - name: sli_slo_recording
+    interval: 60s
+    rules:
+      # Availability SLI
+      - record: sli:availability_1h
+        expr: 1 - (sum(increase(agent_transport_errors_total[1h])) / sum(increase(agent_transport_messages_total[1h])))
+        
+      - record: sli:availability_1d
+        expr: 1 - (sum(increase(agent_transport_errors_total[1d])) / sum(increase(agent_transport_messages_total[1d])))
+        
+      - record: sli:availability_7d
+        expr: 1 - (sum(increase(agent_transport_errors_total[7d])) / sum(increase(agent_transport_messages_total[7d])))
+        
+      - record: sli:availability_30d
+        expr: 1 - (sum(increase(agent_transport_errors_total[30d])) / sum(increase(agent_transport_messages_total[30d])))
+        
+      # Latency SLI (percentage of requests under threshold)
+      - record: sli:latency_compliance_1h
+        expr: |
+          (
+            sum(increase(agent_transport_latency_seconds_bucket{le="0.1"}[1h])) / 
+            sum(increase(agent_transport_latency_seconds_count[1h]))
+          )
+        
+      - record: sli:latency_compliance_1d
+        expr: |
+          (
+            sum(increase(agent_transport_latency_seconds_bucket{le="0.1"}[1d])) / 
+            sum(increase(agent_transport_latency_seconds_count[1d]))
+          )
+        
+      # Throughput SLI
+      - record: sli:throughput_compliance_1h
+        expr: avg_over_time(agent_transport_throughput_mps[1h]) >= bool 4000000
+        
+      # Error budget calculations
+      - record: slo:error_budget_remaining_1h
+        expr: 1 - (sum(increase(agent_transport_errors_total[1h])) / (sum(increase(agent_transport_messages_total[1h])) * 0.001))
+        
+      - record: slo:error_budget_remaining_1d
+        expr: 1 - (sum(increase(agent_transport_errors_total[1d])) / (sum(increase(agent_transport_messages_total[1d])) * 0.001))
+        
+      - record: slo:error_budget_remaining_7d
+        expr: 1 - (sum(increase(agent_transport_errors_total[7d])) / (sum(increase(agent_transport_messages_total[7d])) * 0.001))
+        
+      - record: slo:error_budget_remaining_30d
+        expr: 1 - (sum(increase(agent_transport_errors_total[30d])) / (sum(increase(agent_transport_messages_total[30d])) * 0.001))
+        
+      # Error budget burn rates
+      - record: slo:error_budget_burn_rate_1h
+        expr: sum(rate(agent_transport_errors_total[1h])) / (0.001 * sum(rate(agent_transport_messages_total[1h])))
+        
+      - record: slo:error_budget_burn_rate_6h
+        expr: sum(rate(agent_transport_errors_total[6h])) / (0.001 * sum(rate(agent_transport_messages_total[6h])))
+
+  - name: health_prediction_recording
+    interval: 60s
+    rules:
+      # Health score aggregations
+      - record: health:avg_health_score_by_type
+        expr: avg(agent_health_score) by (agent_type)
+        
+      - record: health:min_health_score_by_type
+        expr: min(agent_health_score) by (agent_type)
+        
+      - record: health:unhealthy_agents_count
+        expr: count(agent_health_score < 50)
+        
+      - record: health:critical_agents_count
+        expr: count(agent_health_score < 20)
+        
+      # Failure prediction aggregations
+      - record: prediction:high_risk_agents_count
+        expr: count(failure_prediction_score > 70)
+        
+      - record: prediction:critical_risk_agents_count
+        expr: count(failure_prediction_score > 90)
+        
+      - record: prediction:avg_failure_risk_by_type
+        expr: avg(failure_prediction_score) by (agent_type)
+
+  - name: bottleneck_detection_recording
+    interval: 30s
+    rules:
+      # Performance bottleneck indicators
+      - record: bottleneck:cpu_severity
+        expr: avg(performance_bottlenecks{bottleneck_type="cpu"})
+        
+      - record: bottleneck:memory_severity
+        expr: avg(performance_bottlenecks{bottleneck_type="memory"})
+        
+      - record: bottleneck:network_severity
+        expr: avg(performance_bottlenecks{bottleneck_type="network"})
+        
+      - record: bottleneck:queue_severity
+        expr: avg(performance_bottlenecks{bottleneck_type="message_queue"})
+        
+      # Top resource consumers
+      - record: bottleneck:top_cpu_agents
+        expr: topk(10, agent_resource_usage{resource="cpu"})
+        
+      - record: bottleneck:top_memory_agents
+        expr: topk(10, agent_resource_usage{resource="memory"})
+        
+      - record: bottleneck:top_queue_depth_agents
+        expr: topk(10, agent_queue_depth)
+
+  - name: capacity_planning_recording
+    interval: 300s  # 5 minutes
+    rules:
+      # Capacity trends (longer term)
+      - record: capacity:message_rate_trend_1h
+        expr: avg_over_time(transport:message_rate_5m[1h])
+        
+      - record: capacity:message_rate_trend_6h
+        expr: avg_over_time(transport:message_rate_5m[6h])
+        
+      - record: capacity:message_rate_trend_1d
+        expr: avg_over_time(transport:message_rate_5m[1d])
+        
+      # Resource trend projections
+      - record: capacity:cpu_trend_1h
+        expr: avg_over_time(system:cpu_utilization_avg[1h])
+        
+      - record: capacity:memory_trend_1h
+        expr: avg_over_time(system:memory_utilization_avg[1h])
+        
+      - record: capacity:agent_count_trend_1h
+        expr: avg_over_time(system:total_active_agents[1h])
+        
+      # Growth rate calculations
+      - record: capacity:message_rate_growth_1d
+        expr: |
+          (
+            transport:message_rate_5m - 
+            transport:message_rate_5m offset 1d
+          ) / transport:message_rate_5m offset 1d * 100
+        
+      - record: capacity:agent_count_growth_1d
+        expr: |
+          (
+            system:total_active_agents - 
+            system:total_active_agents offset 1d
+          ) / system:total_active_agents offset 1d * 100
+
+  - name: voice_system_recording
+    interval: 30s
+    rules:
+      # Voice system specific metrics
+      - record: voice:recognition_success_rate_5m
+        expr: sum(rate(voice_recognition_success_total[5m])) / sum(rate(voice_recognition_attempts_total[5m]))
+        
+      - record: voice:biometric_auth_success_rate_5m
+        expr: sum(rate(voice_biometric_success_total[5m])) / sum(rate(voice_biometric_attempts_total[5m]))
+        
+      - record: voice:audio_capture_quality_avg_5m
+        expr: avg_over_time(voice_audio_quality_score[5m])
+        
+      # Voice processing latency
+      - record: voice:processing_latency_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(voice_processing_duration_seconds_bucket[5m])) by (le))
+
+  - name: integration_health_recording
+    interval: 60s
+    rules:
+      # OpenTelemetry health
+      - record: integration:otel_span_rate_5m
+        expr: rate(otelcol_processor_spans_received_total[5m])
+        
+      - record: integration:otel_trace_rate_5m
+        expr: rate(otelcol_processor_traces_received_total[5m])
+        
+      # Jaeger health
+      - record: integration:jaeger_spans_stored_5m
+        expr: rate(jaeger_spans_total{result="ok"}[5m])
+        
+      # Prometheus health
+      - record: integration:prometheus_sample_rate_5m
+        expr: rate(prometheus_tsdb_symbol_table_size_bytes[5m])
+        
+      # Overall observability health score
+      - record: integration:observability_health_score
+        expr: |
+          (
+            up{job="otel-collector"} * 30 +
+            up{job="jaeger"} * 20 +
+            up{job="claude-agents"} * 50
+          ) / 100

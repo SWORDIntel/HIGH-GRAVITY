@@ -1,0 +1,23 @@
+{
+  "io_optimization": {
+    "batch_operations": true,
+    "batch_size": 1000,
+    "async_enabled": true,
+    "memory_mapping": true,
+    "compression": {
+      "enabled": true,
+      "algorithm": "lz4",
+      "threshold_bytes": 1024
+    },
+    "caching": {
+      "enabled": true,
+      "max_size_mb": 512,
+      "ttl_seconds": 300
+    }
+  },
+  "file_operations": {
+    "use_direct_io": false,
+    "buffer_size_kb": 64,
+    "readahead_kb": 128
+  }
+}

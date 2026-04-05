@@ -1,0 +1,141 @@
+# Makefile for Claude Global Git Intelligence Bridge
+# AVX-512/AVX2 Optimized Build System
+
+CC := gcc
+TARGET := git_bridge_optimized
+SOURCE := git_bridge_avx_optimized.c
+
+# Detect CPU features
+CPU_INFO := $(shell cat /proc/cpuinfo 2>/dev/null || echo "")
+HAS_AVX512 := $(shell echo "$(CPU_INFO)" | grep -q "avx512f" && echo 1 || echo 0)
+HAS_AVX2 := $(shell echo "$(CPU_INFO)" | grep -q "avx2" && echo 1 || echo 0)
+HAS_SSE42 := $(shell echo "$(CPU_INFO)" | grep -q "sse4_2" && echo 1 || echo 0)
+
+# Base flags
+CFLAGS := -std=gnu11 -D_GNU_SOURCE -pthread
+CFLAGS += -Wall -Wextra -Wformat=2
+CFLAGS += -fPIC -fstack-protector-strong
+
+# Optimization flags
+OPTFLAGS := -O3 -march=native -mtune=native
+OPTFLAGS += -funroll-loops -fprefetch-loop-arrays
+OPTFLAGS += -flto -fomit-frame-pointer
+
+# SIMD flags based on CPU capabilities
+ifeq ($(HAS_AVX512),1)
+    SIMD_FLAGS := -mavx512f -mavx512vl -mavx512bw -mavx512dq
+    CFLAGS += -DHAVE_AVX512
+    $(info [BUILD] AVX-512 support: ENABLED)
+else
+    $(info [BUILD] AVX-512 support: DISABLED)
+endif
+
+ifeq ($(HAS_AVX2),1)
+    SIMD_FLAGS += -mavx2 -mfma -mbmi2
+    CFLAGS += -DHAVE_AVX2
+    $(info [BUILD] AVX2 support: ENABLED)
+else
+    $(info [BUILD] AVX2 support: DISABLED)
+endif
+
+ifeq ($(HAS_SSE42),1)
+    SIMD_FLAGS += -msse4.2 -mpopcnt
+    CFLAGS += -DHAVE_SSE42
+    $(info [BUILD] SSE4.2 support: ENABLED)
+else
+    $(info [BUILD] SSE4.2 support: DISABLED)
+endif
+
+# Check for optional dependencies
+HAS_NUMA := $(shell pkg-config --exists numa 2>/dev/null && echo 1 || echo 0)
+ifeq ($(HAS_NUMA),1)
+    CFLAGS += -DHAVE_NUMA $(shell pkg-config --cflags numa)
+    LDFLAGS += $(shell pkg-config --libs numa)
+    $(info [BUILD] NUMA support: ENABLED)
+else
+    $(info [BUILD] NUMA support: DISABLED)
+endif
+
+# Final flags
+CFLAGS += $(OPTFLAGS) $(SIMD_FLAGS)
+LDFLAGS += -pthread -lm
+
+# Debug build
+ifdef DEBUG
+    CFLAGS := -g -O0 -DDEBUG -fsanitize=address,undefined
+    LDFLAGS += -fsanitize=address,undefined
+    $(info [BUILD] Debug mode: ENABLED)
+endif
+
+# Targets
+.PHONY: all clean install test benchmark help
+
+all: $(TARGET)
+	@echo "[BUILD] Complete: $(TARGET)"
+	@ls -lh $(TARGET)
+
+$(TARGET): $(SOURCE)
+	@echo "[CC] Building optimized git bridge..."
+	@echo "     Compiler: $(CC)"
+	@echo "     CFLAGS: $(CFLAGS)"
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	@echo "[OK] Build successful"
+
+clean:
+	@echo "[CLEAN] Removing build artifacts..."
+	rm -f $(TARGET) *.o *.gcda *.gcno
+
+install: $(TARGET)
+	@echo "[INSTALL] Installing to /usr/local/bin..."
+	@sudo install -m 755 $(TARGET) /usr/local/bin/
+	@echo "[OK] Installed as /usr/local/bin/$(TARGET)"
+
+test: $(TARGET)
+	@echo "[TEST] Running diagnostic test..."
+	./$(TARGET) --diagnostic
+	@echo "[OK] Diagnostic test complete"
+
+benchmark: $(TARGET)
+	@echo "[BENCH] Running performance benchmark..."
+	./$(TARGET) --benchmark
+	@echo "[OK] Benchmark complete"
+
+debug:
+	@echo "[DEBUG] Building debug version..."
+	$(MAKE) clean
+	DEBUG=1 $(MAKE)
+
+help:
+	@echo "Claude Global Git Intelligence Bridge - Build System"
+	@echo "===================================================="
+	@echo ""
+	@echo "Targets:"
+	@echo "  all       - Build optimized binary (default)"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  install   - Install to /usr/local/bin"
+	@echo "  test      - Run diagnostic test"
+	@echo "  benchmark - Run performance benchmark"
+	@echo "  debug     - Build debug version with sanitizers"
+	@echo "  help      - Show this help message"
+	@echo ""
+	@echo "CPU Features Detected:"
+	@echo "  AVX-512: $(HAS_AVX512)"
+	@echo "  AVX2: $(HAS_AVX2)"
+	@echo "  SSE4.2: $(HAS_SSE42)"
+	@echo "  NUMA: $(HAS_NUMA)"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make              # Build optimized version"
+	@echo "  make debug        # Build debug version"
+	@echo "  make benchmark    # Build and run benchmark"
+
+# Show configuration
+config:
+	@echo "Build Configuration:"
+	@echo "===================="
+	@echo "CC: $(CC)"
+	@echo "CFLAGS: $(CFLAGS)"
+	@echo "LDFLAGS: $(LDFLAGS)"
+	@echo "SIMD_FLAGS: $(SIMD_FLAGS)"
+
+.PHONY: all clean install test benchmark debug help config

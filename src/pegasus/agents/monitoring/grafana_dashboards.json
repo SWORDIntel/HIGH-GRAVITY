@@ -1,0 +1,752 @@
+{
+  "dashboards": [
+    {
+      "dashboard": {
+        "id": null,
+        "uid": "claude-agent-overview",
+        "title": "Claude Agent Communication System - Overview",
+        "tags": ["claude", "agents", "overview"],
+        "timezone": "browser",
+        "refresh": "5s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Message Throughput",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "rate(agent_transport_messages_total[1m])",
+                "legendFormat": "Messages/sec",
+                "refId": "A"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "Messages/sec",
+                "min": 0
+              }
+            ],
+            "thresholds": [
+              {
+                "value": 4000000,
+                "colorMode": "critical",
+                "op": "lt"
+              }
+            ],
+            "alert": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [4000000],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "model": {
+                      "expr": "agent_transport_throughput_mps",
+                      "refId": "A"
+                    },
+                    "params": ["A", "5m", "now"]
+                  },
+                  "reducer": {
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "executionErrorState": "alerting",
+              "for": "5m",
+              "frequency": "10s",
+              "handler": 1,
+              "name": "Low Message Throughput",
+              "noDataState": "no_data",
+              "notifications": []
+            }
+          },
+          {
+            "id": 2,
+            "title": "Transport Layer Latency",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))",
+                "legendFormat": "p50",
+                "refId": "A"
+              },
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))",
+                "legendFormat": "p95",
+                "refId": "B"
+              },
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le))",
+                "legendFormat": "p99",
+                "refId": "C"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "Latency (seconds)",
+                "logBase": 10
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Active Agents by Type",
+            "type": "bargauge",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "targets": [
+              {
+                "expr": "system_active_agents",
+                "legendFormat": "{{agent_type}}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "displayMode": "gradient",
+                  "orientation": "horizontal"
+                }
+              }
+            }
+          },
+          {
+            "id": 4,
+            "title": "System Resource Utilization",
+            "type": "stat",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "targets": [
+              {
+                "expr": "capacity_utilization_ratio{resource_type=\"cpu\"}",
+                "legendFormat": "CPU",
+                "refId": "A"
+              },
+              {
+                "expr": "capacity_utilization_ratio{resource_type=\"memory\"}",
+                "legendFormat": "Memory",
+                "refId": "B"
+              },
+              {
+                "expr": "capacity_utilization_ratio{resource_type=\"network\"}",
+                "legendFormat": "Network",
+                "refId": "C"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 70},
+                    {"color": "red", "value": 90}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 5,
+            "title": "Message Flow Heat Map",
+            "type": "heatmap",
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+            "targets": [
+              {
+                "expr": "sum(rate(message_flow_matrix[5m])) by (source_agent, target_agent)",
+                "refId": "A"
+              }
+            ],
+            "heatmap": {
+              "xAxis": {
+                "show": true
+              },
+              "yAxis": {
+                "show": true
+              },
+              "colorScale": "exponential"
+            }
+          },
+          {
+            "id": 6,
+            "title": "Agent Health Scores",
+            "type": "table",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+            "targets": [
+              {
+                "expr": "agent_health_score",
+                "format": "table",
+                "refId": "A"
+              }
+            ],
+            "transformations": [
+              {
+                "id": "organize",
+                "options": {
+                  "excludeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "agent_id": "Agent ID",
+                    "agent_type": "Type",
+                    "Value": "Health Score"
+                  }
+                }
+              }
+            ],
+            "fieldConfig": {
+              "overrides": [
+                {
+                  "matcher": {
+                    "id": "byName",
+                    "options": "Health Score"
+                  },
+                  "properties": [
+                    {
+                      "id": "custom.displayMode",
+                      "value": "gradient-gauge"
+                    },
+                    {
+                      "id": "min",
+                      "value": 0
+                    },
+                    {
+                      "id": "max",
+                      "value": 100
+                    },
+                    {
+                      "id": "thresholds",
+                      "value": {
+                        "steps": [
+                          {"color": "red", "value": null},
+                          {"color": "yellow", "value": 50},
+                          {"color": "green", "value": 80}
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": 7,
+            "title": "Failure Prediction Alerts",
+            "type": "table",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+            "targets": [
+              {
+                "expr": "failure_prediction_score > 70",
+                "format": "table",
+                "refId": "A"
+              }
+            ],
+            "transformations": [
+              {
+                "id": "organize",
+                "options": {
+                  "renameByName": {
+                    "agent_id": "Agent ID",
+                    "agent_type": "Type",
+                    "Value": "Failure Risk %"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "dashboard": {
+        "id": null,
+        "uid": "claude-agent-transport",
+        "title": "Transport Layer Deep Dive",
+        "tags": ["claude", "transport", "performance"],
+        "refresh": "5s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Transport Throughput by Message Type",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "sum(rate(agent_transport_messages_total[1m])) by (msg_type)",
+                "legendFormat": "{{msg_type}}",
+                "refId": "A"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "Messages/sec",
+                "logBase": 10
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Transport Errors",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+            "targets": [
+              {
+                "expr": "sum(rate(agent_transport_errors_total[1m])) by (error_type)",
+                "legendFormat": "{{error_type}}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Message Priority Distribution",
+            "type": "piechart",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(agent_transport_messages_total[5m])) by (priority)",
+                "legendFormat": "{{priority}}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Transport Latency Distribution",
+            "type": "heatmap",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "targets": [
+              {
+                "expr": "sum(increase(agent_transport_latency_seconds_bucket[1m])) by (le)",
+                "format": "heatmap",
+                "refId": "A"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "dashboard": {
+        "id": null,
+        "uid": "claude-agent-individual",
+        "title": "Individual Agent Analysis",
+        "tags": ["claude", "agents", "analysis"],
+        "templating": {
+          "list": [
+            {
+              "name": "agent_type",
+              "type": "query",
+              "query": "label_values(agent_status, agent_type)",
+              "refresh": 1
+            },
+            {
+              "name": "agent_id",
+              "type": "query",
+              "query": "label_values(agent_status{agent_type=\"$agent_type\"}, agent_id)",
+              "refresh": 1
+            }
+          ]
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Agent Status",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "agent_status{agent_id=\"$agent_id\"}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Health Score",
+            "type": "gauge",
+            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+            "targets": [
+              {
+                "expr": "agent_health_score{agent_id=\"$agent_id\"}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "yellow", "value": 50},
+                    {"color": "green", "value": 80}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 3,
+            "title": "Queue Depth",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+            "targets": [
+              {
+                "expr": "agent_queue_depth{agent_id=\"$agent_id\"}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Failure Risk",
+            "type": "gauge",
+            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+            "targets": [
+              {
+                "expr": "failure_prediction_score{agent_id=\"$agent_id\"}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 30},
+                    {"color": "red", "value": 70}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 5,
+            "title": "Message Processing Rate",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+            "targets": [
+              {
+                "expr": "rate(agent_messages_processed_total{agent_id=\"$agent_id\"}[5m])",
+                "legendFormat": "{{action}}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Processing Time",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(agent_processing_time_seconds_bucket{agent_id=\"$agent_id\"}[5m])) by (le))",
+                "legendFormat": "p95",
+                "refId": "A"
+              },
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(agent_processing_time_seconds_bucket{agent_id=\"$agent_id\"}[5m])) by (le))",
+                "legendFormat": "p99",
+                "refId": "B"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Resource Usage",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+            "targets": [
+              {
+                "expr": "agent_resource_usage{agent_id=\"$agent_id\",resource=\"cpu\"}",
+                "legendFormat": "CPU %",
+                "refId": "A"
+              },
+              {
+                "expr": "agent_resource_usage{agent_id=\"$agent_id\",resource=\"memory\"}",
+                "legendFormat": "Memory %",
+                "refId": "B"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Error Rate",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+            "targets": [
+              {
+                "expr": "rate(agent_errors_total{agent_id=\"$agent_id\"}[5m])",
+                "legendFormat": "{{error_type}}",
+                "refId": "A"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "dashboard": {
+        "id": null,
+        "uid": "claude-agent-flow",
+        "title": "Message Flow Visualization",
+        "tags": ["claude", "flow", "communication"],
+        "panels": [
+          {
+            "id": 1,
+            "title": "Agent Communication Matrix",
+            "type": "heatmap",
+            "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "sum(rate(message_flow_matrix[5m])) by (source_agent, target_agent)",
+                "refId": "A"
+              }
+            ],
+            "heatmap": {
+              "xBucketSize": null,
+              "yBucketSize": null,
+              "xAxis": {
+                "show": true
+              },
+              "yAxis": {
+                "show": true
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Top Message Producers",
+            "type": "bargauge",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+            "targets": [
+              {
+                "expr": "topk(10, sum(rate(agent_messages_processed_total[5m])) by (source_agent))",
+                "legendFormat": "{{source_agent}}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Top Message Consumers",
+            "type": "bargauge",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+            "targets": [
+              {
+                "expr": "topk(10, sum(rate(agent_messages_processed_total[5m])) by (agent_id))",
+                "legendFormat": "{{agent_id}}",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Message Flow by Type",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+            "targets": [
+              {
+                "expr": "sum(rate(message_flow_matrix[5m])) by (message_type)",
+                "legendFormat": "{{message_type}}",
+                "refId": "A"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "dashboard": {
+        "id": null,
+        "uid": "claude-agent-slo",
+        "title": "SLI/SLO Dashboard",
+        "tags": ["claude", "slo", "sli"],
+        "panels": [
+          {
+            "id": 1,
+            "title": "System Availability SLI",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "1 - (sum(rate(agent_transport_errors_total[5m])) / sum(rate(agent_transport_messages_total[5m])))",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percentunit",
+                "min": 0.95,
+                "max": 1.0,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "yellow", "value": 0.99},
+                    {"color": "green", "value": 0.995}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Latency SLI (p99 < 100ms)",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)) < 0.1",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 3,
+            "title": "Throughput SLI (> 4M msg/s)",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+            "targets": [
+              {
+                "expr": "agent_transport_throughput_mps > 4000000",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 4,
+            "title": "Agent Health SLI (> 80% healthy)",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+            "targets": [
+              {
+                "expr": "sum(agent_health_score > 80) / count(agent_health_score)",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percentunit",
+                "min": 0,
+                "max": 1,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "yellow", "value": 0.8},
+                    {"color": "green", "value": 0.9}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 5,
+            "title": "Error Budget Burn Rate",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+            "targets": [
+              {
+                "expr": "sum(rate(agent_transport_errors_total[1h])) / (0.001 * sum(rate(agent_transport_messages_total[1h])))",
+                "legendFormat": "Error Budget Burn Rate (1h)",
+                "refId": "A"
+              },
+              {
+                "expr": "sum(rate(agent_transport_errors_total[6h])) / (0.001 * sum(rate(agent_transport_messages_total[6h])))",
+                "legendFormat": "Error Budget Burn Rate (6h)",
+                "refId": "B"
+              }
+            ],
+            "alert": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [14.4],
+                    "type": "gt"
+                  },
+                  "query": {
+                    "params": ["A", "5m", "now"]
+                  }
+                }
+              ],
+              "executionErrorState": "alerting",
+              "for": "5m",
+              "frequency": "10s",
+              "name": "High Error Budget Burn Rate",
+              "noDataState": "no_data"
+            }
+          },
+          {
+            "id": 6,
+            "title": "SLO Compliance Over Time",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+            "targets": [
+              {
+                "expr": "1 - (sum(increase(agent_transport_errors_total[1d])) / sum(increase(agent_transport_messages_total[1d])))",
+                "legendFormat": "Daily Availability",
+                "refId": "A"
+              },
+              {
+                "expr": "1 - (sum(increase(agent_transport_errors_total[7d])) / sum(increase(agent_transport_messages_total[7d])))",
+                "legendFormat": "Weekly Availability",
+                "refId": "B"
+              }
+            ],
+            "yAxes": [
+              {
+                "min": 0.99,
+                "max": 1.0
+              }
+            ],
+            "thresholds": [
+              {
+                "value": 0.999,
+                "colorMode": "critical",
+                "op": "lt",
+                "line": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

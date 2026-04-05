@@ -1,0 +1,75 @@
+{
+  "unified_config": {
+    "selected_mode": "npu",
+    "primary_orchestrator": "CPUOrchestrator",
+    "fallback_enabled": true,
+    "hardware_tier": "ultra",
+    "performance_target": 5000.0,
+    "memory_limit_mb": 4096,
+    "max_concurrent_tasks": 16
+  },
+  "hardware_capabilities": {
+    "system_id": "sys_806d972e279e",
+    "hostname": "johnmilbox",
+    "platform": "Linux",
+    "architecture": "x86_64",
+    "cpu_brand": "Intel(R) Core(TM) Ultra 7 165H",
+    "cpu_cores": 15,
+    "cpu_threads": 20,
+    "cpu_base_freq": 1.2107545000000002,
+    "cpu_max_freq": 4.18,
+    "has_avx": true,
+    "has_avx2": true,
+    "has_avx512": false,
+    "has_sse4_2": true,
+    "total_memory_gb": 62.2722282409668,
+    "available_memory_gb": 32.49806594848633,
+    "memory_speed_mhz": null,
+    "has_npu": true,
+    "npu_tops": 11.0,
+    "has_gna": false,
+    "has_gpu_compute": true,
+    "gpu_memory_gb": 1.0,
+    "openvino_available": true,
+    "openvino_devices": [
+      "CPU",
+      "GPU",
+      "NPU"
+    ],
+    "openvino_version": "2025.3.0-19807-44526285f24-releases/2025/3",
+    "thermal_design_power": 28,
+    "current_temp_celsius": 27.4,
+    "thermal_throttling": false,
+    "performance_tier": "ultra",
+    "orchestrator_mode": "npu",
+    "fallback_level": 1
+  },
+  "system_status": {
+    "orchestrator_mode": "npu",
+    "hardware_detected": true,
+    "npu_available": false,
+    "performance_ops_sec": 0.0,
+    "memory_usage_mb": 257.78125,
+    "cpu_utilization": 10.9,
+    "active_tasks": 0,
+    "success_rate": 0.0,
+    "uptime_seconds": 1.1737775802612305
+  },
+  "performance_stats": {
+    "total_tasks": 0,
+    "successful_tasks": 0,
+    "failed_tasks": 0,
+    "success_rate_percent": 0.0,
+    "average_ops_per_sec": 0.0,
+    "npu_task_percentage": 0.0,
+    "cpu_task_percentage": 0.0,
+    "fallback_events": 0,
+    "total_execution_time": 0.0,
+    "uptime_seconds": 1.1737775802612305
+  },
+  "orchestrator_info": {
+    "primary_type": "CPUOrchestrator",
+    "fallback_available": false,
+    "fallback_type": null
+  }
+}

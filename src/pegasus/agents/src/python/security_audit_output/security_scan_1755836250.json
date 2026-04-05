@@ -1,0 +1,19 @@
+{
+  "scan_type": "comprehensive",
+  "target": "test-app",
+  "vulnerabilities_found": 0,
+  "vulnerabilities": [],
+  "risk_score": 0.0,
+  "critical_count": 0,
+  "high_count": 0,
+  "medium_count": 0,
+  "low_count": 0,
+  "remediation_priority": [],
+  "compliance_impact": {
+    "pci_dss": 0,
+    "hipaa": 0,
+    "gdpr": 0,
+    "sox": 0,
+    "iso27001": 0
+  }
+}

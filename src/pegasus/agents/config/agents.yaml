@@ -1,0 +1,33 @@
+# Agent Configuration
+agents:
+  - name: director
+    type: DIRECTOR
+    priority: CRITICAL
+    core_affinity: P_CORES
+    
+  - name: project_orchestrator
+    type: PROJECT_ORCHESTRATOR
+    priority: HIGH
+    core_affinity: P_CORES
+    
+  - name: security
+    type: SECURITY
+    priority: CRITICAL
+    core_affinity: P_CORES
+    
+  - name: architect
+    type: ARCHITECT
+    priority: HIGH
+    core_affinity: ALL_CORES
+    
+  - name: monitor
+    type: MONITOR
+    priority: NORMAL
+    core_affinity: E_CORES
+
+# System Configuration
+system:
+  max_agents: 31
+  message_buffer_size: 16777216  # 16MB
+  heartbeat_interval: 5000       # 5 seconds
+  session_timeout: 28800         # 8 hours

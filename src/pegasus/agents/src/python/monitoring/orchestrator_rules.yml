@@ -1,0 +1,38 @@
+groups:
+  - name: production_orchestrator
+    rules:
+      - alert: OrchestratorDown
+        expr: up{job="tandem-orchestrator"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tandem Orchestrator is down"
+          description: "The Tandem Orchestration System has been down for more than 30 seconds"
+          
+      - alert: HighAgentFailureRate
+        expr: (agent_execution_failures_total / agent_execution_total) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High agent failure rate detected"
+          description: "Agent failure rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+          
+      - alert: LowSystemMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low system memory"
+          description: "System memory usage is above 90% for more than 2 minutes"
+          
+      - alert: HighCPUTemperature
+        expr: node_hwmon_temp_celsius{chip="coretemp-isa-0000"} > 85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU temperature"
+          description: "CPU temperature is {{ $value }}°C, approaching thermal limits"

@@ -1,0 +1,225 @@
+# Prometheus Configuration for Claude Agent Communication System
+# Monitors all 28 agent types and ultra-fast protocol metrics
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'claude-agents'
+    replica: 'prometheus-01'
+
+# Rule files specify a list of globs for rule files to load
+rule_files:
+  - "rules/*.yml"
+
+# Scrape configuration for monitoring targets
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Message Router - Ultra-Fast Protocol Hub
+  - job_name: 'message-router'
+    static_configs:
+      - targets: ['message-router:8080']
+    scrape_interval: 5s
+    metrics_path: /metrics
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ufp_(.*)'
+        target_label: component
+        replacement: 'ultra_fast_protocol'
+
+  # Core Agent Services - Strategic Layer
+  - job_name: 'core-agents'
+    static_configs:
+      - targets:
+        - 'director:9090'
+        - 'project-orchestrator:9090'
+        - 'architect:9090'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'core'
+      - source_labels: [agent_name]
+        target_label: agent_priority
+        replacement: 'critical'
+
+  # Development Agent Services - Implementation Layer
+  - job_name: 'development-agents'
+    static_configs:
+      - targets:
+        - 'constructor:9090'
+        - 'api-designer:9090'
+        - 'database:9090'
+        - 'web:9090'
+        - 'mobile:9090'
+        - 'c-internal:9090'
+        - 'python-internal:9090'
+        - 'pygui:9090'
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'development'
+
+  # AI/ML Agent Services - Intelligence Layer
+  - job_name: 'ai-ml-agents'
+    static_configs:
+      - targets:
+        - 'mlops:9090'
+        - 'data-science:9090'
+        - 'voice-recognition:9090'
+        - 'voice-biometric:9090'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'ai_ml'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: '(gna_|npu_|accelerator_)(.*)'
+        target_label: accelerator_metric
+        replacement: 'true'
+
+  # Quality Assurance Agent Services - Validation Layer  
+  - job_name: 'qa-agents'
+    static_configs:
+      - targets:
+        - 'security:9090'
+        - 'testbed:9090'
+        - 'linter:9090'
+        - 'debugger:9090'
+        - 'patcher:9090'
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'quality_assurance'
+
+  # Operations Agent Services - Deployment Layer
+  - job_name: 'ops-agents'
+    static_configs:
+      - targets:
+        - 'optimizer:9090'
+        - 'packager:9090'
+        - 'deployer:9090'
+        - 'monitor:9090'
+        - 'infrastructure:9090'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'operations'
+
+  # Documentation & Integration Services - Support Layer
+  - job_name: 'support-agents'
+    static_configs:
+      - targets:
+        - 'docgen:9090'
+        - 'integration:9090'
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: agent_name
+        replacement: '${1}'
+      - source_labels: [agent_name]
+        target_label: agent_type
+        replacement: 'support'
+
+  # Container and Host Metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Node Exporter for host metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Docker Engine Metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker-metrics:9323']
+    scrape_interval: 30s
+
+  # Ultra-Fast Protocol Specific Metrics
+  - job_name: 'ufp-metrics'
+    static_configs:
+      - targets: ['message-router:8080']
+    scrape_interval: 5s
+    metrics_path: /ufp/metrics
+    params:
+      format: ['prometheus']
+
+  # Service Discovery for Dynamic Agent Registration
+  - job_name: 'agent-discovery'
+    consul_sd_configs:
+      - server: 'message-router:8081'
+        datacenter: 'claude-agents'
+        services: ['agent']
+    relabel_configs:
+      - source_labels: [__meta_consul_service]
+        target_label: agent_service
+      - source_labels: [__meta_consul_service_id]
+        target_label: agent_id
+      - source_labels: [__meta_consul_service_address]
+        target_label: __address__
+        replacement: '${1}:9090'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: "http://victoria-metrics:8428/api/v1/write"
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+      max_shards: 200
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 7d
+    retention.size: 10GB
+    wal-compression: true
+
+# Feature flags
+feature_flags:
+  - promql-at-modifier
+  - remote-write-receiver

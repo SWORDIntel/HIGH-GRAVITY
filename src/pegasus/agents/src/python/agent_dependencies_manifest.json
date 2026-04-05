@@ -1,0 +1,20 @@
+{
+    "timestamp": "2025-08-22T17:00:34Z",
+    "version": "1.0.0",
+    "description": "Claude Agent Framework Python Dependencies",
+    "dependencies": {
+        "DATASCIENCE": ["pandas", "matplotlib", "seaborn", "plotly", "scikit-learn"],
+        "MLOPS": ["joblib", "mlflow", "dvc", "wandb", "tensorboard"],
+        "WEB": ["fastapi", "uvicorn", "flask", "django", "pydantic"],
+        "PYGUI": ["streamlit", "gradio", "dash", "rich", "textual"],
+        "SECURITY": ["cryptography", "pycryptodome", "bcrypt", "passlib"],
+        "TESTBED": ["pytest", "pytest-asyncio", "coverage", "hypothesis"],
+        "MONITOR": ["prometheus-client", "grafana-api", "psutil"],
+        "DOCGEN": ["mkdocs", "sphinx", "myst-parser", "pydoc-markdown"],
+        "APIDESIGNER": ["openapi-spec-validator", "flask-restx", "graphene"],
+        "OPTIMIZER": ["cython", "numba", "line-profiler", "memory-profiler"]
+    },
+    "python_version": "Python 3.12.3",
+    "install_location": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python",
+    "virtual_env": "/home/ubuntu/.local/share/claude/venv"
+}

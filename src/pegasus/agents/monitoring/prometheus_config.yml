@@ -1,0 +1,149 @@
+# Prometheus Configuration for Claude Agent Communication System
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    cluster: 'claude-agents'
+    environment: 'production'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load recording rules and alerting rules
+rule_files:
+  - "alert_rules/*.yml"
+  - "recording_rules/*.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Claude Agent System Metrics
+  - job_name: 'claude-agents'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    static_configs:
+      - targets:
+        - 'localhost:8000'  # Main agent metrics exporter
+    metrics_path: /metrics
+    honor_labels: true
+    
+  # Transport layer metrics (ultra-fast protocol)
+  - job_name: 'transport-layer'
+    scrape_interval: 1s  # High frequency for transport metrics
+    scrape_timeout: 800ms
+    static_configs:
+      - targets:
+        - 'localhost:8001'  # Transport layer specific exporter
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:8001
+    
+  # Individual agent instances
+  - job_name: 'agent-instances'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+        # Director agents
+        - 'director-001:8002'
+        - 'director-002:8002'
+        # Project orchestrators
+        - 'orchestrator-001:8003'
+        - 'orchestrator-002:8003'
+        # Architecture agents
+        - 'architect-001:8004'
+        - 'architect-002:8004'
+        # Constructor agents
+        - 'constructor-001:8005'
+        - 'constructor-002:8005'
+        # Security agents
+        - 'security-001:8006'
+        - 'security-002:8006'
+        # And so on for all 28 agent types...
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: agent_id
+        replacement: '${1}'
+      - source_labels: [agent_id]
+        regex: '([a-zA-Z_]+)-\d+'
+        target_label: agent_type
+        replacement: '${1}'
+    
+  # System metrics (node exporter)
+  - job_name: 'system-metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - 'localhost:9100'
+    
+  # Container metrics (cAdvisor)
+  - job_name: 'container-metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - 'localhost:8080'
+    metrics_path: /metrics
+    
+  # Process metrics for agent processes
+  - job_name: 'process-metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+        - 'localhost:9256'  # Process exporter
+    
+  # Network metrics
+  - job_name: 'network-metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+        - 'localhost:9427'  # Network exporter
+    
+  # Voice agent system metrics (Rust-based)
+  - job_name: 'voice-agents'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+        - 'localhost:8010'  # Voice recognition system
+        - 'localhost:8011'  # Voice biometric system
+        - 'localhost:8012'  # Audio capture system
+        - 'localhost:8013'  # Voice orchestrator
+    
+  # OpenTelemetry metrics
+  - job_name: 'otel-collector'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - 'otel-collector:8889'
+    
+  # Jaeger metrics
+  - job_name: 'jaeger'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+        - 'jaeger:14269'
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 15d
+    retention.size: 50GB
+    wal-compression: true
+    
+# Remote write for long-term storage
+remote_write:
+  - url: "http://cortex:9009/api/prom/push"
+    queue_config:
+      max_samples_per_send: 10000
+      max_shards: 200
+      capacity: 100000
+    
+# Remote read for long-term queries
+remote_read:
+  - url: "http://cortex:9009/api/prom/read"

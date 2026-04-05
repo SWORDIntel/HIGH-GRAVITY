@@ -1,0 +1,185 @@
+# AlertManager Configuration for Claude Agent Communication System
+global:
+  smtp_smarthost: 'mail.company.com:587'
+  smtp_from: 'alerts@company.com'
+  smtp_auth_username: 'alerts@company.com'
+  smtp_auth_password: 'smtp_password'
+
+# Default route for alerts
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'web.hook'
+  routes:
+    # Critical alerts go to PagerDuty immediately
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_wait: 1s
+      repeat_interval: 5m
+      
+    # Security alerts go to security team
+    - match:
+        component: security
+      receiver: 'security-team'
+      group_wait: 1s
+      repeat_interval: 1h
+      
+    # SLO breaches get special handling
+    - match:
+        component: slo
+      receiver: 'slo-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+      
+    # Voice system alerts
+    - match:
+        component: voice
+      receiver: 'voice-team'
+      
+    # Infrastructure alerts
+    - match_re:
+        team: 'infrastructure|platform'
+      receiver: 'platform-team'
+
+# Alert receivers
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://alertwebhook:5000/'
+        send_resolved: true
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_ROUTING_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          summary: '{{ .CommonAnnotations.summary }}'
+          description: '{{ .CommonAnnotations.description }}'
+          runbook_url: '{{ .CommonAnnotations.runbook_url }}'
+          severity: '{{ .CommonLabels.severity }}'
+          component: '{{ .CommonLabels.component }}'
+        client: 'Claude Agent Monitoring'
+        client_url: 'http://grafana:3000'
+
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@company.com'
+        subject: '[SECURITY ALERT] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Security Alert: {{ .GroupLabels.alertname }}</h3>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Component:</strong> {{ .CommonLabels.component }}</p>
+          <p><strong>Time:</strong> {{ .CommonAnnotations.timestamp }}</p>
+          <hr>
+          <h4>Affected Services:</h4>
+          <ul>
+          {{ range .Alerts }}
+          <li>{{ .Labels.instance }}: {{ .Annotations.description }}</li>
+          {{ end }}
+          </ul>
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#security-alerts'
+        title: 'Security Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Component:* {{ .CommonLabels.component }}
+
+  - name: 'slo-alerts'
+    email_configs:
+      - to: 'sre@company.com,platform@company.com'
+        subject: '[SLO BREACH] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>SLO Breach Alert: {{ .GroupLabels.alertname }}</h3>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Error Budget Impact:</strong> {{ .CommonAnnotations.error_budget_impact }}</p>
+          <p><strong>Runbook:</strong> <a href="{{ .CommonAnnotations.runbook_url }}">{{ .CommonAnnotations.runbook_url }}</a></p>
+          <hr>
+          <h4>Immediate Actions Required:</h4>
+          <ul>
+            <li>Review system performance metrics</li>
+            <li>Check recent deployments</li>
+            <li>Escalate to on-call if critical</li>
+          </ul>
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#sre-alerts'
+        title: ':rotating_light: SLO Breach: {{ .GroupLabels.alertname }}'
+        color: 'danger'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Error Budget:* {{ .CommonAnnotations.error_budget_impact }}
+          *Runbook:* {{ .CommonAnnotations.runbook_url }}
+
+  - name: 'voice-team'
+    email_configs:
+      - to: 'voice-team@company.com'
+        subject: '[VOICE ALERT] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Voice System Alert: {{ .GroupLabels.alertname }}</h3>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Affected Components:</strong></p>
+          <ul>
+          {{ range .Alerts }}
+          <li>{{ .Labels.instance }}</li>
+          {{ end }}
+          </ul>
+
+  - name: 'platform-team'
+    email_configs:
+      - to: 'platform@company.com'
+        subject: '[PLATFORM ALERT] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Platform Alert: {{ .GroupLabels.alertname }}</h3>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Team:</strong> {{ .CommonLabels.team }}</p>
+          <p><strong>Component:</strong> {{ .CommonLabels.component }}</p>
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#platform-alerts'
+        title: 'Platform Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Team:* {{ .CommonLabels.team }}
+          *Component:* {{ .CommonLabels.component }}
+
+# Inhibition rules to reduce alert noise
+inhibit_rules:
+  # If transport layer is down, inhibit all agent-specific alerts
+  - source_match:
+      alertname: 'TransportDown'
+    target_match_re:
+      alertname: 'Agent.*'
+    equal: ['cluster']
+
+  # If a node is down, inhibit alerts for services on that node
+  - source_match:
+      alertname: 'NodeDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['instance']
+
+  # If system memory is critical, inhibit individual agent memory alerts
+  - source_match:
+      alertname: 'HighMemoryUsage'
+      severity: 'critical'
+    target_match:
+      alertname: 'AgentHighMemoryUsage'
+    equal: ['cluster']
+
+  # If there's a network issue, inhibit latency alerts
+  - source_match:
+      alertname: 'NetworkDown'
+    target_match:
+      alertname: 'HighLatency'
+    equal: ['cluster']

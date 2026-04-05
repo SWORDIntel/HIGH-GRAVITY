@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "auto_start": true,
+  "wake_words": [
+    "claude",
+    "agent",
+    "hey claude",
+    "computer"
+  ],
+  "interface": "basic_voice_interface.py",
+  "shortcuts_enabled": true
+}

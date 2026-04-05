@@ -1,0 +1,60 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  detailed:
+    format: '[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  simple:
+    format: '%(levelname)s %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+  
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: /home/ubuntu/claude-backups/agents/src/python/logs/production_orchestrator.log
+    maxBytes: 52428800  # 50MB
+    backupCount: 10
+  
+  metrics:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: detailed
+    filename: /home/ubuntu/claude-backups/agents/src/python/logs/metrics.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+  
+  error:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: /home/ubuntu/claude-backups/agents/src/python/logs/errors.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+
+loggers:
+  production_orchestrator:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+  
+  metrics:
+    level: INFO
+    handlers: [metrics]
+    propagate: false
+  
+  errors:
+    level: ERROR
+    handlers: [error, console]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console, file]

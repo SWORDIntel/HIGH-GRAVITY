@@ -1,0 +1,323 @@
+# OpenTelemetry Collector Configuration for Claude Agent Communication System
+receivers:
+  # OTLP receiver for direct instrumentation
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+  
+  # Prometheus receiver for metrics scraping
+  prometheus/agents:
+    config:
+      scrape_configs:
+        - job_name: 'claude-agents'
+          scrape_interval: 5s
+          static_configs:
+            - targets: ['localhost:8001']  # Updated to match prometheus_exporter port
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: '^(agent_|system_|hardware_|message_|failure_|capacity_|anomaly_).*'
+              action: keep
+        - job_name: 'claude-transport-metrics'
+          scrape_interval: 1s  # High frequency for transport metrics
+          static_configs:
+            - targets: ['localhost:8001']
+          metrics_path: '/metrics'
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: '^agent_transport_.*'
+              action: keep
+        - job_name: 'node-exporter'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['localhost:9100']
+  
+  # Jaeger receiver for legacy traces
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+      thrift_compact:
+        endpoint: 0.0.0.0:6831
+      thrift_binary:
+        endpoint: 0.0.0.0:6832
+  
+  # Zipkin receiver
+  zipkin:
+    endpoint: 0.0.0.0:9411
+  
+  # Host metrics for system monitoring
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      disk:
+      filesystem:
+      load:
+      memory:
+      network:
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+      processes:
+
+processors:
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+    check_interval: 5s
+  
+  # Batch processor for efficiency
+  batch:
+    send_batch_size: 1024
+    timeout: 1s
+    send_batch_max_size: 2048
+  
+  # Resource processor for adding attributes
+  resource:
+    attributes:
+      - key: service.name
+        value: claude-agent-system
+        action: upsert
+      - key: service.version
+        value: 3.0.0
+        action: upsert
+      - key: deployment.environment
+        value: production
+        action: upsert
+      - key: cluster.name
+        value: claude-agents
+        action: upsert
+  
+  # Attributes processor for span enrichment
+  attributes/traces:
+    actions:
+      - key: agent.id
+        from_attribute: agent_id
+        action: upsert
+      - key: agent.type
+        from_attribute: agent_type
+        action: upsert
+      - key: message.type
+        from_attribute: msg_type
+        action: upsert
+      - key: message.priority
+        from_attribute: priority
+        action: upsert
+  
+  # Sampling processor for high-volume traces
+  probabilistic_sampler:
+    sampling_percentage: 1.0  # 1% sampling for production
+  
+  # Span processor for custom logic
+  span:
+    name:
+      to_attributes:
+        rules:
+          - pattern: '^agent_message_(.*)$'
+            name_template: 'agent.message'
+            break_after_match: true
+  
+  # Metrics transform processor
+  transform/metrics:
+    metric_statements:
+      - context: metric
+        statements:
+          - set(description, "Transport layer message rate") where name == "agent_transport_messages_total"
+          - set(description, "Agent processing time") where name == "agent_processing_time_seconds"
+          - set(description, "Agent health score") where name == "agent_health_score"
+
+exporters:
+  # Jaeger exporter for traces
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+    sending_queue:
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Prometheus exporter for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: otel
+    const_labels:
+      system: claude-agents
+    send_timestamps: true
+    metric_expiration: 5m
+    resource_to_telemetry_conversion:
+      enabled: true
+  
+  # OTLP exporter for external systems
+  otlp/traces:
+    endpoint: http://tempo:4317
+    tls:
+      insecure: true
+    compression: gzip
+  
+  otlp/metrics:
+    endpoint: http://cortex:4317
+    tls:
+      insecure: true
+    compression: gzip
+  
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: basic
+  
+  # Elasticsearch exporter for logs and traces
+  elasticsearch/traces:
+    endpoints: [http://elasticsearch:9200]
+    traces_index: claude-agent-traces
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+  
+  # File exporter for backup
+  file/traces:
+    path: /data/traces.jsonl
+    rotation:
+      max_megabytes: 100
+      max_days: 7
+      max_backups: 3
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health
+  
+  # pprof extension for performance profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+  
+  # zpages extension for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+connectors:
+  # Spanmetrics connector to generate metrics from traces
+  spanmetrics:
+    histogram_buckets: [1us, 5us, 10us, 25us, 50us, 100us, 250us, 500us, 1ms, 2ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s]
+    dimensions_cache_size: 10000
+    aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"
+    metrics_flush_interval: 5s
+    namespace: "claude_traces"
+    dimensions:
+      - name: agent.id
+        default: "unknown"
+      - name: agent.type  
+        default: "unknown"
+      - name: message.type
+        default: "unknown"
+      - name: priority
+        default: "normal"
+      - name: transport.protocol
+        default: "ufp"
+  
+  # Service graph connector for topology visualization
+  servicegraph:
+    latency_histogram_buckets: [1us, 5us, 10us, 25us, 50us, 100us, 250us, 500us, 1ms, 2ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s]
+    dimensions:
+      - agent.type
+      - message.type
+      - priority
+    store:
+      ttl: 10s
+      max_items: 10000
+
+service:
+  extensions:
+    - health_check
+    - pprof
+    - zpages
+  
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors:
+        - memory_limiter
+        - resource
+        - attributes/traces
+        - probabilistic_sampler
+        - span
+        - batch
+      exporters: [jaeger, otlp/traces, elasticsearch/traces, file/traces]
+    
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus/agents, hostmetrics]
+      processors:
+        - memory_limiter
+        - resource
+        - transform/metrics
+        - batch
+      exporters: [prometheus, otlp/metrics]
+    
+    # Logs pipeline (future implementation)
+    logs:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resource
+        - batch
+      exporters: [debug]
+    
+    # Span-to-metrics pipeline
+    traces/spanmetrics:
+      receivers: [otlp, jaeger]
+      processors:
+        - memory_limiter
+        - resource
+        - batch
+      exporters: [spanmetrics, servicegraph]
+    
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      processors:
+        - memory_limiter
+        - batch
+      exporters: [prometheus]
+    
+    metrics/servicegraph:
+      receivers: [servicegraph]
+      processors:
+        - memory_limiter
+        - batch
+      exporters: [prometheus]
+
+  telemetry:
+    logs:
+      level: info
+      encoding: json
+      output_paths:
+        - /data/otel-collector.log
+    metrics:
+      address: 0.0.0.0:8888
+      level: detailed
+    traces:
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                endpoint: http://localhost:4317

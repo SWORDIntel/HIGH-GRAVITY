@@ -1,0 +1,13 @@
+{
+  "plan_id": "18e40a1c",
+  "name": "A test application Strategic Plan",
+  "strategy_type": "LAYERED_DEVELOPMENT",
+  "complexity": 0.53,
+  "phases": [
+    {
+      "name": "Architecture & Design",
+      "description": "System architecture and API design",
+      "status": "PENDING",
+      "duration_estimate": 31,
+      "dependencies": [],
+      "agents_required": 

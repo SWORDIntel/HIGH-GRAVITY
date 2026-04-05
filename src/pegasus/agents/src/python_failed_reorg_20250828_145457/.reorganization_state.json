@@ -1,0 +1,7 @@
+{
+  "step": 1,
+  "timestamp": "2025-08-28T14:54:57.737672",
+  "backup_path": "/home/ubuntu/claude-backups/agents/src/python_src_backup_20250828_145345.tar.gz",
+  "inventory_file": "file_inventory.json",
+  "ready_for_reorganization": false
+}

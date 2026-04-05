@@ -1,0 +1,1449 @@
+{
+  "timestamp": "2025-08-28T14:56:39.465963",
+  "base_path": "/home/ubuntu/claude-backups/agents/src/python",
+  "files": [
+    {
+      "path": "reorganize_step2_move.py",
+      "name": "reorganize_step2_move.py",
+      "size": 15270,
+      "mtime": 1756392911.7859123,
+      "type": "python"
+    },
+    {
+      "path": "web_impl.py",
+      "name": "web_impl.py",
+      "size": 37645,
+      "mtime": 1756391071.9128897,
+      "type": "implementation"
+    },
+    {
+      "path": "voice_system.py",
+      "name": "voice_system.py",
+      "size": 3762,
+      "mtime": 1756391071.9128897,
+      "type": "python"
+    },
+    {
+      "path": "typescript_agent_impl.py",
+      "name": "typescript_agent_impl.py",
+      "size": 50262,
+      "mtime": 1756391071.9127104,
+      "type": "implementation"
+    },
+    {
+      "path": "tui_impl.py",
+      "name": "tui_impl.py",
+      "size": 38559,
+      "mtime": 1756391071.912521,
+      "type": "implementation"
+    },
+    {
+      "path": "testbed_impl.py",
+      "name": "testbed_impl.py",
+      "size": 79641,
+      "mtime": 1756391071.9122076,
+      "type": "implementation"
+    },
+    {
+      "path": "test_parallel_enhancements.py",
+      "name": "test_parallel_enhancements.py",
+      "size": 6843,
+      "mtime": 1756391071.9121585,
+      "type": "python"
+    },
+    {
+      "path": "tandem_orchestration_base.py",
+      "name": "tandem_orchestration_base.py",
+      "size": 28076,
+      "mtime": 1756391071.9118626,
+      "type": "python"
+    },
+    {
+      "path": "tandem_integration.py",
+      "name": "tandem_integration.py",
+      "size": 19983,
+      "mtime": 1756391071.9118626,
+      "type": "python"
+    },
+    {
+      "path": "tandem_examples.py",
+      "name": "tandem_examples.py",
+      "size": 11196,
+      "mtime": 1756391071.9118626,
+      "type": "python"
+    },
+    {
+      "path": "tandem-orchestrator.service",
+      "name": "tandem-orchestrator.service",
+      "size": 1785,
+      "mtime": 1756391711.3783414,
+      "type": "unknown"
+    },
+    {
+      "path": "statusline_bridge.py",
+      "name": "statusline_bridge.py",
+      "size": 6102,
+      "mtime": 1756391071.9109218,
+      "type": "python"
+    },
+    {
+      "path": "sql_internal_impl.py",
+      "name": "sql_internal_impl.py",
+      "size": 35018,
+      "mtime": 1756391071.9109218,
+      "type": "implementation"
+    },
+    {
+      "path": "simple_learning_cli.py",
+      "name": "simple_learning_cli.py",
+      "size": 15575,
+      "mtime": 1756391071.9109218,
+      "type": "python"
+    },
+    {
+      "path": "setup_production_env.sh",
+      "name": "setup_production_env.sh",
+      "size": 29647,
+      "mtime": 1756391071.9109218,
+      "type": "unknown"
+    },
+    {
+      "path": "setup_production.log",
+      "name": "setup_production.log",
+      "size": 2387,
+      "mtime": 1756391711.40501,
+      "type": "unknown"
+    },
+    {
+      "path": "set_cpu_affinity.py",
+      "name": "set_cpu_affinity.py",
+      "size": 861,
+      "mtime": 1756391711.39501,
+      "type": "python"
+    },
+    {
+      "path": "securitychaosagent_impl.py",
+      "name": "securitychaosagent_impl.py",
+      "size": 61842,
+      "mtime": 1756391071.9109218,
+      "type": "implementation"
+    },
+    {
+      "path": "securityauditor_impl.py",
+      "name": "securityauditor_impl.py",
+      "size": 54693,
+      "mtime": 1756391071.9109218,
+      "type": "implementation"
+    },
+    {
+      "path": "security_impl.py",
+      "name": "security_impl.py",
+      "size": 65462,
+      "mtime": 1756391071.9109218,
+      "type": "implementation"
+    },
+    {
+      "path": "rust_agent_impl.py",
+      "name": "rust_agent_impl.py",
+      "size": 30598,
+      "mtime": 1756391071.910557,
+      "type": "implementation"
+    },
+    {
+      "path": "researcher_impl.py",
+      "name": "researcher_impl.py",
+      "size": 46121,
+      "mtime": 1756391071.910557,
+      "type": "implementation"
+    },
+    {
+      "path": "requirements_production.txt",
+      "name": "requirements_production.txt",
+      "size": 1211,
+      "mtime": 1756391711.3430097,
+      "type": "config"
+    },
+    {
+      "path": "reorganize_structure.py",
+      "name": "reorganize_structure.py",
+      "size": 16382,
+      "mtime": 1756391071.9097095,
+      "type": "python"
+    },
+    {
+      "path": "reorganize_step3_update.py",
+      "name": "reorganize_step3_update.py",
+      "size": 15124,
+      "mtime": 1756391071.9097095,
+      "type": "python"
+    },
+    {
+      "path": "reorganize_step1_backup.py",
+      "name": "reorganize_step1_backup.py",
+      "size": 6747,
+      "mtime": 1756391071.9097095,
+      "type": "python"
+    },
+    {
+      "path": "reorganize_master.py",
+      "name": "reorganize_master.py",
+      "size": 12417,
+      "mtime": 1756391071.9097095,
+      "type": "python"
+    },
+    {
+      "path": "redteamorchestrator_impl.py",
+      "name": "redteamorchestrator_impl.py",
+      "size": 58210,
+      "mtime": 1756391071.9097095,
+      "type": "implementation"
+    },
+    {
+      "path": "quick_voice.py",
+      "name": "quick_voice.py",
+      "size": 1493,
+      "mtime": 1756391071.9097095,
+      "type": "python"
+    },
+    {
+      "path": "quick_learning_setup.sh",
+      "name": "quick_learning_setup.sh",
+      "size": 164,
+      "mtime": 1756391071.9097095,
+      "type": "unknown"
+    },
+    {
+      "path": "quantumguard_impl.py",
+      "name": "quantumguard_impl.py",
+      "size": 26563,
+      "mtime": 1756391071.9097095,
+      "type": "implementation"
+    },
+    {
+      "path": "quantum_impl.py",
+      "name": "quantum_impl.py",
+      "size": 59576,
+      "mtime": 1756391071.9097095,
+      "type": "implementation"
+    },
+    {
+      "path": "qadirector_impl.py",
+      "name": "qadirector_impl.py",
+      "size": 12179,
+      "mtime": 1756391071.9097095,
+      "type": "implementation"
+    },
+    {
+      "path": "python-orchestrator-launcher.sh",
+      "name": "python-orchestrator-launcher.sh",
+      "size": 36527,
+      "mtime": 1756391071.9088748,
+      "type": "unknown"
+    },
+    {
+      "path": "python-internal_impl.py",
+      "name": "python-internal_impl.py",
+      "size": 25371,
+      "mtime": 1756391071.9088748,
+      "type": "implementation"
+    },
+    {
+      "path": "pygui_impl.py",
+      "name": "pygui_impl.py",
+      "size": 16623,
+      "mtime": 1756391071.9088748,
+      "type": "implementation"
+    },
+    {
+      "path": "proxmox_agent_impl.py",
+      "name": "proxmox_agent_impl.py",
+      "size": 28609,
+      "mtime": 1756391071.9088748,
+      "type": "implementation"
+    },
+    {
+      "path": "projectorchestrator_impl.py",
+      "name": "projectorchestrator_impl.py",
+      "size": 71526,
+      "mtime": 1756391071.9088748,
+      "type": "implementation"
+    },
+    {
+      "path": "production_orchestrator_bridge.py",
+      "name": "production_orchestrator_bridge.py",
+      "size": 23359,
+      "mtime": 1756391071.9078307,
+      "type": "python"
+    },
+    {
+      "path": "production_orchestrator.py",
+      "name": "production_orchestrator.py",
+      "size": 35568,
+      "mtime": 1756391071.9078307,
+      "type": "python"
+    },
+    {
+      "path": "postgresql_learning_system.py",
+      "name": "postgresql_learning_system.py",
+      "size": 130168,
+      "mtime": 1756391071.9076297,
+      "type": "python"
+    },
+    {
+      "path": "postgresql-learning",
+      "name": "postgresql-learning",
+      "size": 560,
+      "mtime": 1756391071.9076297,
+      "type": "unknown"
+    },
+    {
+      "path": "planner_impl.py",
+      "name": "planner_impl.py",
+      "size": 32104,
+      "mtime": 1756391071.9076297,
+      "type": "implementation"
+    },
+    {
+      "path": "patcher_impl.py",
+      "name": "patcher_impl.py",
+      "size": 58504,
+      "mtime": 1756391071.9076297,
+      "type": "implementation"
+    },
+    {
+      "path": "parallel_orchestration_enhancements.py",
+      "name": "parallel_orchestration_enhancements.py",
+      "size": 44164,
+      "mtime": 1756391071.9076297,
+      "type": "python"
+    },
+    {
+      "path": "packager_impl.py",
+      "name": "packager_impl.py",
+      "size": 57198,
+      "mtime": 1756391071.9076297,
+      "type": "implementation"
+    },
+    {
+      "path": "organization_impl.py",
+      "name": "organization_impl.py",
+      "size": 11214,
+      "mtime": 1756391071.9069264,
+      "type": "implementation"
+    },
+    {
+      "path": "orchestrator_metrics.py",
+      "name": "orchestrator_metrics.py",
+      "size": 24309,
+      "mtime": 1756391071.9069264,
+      "type": "python"
+    },
+    {
+      "path": "orchestrator_impl.py",
+      "name": "orchestrator_impl.py",
+      "size": 64637,
+      "mtime": 1756391071.9069264,
+      "type": "implementation"
+    },
+    {
+      "path": "optimizer_impl.py",
+      "name": "optimizer_impl.py",
+      "size": 70691,
+      "mtime": 1756391071.9069264,
+      "type": "implementation"
+    },
+    {
+      "path": "optimized_algorithms.py",
+      "name": "optimized_algorithms.py",
+      "size": 28653,
+      "mtime": 1756391071.9069264,
+      "type": "python"
+    },
+    {
+      "path": "nsa_impl.py",
+      "name": "nsa_impl.py",
+      "size": 85717,
+      "mtime": 1756391071.9069264,
+      "type": "implementation"
+    },
+    {
+      "path": "npu_impl.py",
+      "name": "npu_impl.py",
+      "size": 25602,
+      "mtime": 1756391071.906763,
+      "type": "implementation"
+    },
+    {
+      "path": "monitor_impl.py",
+      "name": "monitor_impl.py",
+      "size": 38301,
+      "mtime": 1756391071.9058306,
+      "type": "implementation"
+    },
+    {
+      "path": "mlops_impl.py",
+      "name": "mlops_impl.py",
+      "size": 48722,
+      "mtime": 1756391071.9048307,
+      "type": "implementation"
+    },
+    {
+      "path": "meteor_lake_parallel.py",
+      "name": "meteor_lake_parallel.py",
+      "size": 33143,
+      "mtime": 1756391071.9048307,
+      "type": "python"
+    },
+    {
+      "path": "matlab_impl.py",
+      "name": "matlab_impl.py",
+      "size": 37630,
+      "mtime": 1756391071.9048307,
+      "type": "implementation"
+    },
+    {
+      "path": "mapped_agents.txt",
+      "name": "mapped_agents.txt",
+      "size": 302,
+      "mtime": 1756391071.9048307,
+      "type": "config"
+    },
+    {
+      "path": "linter_impl.py",
+      "name": "linter_impl.py",
+      "size": 49624,
+      "mtime": 1756391071.9048307,
+      "type": "implementation"
+    },
+    {
+      "path": "learning_orchestrator_bridge.py",
+      "name": "learning_orchestrator_bridge.py",
+      "size": 57503,
+      "mtime": 1756391071.9048307,
+      "type": "python"
+    },
+    {
+      "path": "learning_cli.py",
+      "name": "learning_cli.py",
+      "size": 15311,
+      "mtime": 1756391071.9048307,
+      "type": "python"
+    },
+    {
+      "path": "leadengineer_impl.py",
+      "name": "leadengineer_impl.py",
+      "size": 10504,
+      "mtime": 1756391071.9048307,
+      "type": "implementation"
+    },
+    {
+      "path": "launch_learning_system.sh",
+      "name": "launch_learning_system.sh",
+      "size": 569,
+      "mtime": 1756391071.9048307,
+      "type": "unknown"
+    },
+    {
+      "path": "java_agent_impl.py",
+      "name": "java_agent_impl.py",
+      "size": 43511,
+      "mtime": 1756391071.9048307,
+      "type": "implementation"
+    },
+    {
+      "path": "intergration_impl.py",
+      "name": "intergration_impl.py",
+      "size": 31021,
+      "mtime": 1756391071.9038308,
+      "type": "implementation"
+    },
+    {
+      "path": "intelligent_cache.py",
+      "name": "intelligent_cache.py",
+      "size": 34238,
+      "mtime": 1756391071.9038308,
+      "type": "python"
+    },
+    {
+      "path": "install_claude_integration.py",
+      "name": "install_claude_integration.py",
+      "size": 8739,
+      "mtime": 1756391071.9038308,
+      "type": "python"
+    },
+    {
+      "path": "install_agent_dependencies.sh",
+      "name": "install_agent_dependencies.sh",
+      "size": 14752,
+      "mtime": 1756391071.9038308,
+      "type": "unknown"
+    },
+    {
+      "path": "infrastructure_impl.py",
+      "name": "infrastructure_impl.py",
+      "size": 98629,
+      "mtime": 1756391071.9038308,
+      "type": "implementation"
+    },
+    {
+      "path": "hybrid_bridge_manager.py",
+      "name": "hybrid_bridge_manager.py",
+      "size": 12913,
+      "mtime": 1756391071.9038308,
+      "type": "python"
+    },
+    {
+      "path": "health_check.py",
+      "name": "health_check.py",
+      "size": 8210,
+      "mtime": 1756391711.4004056,
+      "type": "python"
+    },
+    {
+      "path": "go_agent_impl.py",
+      "name": "go_agent_impl.py",
+      "size": 35310,
+      "mtime": 1756391071.9038308,
+      "type": "implementation"
+    },
+    {
+      "path": "gna_impl.py",
+      "name": "gna_impl.py",
+      "size": 60428,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "ghost_protocol_impl.py",
+      "name": "ghost_protocol_impl.py",
+      "size": 64275,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "fix_agent_class_naming.py",
+      "name": "fix_agent_class_naming.py",
+      "size": 4509,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_securitychaosagent_impl.py",
+      "name": "enhanced_securitychaosagent_impl.py",
+      "size": 25041,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_redteamorchestrator_impl.py",
+      "name": "enhanced_redteamorchestrator_impl.py",
+      "size": 26952,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_pygui_impl.py",
+      "name": "enhanced_pygui_impl.py",
+      "size": 9806,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_monitor_impl.py",
+      "name": "enhanced_monitor_impl.py",
+      "size": 41170,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_linter_impl.py",
+      "name": "enhanced_linter_impl.py",
+      "size": 9898,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "enhanced_constructor_impl.py",
+      "name": "enhanced_constructor_impl.py",
+      "size": 28769,
+      "mtime": 1756391071.9036915,
+      "type": "implementation"
+    },
+    {
+      "path": "docker_agent_impl.py",
+      "name": "docker_agent_impl.py",
+      "size": 31401,
+      "mtime": 1756391071.9028306,
+      "type": "implementation"
+    },
+    {
+      "path": "docgen_impl.py",
+      "name": "docgen_impl.py",
+      "size": 67074,
+      "mtime": 1756391071.902802,
+      "type": "implementation"
+    },
+    {
+      "path": "director_impl.py",
+      "name": "director_impl.py",
+      "size": 99071,
+      "mtime": 1756391071.902802,
+      "type": "implementation"
+    },
+    {
+      "path": "deployer_impl.py",
+      "name": "deployer_impl.py",
+      "size": 82151,
+      "mtime": 1756391071.9008307,
+      "type": "implementation"
+    },
+    {
+      "path": "debugger_impl.py",
+      "name": "debugger_impl.py",
+      "size": 72266,
+      "mtime": 1756391071.9008307,
+      "type": "implementation"
+    },
+    {
+      "path": "ddwrt_agent_impl.py",
+      "name": "ddwrt_agent_impl.py",
+      "size": 35027,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "datascience_impl.py",
+      "name": "datascience_impl.py",
+      "size": 50630,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "database_orchestrator.py",
+      "name": "database_orchestrator.py",
+      "size": 28123,
+      "mtime": 1756391071.9000814,
+      "type": "python"
+    },
+    {
+      "path": "database_impl.py",
+      "name": "database_impl.py",
+      "size": 62410,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "current_impl.txt",
+      "name": "current_impl.txt",
+      "size": 302,
+      "mtime": 1756391071.9000814,
+      "type": "config"
+    },
+    {
+      "path": "cso_impl.py",
+      "name": "cso_impl.py",
+      "size": 45062,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "cryptoexpert_impl.py",
+      "name": "cryptoexpert_impl.py",
+      "size": 83548,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "create_missing_agents_simple.py",
+      "name": "create_missing_agents_simple.py",
+      "size": 13110,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "create_missing_agent_implementations.py",
+      "name": "create_missing_agent_implementations.py",
+      "size": 13680,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "constructor_impl.py",
+      "name": "constructor_impl.py",
+      "size": 78135,
+      "mtime": 1756391071.9000814,
+      "type": "implementation"
+    },
+    {
+      "path": "cognitive_defense_impl.py",
+      "name": "cognitive_defense_impl.py",
+      "size": 63234,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "claude_code_integration.py",
+      "name": "claude_code_integration.py",
+      "size": 17721,
+      "mtime": 1756391071.8990197,
+      "type": "python"
+    },
+    {
+      "path": "claude_agent_bridge.py",
+      "name": "claude_agent_bridge.py",
+      "size": 51606,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "claude-orchestration-bridge.py",
+      "name": "claude-orchestration-bridge.py",
+      "size": 36355,
+      "mtime": 1756391071.8990197,
+      "type": "python"
+    },
+    {
+      "path": "cisco_agent_impl.py",
+      "name": "cisco_agent_impl.py",
+      "size": 31410,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "check_learning_status.sh",
+      "name": "check_learning_status.sh",
+      "size": 285,
+      "mtime": 1756391071.8990197,
+      "type": "unknown"
+    },
+    {
+      "path": "check_agent_compatibility.py",
+      "name": "check_agent_compatibility.py",
+      "size": 3616,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "chaos_agent_impl.py",
+      "name": "chaos_agent_impl.py",
+      "size": 50491,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "c_internal_impl.py",
+      "name": "c_internal_impl.py",
+      "size": 59277,
+      "mtime": 1756391071.8990197,
+      "type": "implementation"
+    },
+    {
+      "path": "bridge_health_monitor.py",
+      "name": "bridge_health_monitor.py",
+      "size": 943,
+      "mtime": 1756391071.897935,
+      "type": "python"
+    },
+    {
+      "path": "binary_bridge_connector.py",
+      "name": "binary_bridge_connector.py",
+      "size": 14389,
+      "mtime": 1756391071.897935,
+      "type": "python"
+    },
+    {
+      "path": "bgp_team_impl.py",
+      "name": "bgp_team_impl.py",
+      "size": 30441,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "bastion_impl.py",
+      "name": "bastion_impl.py",
+      "size": 45385,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "auditor_impl.py",
+      "name": "auditor_impl.py",
+      "size": 62485,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "async_io_optimizer.py",
+      "name": "async_io_optimizer.py",
+      "size": 28717,
+      "mtime": 1756391071.897935,
+      "type": "python"
+    },
+    {
+      "path": "architect_impl.py",
+      "name": "architect_impl.py",
+      "size": 70936,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "apidesigner_impl.py",
+      "name": "apidesigner_impl.py",
+      "size": 51164,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "androidmobile_impl.py",
+      "name": "androidmobile_impl.py",
+      "size": 40425,
+      "mtime": 1756391071.897935,
+      "type": "implementation"
+    },
+    {
+      "path": "analyze_agent_status.py",
+      "name": "analyze_agent_status.py",
+      "size": 4986,
+      "mtime": 1756391071.8968306,
+      "type": "implementation"
+    },
+    {
+      "path": "all_agents.txt",
+      "name": "all_agents.txt",
+      "size": 3509,
+      "mtime": 1756391071.8968306,
+      "type": "config"
+    },
+    {
+      "path": "agent_registry.py",
+      "name": "agent_registry.py",
+      "size": 73500,
+      "mtime": 1756391071.8968306,
+      "type": "python"
+    },
+    {
+      "path": "agent_protocol_server.py",
+      "name": "agent_protocol_server.py",
+      "size": 14892,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "agent_orchestrator.py",
+      "name": "agent_orchestrator.py",
+      "size": 2024,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "agent_dynamic_loader.py",
+      "name": "agent_dynamic_loader.py",
+      "size": 3803,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "agent_dependencies_manifest.json",
+      "name": "agent_dependencies_manifest.json",
+      "size": 1076,
+      "mtime": 1756391071.8964107,
+      "type": "config"
+    },
+    {
+      "path": "__init__.py",
+      "name": "__init__.py",
+      "size": 8890,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "VOICE_TOGGLE.py",
+      "name": "VOICE_TOGGLE.py",
+      "size": 10985,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "VOICE_INPUT_SYSTEM.py",
+      "name": "VOICE_INPUT_SYSTEM.py",
+      "size": 17755,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "UNIVERSAL_HELPER_METHODS.md",
+      "name": "UNIVERSAL_HELPER_METHODS.md",
+      "size": 17803,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "REORGANIZATION_PLAN.md",
+      "name": "REORGANIZATION_PLAN.md",
+      "size": 7651,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "README_LEARNING_SYSTEM.md",
+      "name": "README_LEARNING_SYSTEM.md",
+      "size": 12242,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "PYTHON_UNIFICATION.md",
+      "name": "PYTHON_UNIFICATION.md",
+      "size": 3286,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "PYTHON_ARCHITECTURE.md",
+      "name": "PYTHON_ARCHITECTURE.md",
+      "size": 11440,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "PARALLEL_ORCHESTRATION_ENHANCEMENT_SUMMARY.md",
+      "name": "PARALLEL_ORCHESTRATION_ENHANCEMENT_SUMMARY.md",
+      "size": 14336,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "PARALLEL_ORCHESTRATION_DEPLOYMENT_COMPLETE.md",
+      "name": "PARALLEL_ORCHESTRATION_DEPLOYMENT_COMPLETE.md",
+      "size": 5961,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "MIGRATION_TO_POSTGRESQL.md",
+      "name": "MIGRATION_TO_POSTGRESQL.md",
+      "size": 3209,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "LEARNING_SYSTEM_FIXES.md",
+      "name": "LEARNING_SYSTEM_FIXES.md",
+      "size": 6082,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "FUNCTIONALITY_RESTORED.md",
+      "name": "FUNCTIONALITY_RESTORED.md",
+      "size": 3409,
+      "mtime": 1756391071.8964107,
+      "type": "documentation"
+    },
+    {
+      "path": "ENHANCED_AGENT_INTEGRATION.py",
+      "name": "ENHANCED_AGENT_INTEGRATION.py",
+      "size": 57217,
+      "mtime": 1756391071.8964107,
+      "type": "python"
+    },
+    {
+      "path": "CONSTRUCTOR_IMPLEMENTATION_SUMMARY.md",
+      "name": "CONSTRUCTOR_IMPLEMENTATION_SUMMARY.md",
+      "size": 9481,
+      "mtime": 1756391071.8955626,
+      "type": "documentation"
+    },
+    {
+      "path": "=1.21.0",
+      "name": "=1.21.0",
+      "size": 7824,
+      "mtime": 1756391706.089975,
+      "type": "unknown"
+    },
+    {
+      "path": "tui_interfaces/tui_create_tui_20250822_065127.json",
+      "name": "tui_create_tui_20250822_065127.json",
+      "size": 629,
+      "mtime": 1756391071.9127104,
+      "type": "config"
+    },
+    {
+      "path": "tui_interfaces/tui_create_tui_20250822_065032.json",
+      "name": "tui_create_tui_20250822_065032.json",
+      "size": 629,
+      "mtime": 1756391071.912521,
+      "type": "config"
+    },
+    {
+      "path": "tui_documentation/create_tui_tui_guide.md",
+      "name": "create_tui_tui_guide.md",
+      "size": 1160,
+      "mtime": 1756391071.912521,
+      "type": "documentation"
+    },
+    {
+      "path": "technical_reviews/tech_review_review_architecture_20250822_065127.json",
+      "name": "tech_review_review_architecture_20250822_065127.json",
+      "size": 743,
+      "mtime": 1756391071.9121585,
+      "type": "config"
+    },
+    {
+      "path": "technical_reviews/tech_review_review_architecture_20250822_065032.json",
+      "name": "tech_review_review_architecture_20250822_065032.json",
+      "size": 743,
+      "mtime": 1756391071.9118626,
+      "type": "config"
+    },
+    {
+      "path": "strategic_plans/strategic_plan_760713b7_1755836227.json",
+      "name": "strategic_plan_760713b7_1755836227.json",
+      "size": 2135,
+      "mtime": 1756391071.9118626,
+      "type": "config"
+    },
+    {
+      "path": "strategic_plans/strategic_plan_28ec15d6_1756189568.json",
+      "name": "strategic_plan_28ec15d6_1756189568.json",
+      "size": 2144,
+      "mtime": 1756391071.9118626,
+      "type": "config"
+    },
+    {
+      "path": "strategic_plans/strategic_plan_18e40a1c_1755836217.json",
+      "name": "strategic_plan_18e40a1c_1755836217.json",
+      "size": 365,
+      "mtime": 1756391071.9118192,
+      "type": "config"
+    },
+    {
+      "path": "strategic_documentation/README.md",
+      "name": "README.md",
+      "size": 529,
+      "mtime": 1756391071.9109218,
+      "type": "documentation"
+    },
+    {
+      "path": "security_audit_scripts/README.md",
+      "name": "README.md",
+      "size": 655,
+      "mtime": 1756391071.910557,
+      "type": "documentation"
+    },
+    {
+      "path": "security_audit_output/security_scan_1755836250.json",
+      "name": "security_scan_1755836250.json",
+      "size": 356,
+      "mtime": 1756391071.910557,
+      "type": "config"
+    },
+    {
+      "path": "research_output/research_research_technology_20250822_065127.json",
+      "name": "research_research_technology_20250822_065127.json",
+      "size": 382,
+      "mtime": 1756391071.910557,
+      "type": "config"
+    },
+    {
+      "path": "research_output/research_research_technology_20250822_065032.json",
+      "name": "research_research_technology_20250822_065032.json",
+      "size": 382,
+      "mtime": 1756391071.9097095,
+      "type": "config"
+    },
+    {
+      "path": "qa_management/qa_plan_testing_20250822_065127.json",
+      "name": "qa_plan_testing_20250822_065127.json",
+      "size": 620,
+      "mtime": 1756391071.9097095,
+      "type": "config"
+    },
+    {
+      "path": "qa_management/qa_plan_testing_20250822_065032.json",
+      "name": "qa_plan_testing_20250822_065032.json",
+      "size": 620,
+      "mtime": 1756391071.909632,
+      "type": "config"
+    },
+    {
+      "path": "qa_documentation/plan_testing_qa_guide.md",
+      "name": "plan_testing_qa_guide.md",
+      "size": 2164,
+      "mtime": 1756391071.909632,
+      "type": "documentation"
+    },
+    {
+      "path": "python_scripts/setup_manage_environment.py",
+      "name": "setup_manage_environment.py",
+      "size": 1396,
+      "mtime": 1756391071.9095733,
+      "type": "python"
+    },
+    {
+      "path": "python_environments/requirements_manage_environment.txt",
+      "name": "requirements_manage_environment.txt",
+      "size": 611,
+      "mtime": 1756391071.9095733,
+      "type": "config"
+    },
+    {
+      "path": "python_environments/python_env_manage_environment_20250826_061013.json",
+      "name": "python_env_manage_environment_20250826_061013.json",
+      "size": 2527,
+      "mtime": 1756391071.9095733,
+      "type": "config"
+    },
+    {
+      "path": "python_environments/python_env_manage_environment_20250822_065127.json",
+      "name": "python_env_manage_environment_20250822_065127.json",
+      "size": 737,
+      "mtime": 1756391071.9088748,
+      "type": "config"
+    },
+    {
+      "path": "python_documentation/manage_environment_python_guide.md",
+      "name": "manage_environment_python_guide.md",
+      "size": 4106,
+      "mtime": 1756391071.9088748,
+      "type": "documentation"
+    },
+    {
+      "path": "project_plans/project_plan_create_project_plan_20250822_065127.json",
+      "name": "project_plan_create_project_plan_20250822_065127.json",
+      "size": 850,
+      "mtime": 1756391071.9088562,
+      "type": "config"
+    },
+    {
+      "path": "project_plans/project_plan_create_project_plan_20250822_065032.json",
+      "name": "project_plan_create_project_plan_20250822_065032.json",
+      "size": 850,
+      "mtime": 1756391071.9078307,
+      "type": "config"
+    },
+    {
+      "path": "planning_documentation/create_project_plan_planning_guide.md",
+      "name": "create_project_plan_planning_guide.md",
+      "size": 1271,
+      "mtime": 1756391071.9076297,
+      "type": "documentation"
+    },
+    {
+      "path": "organizational_structure/org_structure_teams_20250822_065127.json",
+      "name": "org_structure_teams_20250822_065127.json",
+      "size": 727,
+      "mtime": 1756391071.9076297,
+      "type": "config"
+    },
+    {
+      "path": "organizational_structure/org_structure_teams_20250822_065032.json",
+      "name": "org_structure_teams_20250822_065032.json",
+      "size": 727,
+      "mtime": 1756391071.9069264,
+      "type": "config"
+    },
+    {
+      "path": "organization_documentation/structure_teams_organization_guide.md",
+      "name": "structure_teams_organization_guide.md",
+      "size": 1950,
+      "mtime": 1756391071.9069264,
+      "type": "documentation"
+    },
+    {
+      "path": "npu_optimizations/npu_optimize_npu_inference_20250822_065127.json",
+      "name": "npu_optimize_npu_inference_20250822_065127.json",
+      "size": 675,
+      "mtime": 1756391071.9069264,
+      "type": "config"
+    },
+    {
+      "path": "npu_optimizations/npu_optimize_npu_inference_20250822_065032.json",
+      "name": "npu_optimize_npu_inference_20250822_065032.json",
+      "size": 675,
+      "mtime": 1756391071.906763,
+      "type": "config"
+    },
+    {
+      "path": "npu_documentation/optimize_npu_inference_optimization_guide.md",
+      "name": "optimize_npu_inference_optimization_guide.md",
+      "size": 1401,
+      "mtime": 1756391071.906763,
+      "type": "documentation"
+    },
+    {
+      "path": "monitoring/prometheus_orchestrator.yml",
+      "name": "prometheus_orchestrator.yml",
+      "size": 659,
+      "mtime": 1756391711.38901,
+      "type": "config"
+    },
+    {
+      "path": "monitoring/orchestrator_rules.yml",
+      "name": "orchestrator_rules.yml",
+      "size": 1377,
+      "mtime": 1756391711.3900099,
+      "type": "config"
+    },
+    {
+      "path": "logs/production_orchestrator.log",
+      "name": "production_orchestrator.log",
+      "size": 0,
+      "mtime": 1756391711.38301,
+      "type": "unknown"
+    },
+    {
+      "path": "logs/metrics.log",
+      "name": "metrics.log",
+      "size": 0,
+      "mtime": 1756391711.38301,
+      "type": "unknown"
+    },
+    {
+      "path": "logs/errors.log",
+      "name": "errors.log",
+      "size": 0,
+      "mtime": 1756391711.38301,
+      "type": "unknown"
+    },
+    {
+      "path": "leadership_documentation/review_architecture_leadership_guide.md",
+      "name": "review_architecture_leadership_guide.md",
+      "size": 1726,
+      "mtime": 1756391071.9048307,
+      "type": "documentation"
+    },
+    {
+      "path": "deprecated/update_dynamic_loader_complete.py",
+      "name": "update_dynamic_loader_complete.py",
+      "size": 2933,
+      "mtime": 1756391071.902802,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/tandem_orchestrator_old.py",
+      "name": "tandem_orchestrator_old.py",
+      "size": 45763,
+      "mtime": 1756391071.902802,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/tandem_orchestration_launcher.sh",
+      "name": "tandem_orchestration_launcher.sh",
+      "size": 647,
+      "mtime": 1756391071.9020085,
+      "type": "unknown"
+    },
+    {
+      "path": "deprecated/production_orchestrator_old.py",
+      "name": "production_orchestrator_old.py",
+      "size": 29097,
+      "mtime": 1756391071.9020085,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/postgresql_learning_system2.py",
+      "name": "postgresql_learning_system2.py",
+      "size": 75894,
+      "mtime": 1756391071.9020085,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/postgresql_learning_system.py",
+      "name": "postgresql_learning_system.py",
+      "size": 70333,
+      "mtime": 1756391071.9020085,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/agent_learning_system.py",
+      "name": "agent_learning_system.py",
+      "size": 24082,
+      "mtime": 1756391071.9020085,
+      "type": "python"
+    },
+    {
+      "path": "deprecated/README.md",
+      "name": "README.md",
+      "size": 1070,
+      "mtime": 1756391071.9008307,
+      "type": "documentation"
+    },
+    {
+      "path": "config/production.yaml",
+      "name": "production.yaml",
+      "size": 10595,
+      "mtime": 1756391071.8999853,
+      "type": "config"
+    },
+    {
+      "path": "config/logging.yaml",
+      "name": "logging.yaml",
+      "size": 1361,
+      "mtime": 1756391711.3820097,
+      "type": "config"
+    },
+    {
+      "path": "android_documentation/develop_app_android_guide.md",
+      "name": "develop_app_android_guide.md",
+      "size": 1497,
+      "mtime": 1756391071.897935,
+      "type": "documentation"
+    },
+    {
+      "path": "android_apps/android_develop_app_20250822_065127.json",
+      "name": "android_develop_app_20250822_065127.json",
+      "size": 699,
+      "mtime": 1756391071.897917,
+      "type": "config"
+    },
+    {
+      "path": "android_apps/android_develop_app_20250822_065032.json",
+      "name": "android_develop_app_20250822_065032.json",
+      "size": 699,
+      "mtime": 1756391071.8968306,
+      "type": "config"
+    },
+    {
+      "path": "__pycache__/production_orchestrator.cpython-312.pyc",
+      "name": "production_orchestrator.cpython-312.pyc",
+      "size": 43579,
+      "mtime": 1756391678.5828862,
+      "type": "unknown"
+    },
+    {
+      "path": "__pycache__/agent_registry.cpython-312.pyc",
+      "name": "agent_registry.cpython-312.pyc",
+      "size": 94326,
+      "mtime": 1756391678.7126148,
+      "type": "unknown"
+    },
+    {
+      "path": "__pycache__/agent_dynamic_loader.cpython-312.pyc",
+      "name": "agent_dynamic_loader.cpython-312.pyc",
+      "size": 4409,
+      "mtime": 1756391678.738955,
+      "type": "unknown"
+    },
+    {
+      "path": "tui_components/scripts/create_tui_component.py",
+      "name": "create_tui_component.py",
+      "size": 988,
+      "mtime": 1756391071.912521,
+      "type": "python"
+    },
+    {
+      "path": "test_plans/strategies/plan_testing_strategy.yaml",
+      "name": "plan_testing_strategy.yaml",
+      "size": 1260,
+      "mtime": 1756391071.9122076,
+      "type": "config"
+    },
+    {
+      "path": "strategic_documentation/phases/execute_phase_architecture_&_design.py",
+      "name": "execute_phase_architecture_&_design.py",
+      "size": 1426,
+      "mtime": 1756391071.9118192,
+      "type": "python"
+    },
+    {
+      "path": "security_audit_scripts/scripts/vulnerability_scanner.py",
+      "name": "vulnerability_scanner.py",
+      "size": 804,
+      "mtime": 1756391071.9109218,
+      "type": "python"
+    },
+    {
+      "path": "security_audit_scripts/scripts/compliance_checker.py",
+      "name": "compliance_checker.py",
+      "size": 589,
+      "mtime": 1756391071.9109044,
+      "type": "python"
+    },
+    {
+      "path": "python_scripts/utilities/manage_environment_utility.py",
+      "name": "manage_environment_utility.py",
+      "size": 2513,
+      "mtime": 1756391071.909632,
+      "type": "python"
+    },
+    {
+      "path": "project_schedules/scripts/create_project_plan_script.py",
+      "name": "create_project_plan_script.py",
+      "size": 659,
+      "mtime": 1756391071.9088748,
+      "type": "python"
+    },
+    {
+      "path": "npu_benchmarks/scripts/optimize_npu_inference_optimizer.py",
+      "name": "optimize_npu_inference_optimizer.py",
+      "size": 858,
+      "mtime": 1756391071.906763,
+      "type": "python"
+    },
+    {
+      "path": "engineering_standards/guidelines/review_architecture_standards.md",
+      "name": "review_architecture_standards.md",
+      "size": 1429,
+      "mtime": 1756391071.9036915,
+      "type": "documentation"
+    },
+    {
+      "path": "engineering_standards/guidelines/review_architecture_automation.py",
+      "name": "review_architecture_automation.py",
+      "size": 1030,
+      "mtime": 1756391071.90366,
+      "type": "python"
+    },
+    {
+      "path": "config/system/sysctl.conf",
+      "name": "sysctl.conf",
+      "size": 405,
+      "mtime": 1756391711.37001,
+      "type": "unknown"
+    },
+    {
+      "path": "config/system/cpufreq.conf",
+      "name": "cpufreq.conf",
+      "size": 83,
+      "mtime": 1756391711.3710098,
+      "type": "unknown"
+    },
+    {
+      "path": "config/performance/meteor_lake_config.yaml",
+      "name": "meteor_lake_config.yaml",
+      "size": 1509,
+      "mtime": 1756391711.3940098,
+      "type": "config"
+    },
+    {
+      "path": "business_processes/workflows/structure_teams_workflow.yaml",
+      "name": "structure_teams_workflow.yaml",
+      "size": 1212,
+      "mtime": 1756391071.8990197,
+      "type": "config"
+    },
+    {
+      "path": "business_processes/workflows/structure_teams_chart.py",
+      "name": "structure_teams_chart.py",
+      "size": 1753,
+      "mtime": 1756391071.898991,
+      "type": "python"
+    },
+    {
+      "path": "android_builds/scripts/develop_app_build.gradle",
+      "name": "develop_app_build.gradle",
+      "size": 1314,
+      "mtime": 1756391071.897935,
+      "type": "unknown"
+    }
+  ],
+  "stats": {
+    "total_files": 205,
+    "python_files": 127,
+    "impl_files": 70,
+    "doc_files": 23,
+    "config_files": 35,
+    "total_size_bytes": 4755846
+  }
+}

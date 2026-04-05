@@ -1,0 +1,14 @@
+{
+  "step": 3,
+  "timestamp": "2025-08-28T14:56:39.622200",
+  "backup_path": "/home/ubuntu/claude-backups/agents/src/python_src_backup_20250828_145525.tar.gz",
+  "inventory_file": "file_inventory.json",
+  "ready_for_reorganization": false,
+  "timestamp_step2": "2025-08-28T14:56:39.670905",
+  "files_moved": 106,
+  "symlinks_created": 100,
+  "errors": 0,
+  "timestamp_step3": "2025-08-28T14:56:39.966189",
+  "imports_updated": 57,
+  "files_updated": 37
+}

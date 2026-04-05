@@ -1,0 +1,149 @@
+[package]
+name = "vector_router"
+version = "1.0.0"
+edition = "2021"
+authors = ["ML-OPS Agent"]
+description = "High-performance vector database for semantic message routing with hardware acceleration"
+license = "MIT"
+repository = "https://github.com/claude-agents/ai-enhanced-router"
+documentation = "https://docs.rs/vector_router"
+keywords = ["ai", "routing", "vector-database", "npu", "machine-learning"]
+categories = ["database", "algorithms", "hardware-support"]
+
+[lib]
+name = "vector_router"
+path = "../rust/vector_router.rs"
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[features]
+default = ["simd", "parallel"]
+
+# Hardware acceleration features - disabled on LiveCD
+npu-acceleration = ["tokio"]  # openvino removed - not available on LiveCD
+gpu-acceleration = []  # opencl3 removed - not available on LiveCD
+simd = []
+
+# Performance features
+parallel = ["rayon"]
+quantization = []
+clustering = []  # kmeans disabled due to incompatible version
+
+# Development features removed - causing build issues
+
+[dependencies]
+# Core dependencies
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+# Numerical computing
+ndarray = { version = "0.15", features = ["rayon", "serde"] }
+num-traits = "0.2"
+rand = "0.8"
+rand_distr = "0.4"
+
+# Parallel processing
+rayon = { version = "1.7", optional = true }
+
+# Concurrent data structures
+arc-swap = "1.6"
+dashmap = "5.4"
+parking_lot = "0.12"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Hardware acceleration - disabled on LiveCD
+# openvino = { version = "0.7", optional = true }  # Requires Intel OpenVINO toolkit
+# opencl3 = { version = "0.9", optional = true }    # Requires OpenCL runtime
+
+# Machine learning utilities
+# kmeans = { version = "2.0", optional = true }  # Disabled - incompatible API
+# faiss = { version = "0.12", optional = true }  # Disabled - crate doesn't exist
+
+# Serialization for persistence
+bincode = "1.3"
+rmp-serde = "1.1"
+
+# Memory management
+memmap2 = "0.9"
+
+# Additional dependencies used in vector_router.rs
+crossbeam-channel = "0.5"
+lz4_flex = "0.11"
+metrics = "0.24"
+priority-queue = "2.1"
+num_cpus = "1.16"
+
+[dev-dependencies]
+# Testing
+tokio-test = "0.4"
+proptest = { version = "1.0" }
+criterion = { version = "0.5", features = ["html_reports"] }
+approx = "0.5"
+
+# Benchmarking
+pprof = { version = "0.12", features = ["criterion", "flamegraph"] }
+
+[build-dependencies]
+cc = "1.0"
+pkg-config = "0.3"
+chrono = { version = "0.4", features = ["std"] }
+which = "4.4"
+
+# Examples and benchmarks removed for build simplicity
+
+[profile.release]
+opt-level = 2      # Stable optimization for better compile times
+lto = "thin"       # Fast incremental LTO (changed from "fat")
+codegen-units = 4  # Parallel codegen (changed from 1)
+panic = "abort"
+strip = "symbols"
+
+[profile.bench]
+inherits = "release"
+debug = true
+
+[profile.dev]
+opt-level = 1
+debug = true
+split-debuginfo = "unpacked"
+
+# NPU and GPU specific optimizations
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+# Intel-specific optimizations
+target-lexicon = "0.12"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Linux-specific hardware interfaces
+libc = "0.2"
+nix = "0.27"
+
+# Workspace removed for standalone build
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+ignored = ["openvino", "opencl3"]  # Optional hardware dependencies
+
+# Cargo configuration for cross-compilation
+[target.x86_64-unknown-linux-gnu]
+linker = "gcc"
+
+[target.aarch64-unknown-linux-gnu]  
+linker = "aarch64-linux-gnu-gcc"
+
+# Custom build script configuration
+[package.metadata.ai-router]
+models-dir = "models"
+config-dir = "config"
+hardware-detection = true
+performance-tuning = true

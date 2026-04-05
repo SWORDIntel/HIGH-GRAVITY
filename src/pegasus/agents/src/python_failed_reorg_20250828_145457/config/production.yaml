@@ -1,0 +1,442 @@
+# ============================================================================
+# TANDEM ORCHESTRATION SYSTEM - PRODUCTION CONFIGURATION
+# ============================================================================
+# Infrastructure Agent: Production Configuration
+# Comprehensive configuration for production deployment
+# Optimized for Intel Meteor Lake architecture
+# All 31 agents configured with appropriate settings
+# ============================================================================
+
+# Global system configuration
+system:
+  name: "Claude Agent Framework - Tandem Orchestration System"
+  version: "7.0"
+  environment: "production"
+  debug: false
+  
+  # Logging configuration
+  logging:
+    level: "INFO"
+    config_file: "config/logging.yaml"
+    metrics_enabled: true
+    performance_logging: true
+    
+  # Performance settings
+  performance:
+    max_workers: 32
+    worker_pool_size: 16
+    async_pool_size: 64
+    connection_pool_size: 100
+    request_timeout: 30
+    health_check_interval: 10
+
+# Hardware optimization (Intel Meteor Lake)
+hardware:
+  cpu_model: "Intel Core Ultra 7 155H"
+  architecture: "meteor_lake"
+  optimization_enabled: true
+  
+  # Core topology configuration
+  cores:
+    p_cores:
+      count: 6
+      ids: [0, 2, 4, 6, 8, 10]
+      frequency_governor: "performance"
+      usage: "compute_intensive"
+      agents: ["Director", "ProjectOrchestrator", "Constructor", "Architect", "Optimizer"]
+      
+    e_cores:
+      count: 8
+      ids: [12, 13, 14, 15, 16, 17, 18, 19]
+      frequency_governor: "powersave"
+      usage: "background_io"
+      agents: ["Security", "Monitor", "Deployer", "Infrastructure", "Testbed", "Debugger"]
+      
+    lp_e_cores:
+      count: 2
+      ids: [20, 21]
+      frequency_governor: "powersave"
+      usage: "monitoring"
+      agents: ["health_monitor", "system_monitor"]
+  
+  # Memory configuration
+  memory:
+    huge_pages: true
+    numa_awareness: true
+    prefetch_distance: 64
+    shared_memory_size: "1GB"
+    
+  # Vector extensions
+  vector_extensions:
+    avx512_enabled: true
+    avx2_enabled: true
+    fma_enabled: true
+    
+  # Thermal management
+  thermal:
+    target_temperature: 85
+    warning_temperature: 90
+    critical_temperature: 95
+    cooling_strategy: "aggressive"
+
+# Agent registry configuration
+agent_registry:
+  auto_discovery: true
+  discovery_path: "${CLAUDE_PROJECT_ROOT:-$(dirname "$0")/../../}agents"
+  agent_files_pattern: "*.md"
+  exclude_files: ["Template.md", "README.md"]
+  health_check_enabled: true
+  health_check_interval: 30
+  registration_timeout: 10
+  
+  # Agent categories and priorities
+  categories:
+    strategic:
+      agents: ["Director", "ProjectOrchestrator"]
+      priority: "critical"
+      max_failures: 0
+      recovery_strategy: "immediate_restart"
+      
+    development:
+      agents: ["Architect", "Constructor", "Patcher", "Debugger", "Testbed", "Linter", "Optimizer"]
+      priority: "high"
+      max_failures: 2
+      recovery_strategy: "exponential_backoff"
+      
+    security:
+      agents: ["Security", "Bastion", "Oversight", "SecurityChaosAgent"]
+      priority: "high"
+      max_failures: 1
+      recovery_strategy: "immediate_restart"
+      
+    infrastructure:
+      agents: ["Infrastructure", "Deployer", "Monitor", "Packager"]
+      priority: "medium"
+      max_failures: 3
+      recovery_strategy: "linear_backoff"
+      
+    specialized:
+      agents: ["APIDesigner", "Database", "Web", "Mobile", "PyGUI", "TUI"]
+      priority: "medium"
+      max_failures: 3
+      recovery_strategy: "exponential_backoff"
+      
+    data_ml:
+      agents: ["DataScience", "MLOps", "NPU"]
+      priority: "medium"
+      max_failures: 2
+      recovery_strategy: "manual"
+      
+    support:
+      agents: ["Docgen", "RESEARCHER", "PLANNER", "GNU"]
+      priority: "low"
+      max_failures: 5
+      recovery_strategy: "delayed_restart"
+      
+    internal:
+      agents: ["c-internal", "python-internal"]
+      priority: "critical"
+      max_failures: 1
+      recovery_strategy: "immediate_restart"
+
+# Execution modes configuration
+execution_modes:
+  default: "python"
+  
+  # Mode definitions
+  modes:
+    intelligent:
+      description: "Python orchestrates, C executes atomics (RECOMMENDED)"
+      python_orchestration: true
+      c_execution: true
+      consensus_required: false
+      fallback_mode: "python_only"
+      performance_priority: "balanced"
+      
+    speed_critical:
+      description: "C layer only for maximum performance"
+      python_orchestration: false
+      c_execution: true
+      consensus_required: false
+      fallback_mode: "intelligent"
+      performance_priority: "speed"
+      
+    redundant:
+      description: "Both layers for critical operations"
+      python_orchestration: true
+      c_execution: true
+      consensus_required: true
+      fallback_mode: "consensus"
+      performance_priority: "reliability"
+      
+    python_only:
+      description: "Pure Python execution for library integration"
+      python_orchestration: true
+      c_execution: false
+      consensus_required: false
+      fallback_mode: "intelligent"
+      performance_priority: "compatibility"
+      
+    consensus:
+      description: "Both layers must agree before proceeding"
+      python_orchestration: true
+      c_execution: true
+      consensus_required: true
+      fallback_mode: "python_only"
+      performance_priority: "accuracy"
+
+# DAG execution engine configuration
+dag_engine:
+  enabled: true
+  max_parallel_tasks: 16
+  dependency_timeout: 60
+  cycle_detection: true
+  retry_policy:
+    max_retries: 3
+    backoff_strategy: "exponential"
+    base_delay: 1.0
+    max_delay: 30.0
+  
+  # Scheduling strategies
+  scheduling:
+    strategy: "priority_longest_path"
+    load_balancing: true
+    resource_awareness: true
+    thermal_awareness: true
+
+# Communication configuration
+communication:
+  # Binary communication system
+  binary_protocol:
+    enabled: true
+    socket_path: "/tmp/claude_agent_bridge.sock"
+    shared_memory_size: "256MB"
+    ring_buffer_size: 65536
+    message_timeout: 5000
+    
+  # Python communication
+  python_protocol:
+    enabled: true
+    async_enabled: true
+    connection_pool_size: 50
+    message_queue_size: 10000
+    serialization: "msgpack"
+    compression: "lz4"
+    
+  # Agent discovery
+  discovery:
+    method: "file_based"
+    broadcast_interval: 30
+    heartbeat_interval: 10
+    timeout: 60
+
+# Monitoring and metrics
+monitoring:
+  enabled: true
+  
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8090
+    metrics_path: "/metrics"
+    
+  # Health checks
+  health_checks:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8091
+    health_path: "/health"
+    detailed_path: "/health/detailed"
+    
+  # System metrics
+  system_metrics:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8092
+    metrics_path: "/system/metrics"
+    collection_interval: 30
+    
+  # Metrics to collect
+  metrics:
+    - "agent_execution_time"
+    - "agent_success_rate"
+    - "agent_failure_rate"
+    - "system_resource_usage"
+    - "thermal_metrics"
+    - "communication_latency"
+    - "dag_execution_time"
+    - "cache_hit_ratio"
+    
+  # Alerting thresholds
+  alerts:
+    agent_failure_rate_threshold: 0.1
+    system_memory_threshold: 0.9
+    cpu_temperature_threshold: 90
+    communication_latency_threshold: 1000
+
+# Security configuration
+security:
+  enabled: true
+  
+  # Authentication
+  authentication:
+    method: "token_based"
+    token_expiry: 3600
+    refresh_enabled: true
+    
+  # Authorization
+  authorization:
+    rbac_enabled: true
+    default_role: "agent"
+    admin_agents: ["Director", "ProjectOrchestrator", "Infrastructure"]
+    
+  # Encryption
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+    key_rotation_interval: 86400
+    
+  # Network security
+  network:
+    tls_enabled: true
+    tls_version: "1.3"
+    certificate_path: "config/certs/"
+    allowed_hosts: ["localhost", "127.0.0.1"]
+
+# Caching configuration
+caching:
+  enabled: true
+  
+  # Cache types
+  caches:
+    agent_results:
+      type: "memory"
+      size: "256MB"
+      ttl: 3600
+      
+    system_state:
+      type: "memory"
+      size: "64MB"
+      ttl: 300
+      
+    communication:
+      type: "memory"
+      size: "128MB"
+      ttl: 600
+      
+  # Cache strategies
+  strategies:
+    eviction: "lru"
+    compression: true
+    serialization: "pickle"
+
+# Error handling and recovery
+error_handling:
+  enabled: true
+  
+  # Global error policies
+  global_policies:
+    max_consecutive_failures: 5
+    failure_window: 300
+    recovery_delay: 60
+    
+  # Circuit breaker
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60
+    half_open_max_calls: 3
+    
+  # Fallback strategies
+  fallback:
+    enabled: true
+    strategies:
+      - "retry_with_backoff"
+      - "fallback_to_different_agent"
+      - "degrade_gracefully"
+      - "manual_intervention"
+
+# Development and debugging
+development:
+  debug_mode: false
+  profiling_enabled: false
+  trace_enabled: false
+  
+  # Test configuration
+  testing:
+    mock_agents_enabled: false
+    test_data_path: "tests/data/"
+    coverage_reporting: true
+
+# Deployment configuration
+deployment:
+  mode: "production"
+  auto_scaling: false
+  load_balancing: true
+  
+  # Resource limits
+  resources:
+    cpu_limit: "800%"  # 8 cores worth
+    memory_limit: "16GB"
+    open_files_limit: 65536
+    processes_limit: 32768
+    
+  # Health checks
+  readiness_probe:
+    enabled: true
+    path: "/health/ready"
+    initial_delay: 30
+    period: 10
+    
+  liveness_probe:
+    enabled: true
+    path: "/health/live"
+    initial_delay: 60
+    period: 30
+
+# Agent-specific configurations
+agents:
+  Director:
+    execution_mode: "intelligent"
+    hardware_affinity: "p_cores"
+    priority: "critical"
+    max_memory: "2GB"
+    timeout: 300
+    
+  ProjectOrchestrator:
+    execution_mode: "intelligent"
+    hardware_affinity: "p_cores"
+    priority: "critical"
+    max_memory: "2GB"
+    timeout: 300
+    
+  Constructor:
+    execution_mode: "intelligent"
+    hardware_affinity: "p_cores"
+    priority: "high"
+    max_memory: "1GB"
+    timeout: 180
+    
+  Security:
+    execution_mode: "redundant"
+    hardware_affinity: "e_cores"
+    priority: "high"
+    max_memory: "512MB"
+    timeout: 120
+    
+  Monitor:
+    execution_mode: "python_only"
+    hardware_affinity: "lp_e_cores"
+    priority: "low"
+    max_memory: "256MB"
+    timeout: 60
+    continuous_monitoring: true
+    
+  # Default configuration for other agents
+  default:
+    execution_mode: "intelligent"
+    hardware_affinity: "e_cores"
+    priority: "medium"
+    max_memory: "512MB"
+    timeout: 120

@@ -1,0 +1,41 @@
+{
+  "socket_path": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../06-BUILD-RUNTIME/runtime/claude_agent_bridge.sock",
+  "runtime_dir": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../06-BUILD-RUNTIME/runtime",
+  "build_dir": "${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../06-BUILD-RUNTIME/build",
+  "cpu_features": {
+    "avx2": true,
+    "avx512": false,
+    "p_cores": [],
+    "e_cores": [
+      21,
+      11,
+      9,
+      7,
+      18,
+      5,
+      16,
+      3,
+      14,
+      1,
+      12,
+      20,
+      10,
+      8,
+      19,
+      6,
+      17,
+      4,
+      15,
+      2,
+      13,
+      0
+    ],
+    "cpu_model": "Intel(R) Core(TM) Ultra 7 165H",
+    "is_meteor_lake": true
+  },
+  "protocol_settings": {
+    "ring_buffer_size": 16777216,
+    "msg_buffer_size": 65536,
+    "max_agents": 32
+  }
+}

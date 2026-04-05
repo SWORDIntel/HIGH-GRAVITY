@@ -1,0 +1,14 @@
+{
+  "initialization_successful": false,
+  "error": "permission denied to create extension \"vector\"\nHINT:  Must be superuser to create this extension.",
+  "components_status": {
+    "database": true,
+    "schema": false,
+    "pgvector": false,
+    "neural_models": false,
+    "avx2_integration": false,
+    "ml_models": false,
+    "apis": false
+  },
+  "timestamp": "2025-09-02T13:12:04.942187"
+}

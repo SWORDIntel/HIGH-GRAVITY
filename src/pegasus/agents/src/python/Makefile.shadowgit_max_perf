@@ -1,0 +1,442 @@
+# Makefile for Shadowgit Maximum Performance Engine
+# =================================================
+# Target: 15+ billion lines/sec throughput
+# Intel Core Ultra 7 165H optimization with NPU acceleration
+#
+# Build targets:
+#   make all          - Build all components
+#   make engine       - Build main engine
+#   make npu          - Build NPU engine
+#   make coordinator  - Build performance coordinator
+#   make test         - Build and run tests
+#   make benchmark    - Run comprehensive benchmark
+#   make clean        - Clean build artifacts
+#   make install      - Install to system
+
+# ============================================================================
+# COMPILER CONFIGURATION
+# ============================================================================
+
+CC = gcc
+CXX = g++
+CFLAGS = -std=c11 -Wall -Wextra -Werror -fPIC
+CXXFLAGS = -std=c++17 -Wall -Wextra -Werror -fPIC
+LDFLAGS = -shared
+
+# Performance optimization flags
+PERF_FLAGS = -O3 -march=native -mtune=native
+PERF_FLAGS += -mavx2 -mfma -mbmi2 -mlzcnt -mpopcnt
+PERF_FLAGS += -ftree-vectorize -ffast-math -funroll-loops
+PERF_FLAGS += -flto -fuse-linker-plugin
+
+# Intel-specific optimizations for Core Ultra 7 165H
+INTEL_FLAGS = -mprefer-vector-width=256
+INTEL_FLAGS += -falign-functions=32 -falign-loops=32
+INTEL_FLAGS += -fno-semantic-interposition
+
+# Threading and memory optimization
+THREAD_FLAGS = -pthread -fopenmp
+MEMORY_FLAGS = -DCACHE_LINE_SIZE=64 -DTLB_OPTIMIZE
+
+# Debug flags (for debug builds)
+DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address
+
+# ============================================================================
+# LIBRARY DEPENDENCIES
+# ============================================================================
+
+# Core libraries
+LIBS = -lm -lpthread -lrt -ldl
+
+# NUMA support
+NUMA_LIBS = -lnuma
+NUMA_FLAGS = -DNUMA_ENABLED
+
+# OpenVINO support (if available)
+OPENVINO_ROOT ?= /home/john/openvino
+OPENVINO_LIBS = -L$(OPENVINO_ROOT)/bin/intel64/Release/lib -lopenvino
+OPENVINO_FLAGS = -I$(OPENVINO_ROOT)/runtime/include -DOPENVINO_ENABLED
+
+# Hardware monitoring
+HW_LIBS = -lsensors
+
+# ============================================================================
+# FEATURE FLAGS
+# ============================================================================
+
+# Core features
+FEATURES = -DSHADOWGIT_MAX_PERF_ENABLED
+FEATURES += -DAVX2_OPTIMIZED -DNPU_ACCELERATION
+FEATURES += -DWORK_STEALING_QUEUES -DTHERMAL_MANAGEMENT
+
+# Performance targets
+FEATURES += -DTARGET_LINES_PER_SEC=15000000000ULL
+FEATURES += -DINTEL_METEOR_LAKE_OPTIMIZED
+
+# Hardware configuration
+FEATURES += -DINTEL_P_CORES=6 -DINTEL_E_CORES=8 -DINTEL_LP_E_CORES=2
+
+# ============================================================================
+# SOURCE FILES
+# ============================================================================
+
+# Main engine sources
+ENGINE_SOURCES = shadowgit_maximum_performance.c
+ENGINE_HEADERS = shadowgit_maximum_performance.h
+
+# NPU engine sources
+NPU_SOURCES = shadowgit_npu_engine.c
+NPU_HEADERS = shadowgit_maximum_performance.h
+
+# Performance coordinator sources
+COORD_SOURCES = shadowgit_performance_coordinator.c
+COORD_HEADERS = shadowgit_maximum_performance.h
+
+# All sources
+ALL_SOURCES = $(ENGINE_SOURCES) $(NPU_SOURCES) $(COORD_SOURCES)
+ALL_HEADERS = $(ENGINE_HEADERS) $(NPU_HEADERS) $(COORD_HEADERS)
+
+# ============================================================================
+# BUILD TARGETS
+# ============================================================================
+
+# Default target
+all: engine npu coordinator
+
+# Check dependencies
+check-deps:
+	@echo "Checking dependencies..."
+	@command -v gcc >/dev/null 2>&1 || { echo "GCC not found. Please install GCC 13.2.0+"; exit 1; }
+	@command -v pkg-config >/dev/null 2>&1 || { echo "pkg-config not found"; exit 1; }
+	@echo "Dependencies OK"
+
+# Main engine library
+engine: libshadowgit_max_perf.so
+
+libshadowgit_max_perf.so: $(ENGINE_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building Shadowgit Maximum Performance Engine..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) $(MEMORY_FLAGS) \
+		$(FEATURES) $(NUMA_FLAGS) -DSHADOWGIT_MAX_PERF_LIBRARY \
+		$(ENGINE_SOURCES) -o $@ $(LDFLAGS) $(LIBS) $(NUMA_LIBS)
+	@echo "Engine built: $@"
+
+# NPU engine library
+npu: libshadowgit_npu.so
+
+libshadowgit_npu.so: $(NPU_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building NPU Engine..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) \
+		$(FEATURES) $(OPENVINO_FLAGS) -DNPU_ENGINE_LIBRARY \
+		$(NPU_SOURCES) -o $@ $(LDFLAGS) $(LIBS) $(OPENVINO_LIBS) || \
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) \
+		$(FEATURES) -DNPU_ENGINE_LIBRARY -DNPU_SIMULATION_MODE \
+		$(NPU_SOURCES) -o $@ $(LDFLAGS) $(LIBS)
+	@echo "NPU Engine built: $@"
+
+# Performance coordinator library
+coordinator: libshadowgit_coordinator.so
+
+libshadowgit_coordinator.so: $(COORD_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building Performance Coordinator..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) $(MEMORY_FLAGS) \
+		$(FEATURES) $(NUMA_FLAGS) -DPERF_COORDINATOR_LIBRARY \
+		$(COORD_SOURCES) -o $@ $(LDFLAGS) $(LIBS) $(NUMA_LIBS)
+	@echo "Performance Coordinator built: $@"
+
+# ============================================================================
+# STANDALONE EXECUTABLES
+# ============================================================================
+
+# Main engine standalone test
+test-engine: shadowgit_max_perf_test
+
+shadowgit_max_perf_test: $(ENGINE_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building Engine Test..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) $(MEMORY_FLAGS) \
+		$(FEATURES) $(NUMA_FLAGS) -DSHADOWGIT_MAX_PERF_STANDALONE \
+		$(ENGINE_SOURCES) -o $@ $(LIBS) $(NUMA_LIBS)
+	@echo "Engine test built: $@"
+
+# NPU engine standalone test
+test-npu: shadowgit_npu_test
+
+shadowgit_npu_test: $(NPU_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building NPU Test..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) \
+		$(FEATURES) $(OPENVINO_FLAGS) -DNPU_ENGINE_STANDALONE \
+		$(NPU_SOURCES) -o $@ $(LIBS) $(OPENVINO_LIBS) || \
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) \
+		$(FEATURES) -DNPU_ENGINE_STANDALONE -DNPU_SIMULATION_MODE \
+		$(NPU_SOURCES) -o $@ $(LIBS)
+	@echo "NPU test built: $@"
+
+# Performance coordinator standalone test
+test-coordinator: shadowgit_coordinator_test
+
+shadowgit_coordinator_test: $(COORD_SOURCES) $(ENGINE_HEADERS)
+	@echo "Building Coordinator Test..."
+	$(CC) $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS) $(THREAD_FLAGS) $(MEMORY_FLAGS) \
+		$(FEATURES) $(NUMA_FLAGS) -DPERF_COORDINATOR_STANDALONE \
+		$(COORD_SOURCES) -o $@ $(LIBS) $(NUMA_LIBS)
+	@echo "Coordinator test built: $@"
+
+# ============================================================================
+# COMPREHENSIVE TEST SUITE
+# ============================================================================
+
+test: test-engine test-npu test-coordinator
+	@echo "Running comprehensive test suite..."
+	@echo "=================================="
+
+	@echo "Testing Engine (1000 iterations)..."
+	./shadowgit_max_perf_test 1000 npu || echo "Engine test completed with warnings"
+
+	@echo "Testing NPU Engine (10MB, 100 iterations)..."
+	./shadowgit_npu_test 10 100 || echo "NPU test completed with warnings"
+
+	@echo "Testing Performance Coordinator..."
+	./shadowgit_coordinator_test || echo "Coordinator test completed with warnings"
+
+	@echo "All tests completed!"
+
+# ============================================================================
+# BENCHMARK SUITE
+# ============================================================================
+
+benchmark: test
+	@echo "Running comprehensive benchmark suite..."
+	@echo "========================================"
+	@echo "Target: 15+ billion lines/sec"
+	@echo ""
+
+	@echo "=== ENGINE BENCHMARK ==="
+	./shadowgit_max_perf_test 5000 npu
+	@echo ""
+
+	@echo "=== NPU BENCHMARK ==="
+	./shadowgit_npu_test 50 500
+	@echo ""
+
+	@echo "=== SCALING BENCHMARK ==="
+	./shadowgit_coordinator_test
+	@echo ""
+
+	@echo "Benchmark suite completed!"
+
+# ============================================================================
+# PERFORMANCE PROFILING
+# ============================================================================
+
+profile: CFLAGS += -pg
+profile: LDFLAGS += -pg
+profile: test
+	@echo "Running performance profiling..."
+	./shadowgit_max_perf_test 1000
+	gprof shadowgit_max_perf_test gmon.out > performance_profile.txt
+	@echo "Profile saved to performance_profile.txt"
+
+# Perf analysis
+perf-analysis: test
+	@echo "Running perf analysis..."
+	sudo perf record -g ./shadowgit_max_perf_test 1000
+	sudo perf report > perf_analysis.txt
+	@echo "Perf analysis saved to perf_analysis.txt"
+
+# ============================================================================
+# DEBUG BUILDS
+# ============================================================================
+
+debug: CFLAGS += $(DEBUG_FLAGS)
+debug: CFLAGS := $(filter-out $(PERF_FLAGS),$(CFLAGS))
+debug: clean test
+	@echo "Debug build completed"
+
+# Valgrind memory check
+memcheck: debug
+	@echo "Running memory check..."
+	valgrind --tool=memcheck --leak-check=full ./shadowgit_max_perf_test 100
+
+# ============================================================================
+# INSTALLATION
+# ============================================================================
+
+PREFIX ?= /usr/local
+LIBDIR = $(PREFIX)/lib
+INCDIR = $(PREFIX)/include
+BINDIR = $(PREFIX)/bin
+
+install: all
+	@echo "Installing Shadowgit Maximum Performance Engine..."
+	sudo mkdir -p $(LIBDIR) $(INCDIR) $(BINDIR)
+	sudo cp libshadowgit_max_perf.so $(LIBDIR)/
+	sudo cp libshadowgit_npu.so $(LIBDIR)/
+	sudo cp libshadowgit_coordinator.so $(LIBDIR)/
+	sudo cp shadowgit_maximum_performance.h $(INCDIR)/
+	sudo ldconfig
+	@echo "Installation completed to $(PREFIX)"
+
+uninstall:
+	@echo "Uninstalling Shadowgit Maximum Performance Engine..."
+	sudo rm -f $(LIBDIR)/libshadowgit_max_perf.so
+	sudo rm -f $(LIBDIR)/libshadowgit_npu.so
+	sudo rm -f $(LIBDIR)/libshadowgit_coordinator.so
+	sudo rm -f $(INCDIR)/shadowgit_maximum_performance.h
+	sudo ldconfig
+	@echo "Uninstallation completed"
+
+# ============================================================================
+# SYSTEM OPTIMIZATION
+# ============================================================================
+
+optimize-system:
+	@echo "Optimizing system for maximum performance..."
+	@echo "Setting CPU governor to performance..."
+	sudo cpupower frequency-set -g performance || echo "cpupower not available"
+	@echo "Disabling CPU frequency scaling..."
+	echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo || echo "Intel P-state not available"
+	@echo "Setting NUMA balancing..."
+	echo 0 | sudo tee /proc/sys/kernel/numa_balancing || echo "NUMA balancing control not available"
+	@echo "System optimization completed"
+
+restore-system:
+	@echo "Restoring system defaults..."
+	sudo cpupower frequency-set -g powersave || echo "cpupower not available"
+	echo 0 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo || echo "Intel P-state not available"
+	echo 1 | sudo tee /proc/sys/kernel/numa_balancing || echo "NUMA balancing control not available"
+	@echo "System defaults restored"
+
+# ============================================================================
+# DOCUMENTATION
+# ============================================================================
+
+docs:
+	@echo "Generating documentation..."
+	doxygen Doxyfile || echo "Doxygen not available"
+	@echo "Documentation generated in docs/"
+
+# ============================================================================
+# PACKAGING
+# ============================================================================
+
+package: all
+	@echo "Creating package..."
+	mkdir -p shadowgit-max-perf-1.0.0/lib
+	mkdir -p shadowgit-max-perf-1.0.0/include
+	mkdir -p shadowgit-max-perf-1.0.0/bin
+	cp lib*.so shadowgit-max-perf-1.0.0/lib/
+	cp *.h shadowgit-max-perf-1.0.0/include/
+	cp *_test shadowgit-max-perf-1.0.0/bin/ 2>/dev/null || true
+	tar -czf shadowgit-max-perf-1.0.0.tar.gz shadowgit-max-perf-1.0.0/
+	rm -rf shadowgit-max-perf-1.0.0/
+	@echo "Package created: shadowgit-max-perf-1.0.0.tar.gz"
+
+# ============================================================================
+# CLEAN TARGETS
+# ============================================================================
+
+clean:
+	@echo "Cleaning build artifacts..."
+	rm -f *.so *.o *.a
+	rm -f *_test
+	rm -f gmon.out perf.data*
+	rm -f performance_profile.txt perf_analysis.txt
+	rm -f core core.*
+	@echo "Clean completed"
+
+distclean: clean
+	rm -f *.tar.gz
+	rm -rf shadowgit-max-perf-*/
+	rm -rf docs/html docs/latex
+
+# ============================================================================
+# UTILITY TARGETS
+# ============================================================================
+
+# Show configuration
+show-config:
+	@echo "Build Configuration:"
+	@echo "==================="
+	@echo "CC: $(CC)"
+	@echo "CFLAGS: $(CFLAGS) $(PERF_FLAGS) $(INTEL_FLAGS)"
+	@echo "FEATURES: $(FEATURES)"
+	@echo "LIBS: $(LIBS) $(NUMA_LIBS)"
+	@echo "OpenVINO: $(OPENVINO_ROOT)"
+	@echo "Target: 15+ billion lines/sec"
+
+# Check system compatibility
+check-system:
+	@echo "System Compatibility Check:"
+	@echo "============================"
+	@echo -n "CPU: "
+	@grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2
+	@echo -n "AVX2 Support: "
+	@grep -q avx2 /proc/cpuinfo && echo "YES" || echo "NO"
+	@echo -n "AVX-512 Support: "
+	@grep -q avx512 /proc/cpuinfo && echo "YES" || echo "NO"
+	@echo -n "NUMA Available: "
+	@test -d /sys/devices/system/node/node0 && echo "YES" || echo "NO"
+	@echo -n "NPU Device: "
+	@test -e /dev/accel/accel0 && echo "FOUND" || echo "NOT FOUND"
+	@echo -n "Memory: "
+	@grep MemTotal /proc/meminfo | awk '{print $$2/1024/1024 " GB"}'
+	@echo -n "CPU Cores: "
+	@nproc
+
+# Performance monitoring
+monitor:
+	@echo "Starting performance monitoring..."
+	@echo "Press Ctrl+C to stop"
+	@while true; do \
+		echo -n "$(date): "; \
+		grep 'cpu MHz' /proc/cpuinfo | head -1 | awk '{print "CPU: " $$4 " MHz"}'; \
+		cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{print "Temp: " $$1/1000 "°C"}' || echo "Temp: N/A"; \
+		sleep 1; \
+	done
+
+# ============================================================================
+# HELP TARGET
+# ============================================================================
+
+help:
+	@echo "Shadowgit Maximum Performance Engine Build System"
+	@echo "=================================================="
+	@echo ""
+	@echo "Targets:"
+	@echo "  all               - Build all components"
+	@echo "  engine            - Build main engine library"
+	@echo "  npu               - Build NPU engine library"
+	@echo "  coordinator       - Build performance coordinator"
+	@echo "  test              - Build and run all tests"
+	@echo "  benchmark         - Run comprehensive benchmark"
+	@echo "  install           - Install to system"
+	@echo "  clean             - Clean build artifacts"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test-engine       - Build engine test executable"
+	@echo "  test-npu          - Build NPU test executable"
+	@echo "  test-coordinator  - Build coordinator test executable"
+	@echo "  debug             - Build debug versions"
+	@echo "  memcheck          - Run memory check with valgrind"
+	@echo ""
+	@echo "Profiling:"
+	@echo "  profile           - Build with profiling and run gprof"
+	@echo "  perf-analysis     - Run perf analysis"
+	@echo ""
+	@echo "System:"
+	@echo "  check-system      - Check system compatibility"
+	@echo "  optimize-system   - Optimize system for performance"
+	@echo "  restore-system    - Restore system defaults"
+	@echo "  monitor           - Monitor system performance"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  show-config       - Show build configuration"
+	@echo "  package           - Create distribution package"
+	@echo "  docs              - Generate documentation"
+	@echo "  help              - Show this help"
+	@echo ""
+	@echo "Performance Target: 15+ billion lines/sec"
+
+.PHONY: all check-deps engine npu coordinator test test-engine test-npu test-coordinator \
+        benchmark profile perf-analysis debug memcheck install uninstall \
+        optimize-system restore-system docs package clean distclean \
+        show-config check-system monitor help

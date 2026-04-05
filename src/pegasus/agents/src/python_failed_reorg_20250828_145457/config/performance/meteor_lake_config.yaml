@@ -1,0 +1,69 @@
+# Intel Meteor Lake Hardware Optimization Configuration
+hardware:
+  cpu_model: "Intel Core Ultra 7 155H"
+  architecture: "Meteor Lake"
+  optimization_level: "production"
+  
+  # Core allocation strategy
+  cores:
+    p_cores:
+      ids: [0, 2, 4, 6, 8, 10]
+      usage: "compute_intensive"
+      governor: "performance"
+    e_cores:
+      ids: [12, 13, 14, 15, 16, 17, 18, 19]
+      usage: "background_tasks"
+      governor: "powersave"
+    lp_e_cores:
+      ids: [20, 21]
+      usage: "monitoring"
+      governor: "powersave"
+  
+  # Memory configuration
+  memory:
+    huge_pages: true
+    numa_awareness: true
+    prefetch_distance: 64
+    
+  # Thermal management
+  thermal:
+    target_temp: 85
+    throttle_temp: 95
+    cooling_strategy: "aggressive"
+    
+  # AVX-512 optimization
+  vector_extensions:
+    avx512: false
+    avx2: true
+    sse4: true
+
+# Agent allocation strategy
+agent_affinity:
+  strategic_agents:
+    - name: "Director"
+      cores: "p_cores"
+      priority: "high"
+    - name: "ProjectOrchestrator"
+      cores: "p_cores"
+      priority: "high"
+      
+  compute_intensive:
+    - name: "Constructor"
+      cores: "p_cores"
+      priority: "medium"
+    - name: "Optimizer"
+      cores: "p_cores"
+      priority: "medium"
+      
+  background_agents:
+    - name: "Monitor"
+      cores: "e_cores"
+      priority: "low"
+    - name: "Security"
+      cores: "e_cores"
+      priority: "medium"
+      
+  monitoring_agents:
+    - name: "Infrastructure"
+      cores: "lp_e_cores"
+      priority: "low"

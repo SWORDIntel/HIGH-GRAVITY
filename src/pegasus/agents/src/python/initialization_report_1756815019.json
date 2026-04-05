@@ -1,0 +1,14 @@
+{
+  "initialization_successful": false,
+  "error": "extension \"vector\" is not available\nDETAIL:  Could not open extension control file \"/usr/share/postgresql/16/extension/vector.control\": No such file or directory.\nHINT:  The extension must first be installed on the system where PostgreSQL is running.",
+  "components_status": {
+    "database": true,
+    "schema": false,
+    "pgvector": false,
+    "neural_models": false,
+    "avx2_integration": false,
+    "ml_models": false,
+    "apis": false
+  },
+  "timestamp": "2025-09-02T13:10:19.777565"
+}

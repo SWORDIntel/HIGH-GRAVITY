@@ -1,0 +1,254 @@
+{
+  "security_framework": {
+    "version": "1.0",
+    "enabled": true,
+    "compliance_standards": [
+      "NIST_800_53",
+      "ISO_27001",
+      "SOC2",
+      "PCI_DSS",
+      "OWASP_TOP_10"
+    ]
+  },
+  
+  "jwt_configuration": {
+    "algorithm": "HS256",
+    "default_expiry_hours": 24,
+    "refresh_threshold_minutes": 30,
+    "issuer": "claude-agent-system",
+    "audience": "claude-agents",
+    "secret_rotation_hours": 168
+  },
+  
+  "hmac_configuration": {
+    "algorithm": "SHA256",
+    "key_size_bytes": 64,
+    "nonce_size_bytes": 16,
+    "signature_size_bytes": 32
+  },
+  
+  "tls_configuration": {
+    "min_version": "TLS1_3",
+    "max_version": "TLS1_3",
+    "cipher_suites": [
+      "TLS_AES_256_GCM_SHA384",
+      "TLS_CHACHA20_POLY1305_SHA256",
+      "TLS_AES_128_GCM_SHA256"
+    ],
+    "certificate_path": "/etc/ssl/certs/claude-agents.crt",
+    "private_key_path": "/etc/ssl/private/claude-agents.key",
+    "client_auth_required": false,
+    "session_cache_size": 65536,
+    "session_timeout_seconds": 7200,
+    "ticket_key_rotation_hours": 24,
+    "ocsp_stapling_enabled": true,
+    "sni_enabled": true
+  },
+  
+  "rbac_configuration": {
+    "roles": {
+      "admin": {
+        "permissions": [
+          "READ", "WRITE", "EXECUTE", "ADMIN", "MONITOR", "SYSTEM"
+        ],
+        "resources": ["*"]
+      },
+      "system": {
+        "permissions": [
+          "READ", "WRITE", "EXECUTE", "SYSTEM", "MONITOR"
+        ],
+        "resources": [
+          "agent_communication",
+          "system_monitoring",
+          "performance_metrics"
+        ]
+      },
+      "agent": {
+        "permissions": [
+          "READ", "WRITE", "EXECUTE"
+        ],
+        "resources": [
+          "agent_communication",
+          "task_processing",
+          "data_access"
+        ]
+      },
+      "monitor": {
+        "permissions": [
+          "READ", "MONITOR"
+        ],
+        "resources": [
+          "system_status",
+          "performance_metrics",
+          "audit_logs"
+        ]
+      },
+      "guest": {
+        "permissions": [
+          "READ"
+        ],
+        "resources": [
+          "public_status",
+          "basic_info"
+        ]
+      }
+    },
+    "default_role": "guest",
+    "permission_cache_ttl_seconds": 300
+  },
+  
+  "rate_limiting": {
+    "enabled": true,
+    "window_seconds": 60,
+    "max_requests_per_window": {
+      "admin": 100000,
+      "system": 50000,
+      "agent": 10000,
+      "monitor": 1000,
+      "guest": 100
+    },
+    "burst_threshold_multiplier": 1.5,
+    "block_duration_seconds": 300,
+    "bucket_count": 65536
+  },
+  
+  "ddos_protection": {
+    "enabled": true,
+    "detection_window_seconds": 10,
+    "threshold_multiplier": 5.0,
+    "baseline_requests_per_second": 1000,
+    "block_duration_seconds": 300,
+    "max_blocked_ips": 10000,
+    "adaptive_thresholds": true,
+    "geofencing_enabled": false,
+    "whitelist_ips": [
+      "127.0.0.0/8",
+      "10.0.0.0/8",
+      "192.168.0.0/16",
+      "172.16.0.0/12"
+    ]
+  },
+  
+  "audit_logging": {
+    "enabled": true,
+    "log_level": "INFO",
+    "log_file": "${CLAUDE_LOG_DIR:-/var/log/claude-agents/}security.log",
+    "max_log_size_mb": 100,
+    "max_log_files": 10,
+    "buffer_size_entries": 10000,
+    "flush_interval_seconds": 30,
+    "events_to_log": [
+      "LOGIN_SUCCESS",
+      "LOGIN_FAILURE",
+      "TOKEN_ISSUED",
+      "TOKEN_EXPIRED",
+      "PERMISSION_DENIED",
+      "RATE_LIMIT_EXCEEDED",
+      "DDOS_DETECTED",
+      "KEY_ROTATED",
+      "TLS_HANDSHAKE",
+      "HMAC_FAILURE"
+    ],
+    "sensitive_data_masking": true,
+    "log_rotation_enabled": true,
+    "syslog_enabled": true,
+    "syslog_facility": "LOG_LOCAL0"
+  },
+  
+  "key_rotation": {
+    "enabled": true,
+    "rotation_interval_hours": 168,
+    "overlap_period_hours": 24,
+    "max_active_keys": 3,
+    "backup_keys_enabled": true,
+    "backup_location": "/etc/claude-agents/keys/backup/",
+    "key_derivation_function": "PBKDF2",
+    "key_derivation_iterations": 100000
+  },
+  
+  "hardware_acceleration": {
+    "aes_ni_enabled": true,
+    "sha_ni_enabled": true,
+    "avx512_enabled": true,
+    "intel_qat_enabled": false,
+    "nvidia_gpu_enabled": false,
+    "crypto_thread_pool_size": 4
+  },
+  
+  "performance_tuning": {
+    "authentication_cache_size": 65536,
+    "cache_ttl_seconds": 300,
+    "batch_processing_enabled": true,
+    "batch_size": 100,
+    "zero_copy_enabled": true,
+    "memory_pool_size_mb": 64,
+    "cpu_affinity_enabled": true,
+    "numa_optimization_enabled": true
+  },
+  
+  "monitoring_and_alerting": {
+    "metrics_enabled": true,
+    "metrics_endpoint": "/metrics",
+    "health_check_endpoint": "/health",
+    "alerts_enabled": true,
+    "alert_thresholds": {
+      "authentication_failure_rate_percent": 5.0,
+      "ddos_detection_rate_per_minute": 10,
+      "certificate_expiry_days": 30,
+      "memory_usage_percent": 80,
+      "cpu_usage_percent": 90,
+      "connection_count_threshold": 90000
+    },
+    "webhook_alerts": {
+      "enabled": false,
+      "url": "https://alerts.example.com/webhook",
+      "secret": "webhook_secret_key"
+    }
+  },
+  
+  "certificate_management": {
+    "auto_renewal_enabled": true,
+    "renewal_days_before_expiry": 30,
+    "certificate_authority": "lets_encrypt",
+    "acme_challenge_type": "dns-01",
+    "certificate_store": "/etc/ssl/claude-agents/",
+    "chain_validation_enabled": true,
+    "crl_checking_enabled": true,
+    "certificate_transparency_enabled": true
+  },
+  
+  "compliance_reporting": {
+    "enabled": true,
+    "report_interval_hours": 24,
+    "report_formats": ["JSON", "PDF"],
+    "report_destination": "/var/reports/claude-agents/security/",
+    "include_metrics": true,
+    "include_vulnerabilities": true,
+    "include_audit_summary": true,
+    "retention_days": 365
+  },
+  
+  "security_policies": {
+    "password_policy": {
+      "min_length": 12,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_numbers": true,
+      "require_symbols": true,
+      "max_age_days": 90,
+      "history_count": 5
+    },
+    "session_policy": {
+      "idle_timeout_minutes": 30,
+      "max_session_duration_hours": 8,
+      "concurrent_sessions_limit": 3,
+      "ip_binding_enabled": false
+    },
+    "encryption_policy": {
+      "data_at_rest_encryption": "AES-256-GCM",
+      "data_in_transit_encryption": "TLS1.3",
+      "key_management_system": "internal",
+      "fips_compliance": false
+    }
+  }
+}

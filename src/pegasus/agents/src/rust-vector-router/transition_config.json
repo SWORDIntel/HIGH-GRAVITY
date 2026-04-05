@@ -1,0 +1,19 @@
+{
+  "method": "gradual_cutover",
+  "phases": [
+    {
+      "traffic_percentage": 10,
+      "duration": "5 minutes"
+    },
+    {
+      "traffic_percentage": 50,
+      "duration": "10 minutes"
+    },
+    {
+      "traffic_percentage": 100,
+      "duration": "ongoing"
+    }
+  ],
+  "rollback_enabled": true,
+  "monitoring_required": true
+}

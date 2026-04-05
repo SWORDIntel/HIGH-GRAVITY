@@ -1,0 +1,17 @@
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DATABASE_DIR="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")/database"
+
+export POSTGRES_DB=claude_auth
+export POSTGRES_USER=claude_auth
+export POSTGRES_PASSWORD=claude_auth_pass
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5433
+
+"$DATABASE_DIR/start_local_postgres.sh" >/dev/null 2>&1
+
+case "$1" in
+    setup) python3 "$SCRIPT_DIR/setup_learning_system.py" ;;
+    status) python3 "$SCRIPT_DIR/learning_cli.py" status ;;
+    *) python3 "$SCRIPT_DIR/learning_cli.py" "$@" ;;
+esac

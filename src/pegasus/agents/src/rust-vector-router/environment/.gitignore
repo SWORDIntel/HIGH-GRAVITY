@@ -1,0 +1,68 @@
+# Temporary files
+*.log
+*.pid
+*.o
+*.so
+*.a
+*.tmp
+*.cache
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/*.o
+build/*.so
+build/*.a
+build/test_*
+build/core
+
+# Runtime files
+runtime.log
+binary_bridge.log
+python_bridge.log
+bridge.log
+system_startup.log
+agent_*.log
+
+# Process IDs
+pids/
+*.pid
+
+# Configuration backups
+*.yaml.bak
+*.json.bak
+*.optimizer_backup
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+env/
+venv/
+.venv/
+
+# Node.js (if used)
+node_modules/
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test results
+test_results/
+coverage/
+*.coverage
+.pytest_cache/
+
+# Docker volumes (if using monitoring)
+monitoring/data/
+monitoring/logs/

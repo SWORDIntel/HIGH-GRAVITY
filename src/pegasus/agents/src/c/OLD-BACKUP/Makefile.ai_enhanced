@@ -1,0 +1,505 @@
+# ============================================================================
+# CLAUDE AGENT COMMUNICATION SYSTEM - AI-ENHANCED BUILD SYSTEM
+# Integrates AI-Enhanced Routing with existing agent framework
+# Version: 7.0 + AI Router v1.0
+# ============================================================================
+
+# Compiler and tools
+CC = gcc
+CXX = g++
+AR = ar
+RANLIB = ranlib
+
+# Version information
+VERSION_MAJOR = 7
+VERSION_MINOR = 0
+VERSION_PATCH = 0
+AI_ROUTER_VERSION = 1.0.0
+
+# Build directories
+BUILD_DIR = ../../06-BUILD-RUNTIME/build
+OBJ_DIR = $(BUILD_DIR)/obj
+LIB_DIR = $(BUILD_DIR)/lib
+BIN_DIR = $(BUILD_DIR)/bin
+MODEL_DIR = $(BUILD_DIR)/models
+
+# Source directories
+SRC_DIR = .
+INCLUDE_DIR = .
+
+# Base compiler flags
+CFLAGS = -std=gnu11 -D_GNU_SOURCE
+CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -O3 -march=native -mtune=native
+CFLAGS += -mavx2 -mfma
+CFLAGS += -ffast-math -funroll-loops
+CFLAGS += -fpic -fPIC
+CFLAGS += -pthread
+CFLAGS += -I$(INCLUDE_DIR)
+
+# AVX-512 support (check for Intel Meteor Lake)
+CFLAGS += -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq
+
+# Debug and release configurations
+DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address,undefined
+RELEASE_FLAGS = -DNDEBUG -flto -fomit-frame-pointer
+
+# Hardware acceleration flags
+NPU_FLAGS = -DENABLE_NPU -DENABLE_OPENVINO
+GNA_FLAGS = -DENABLE_GNA
+GPU_FLAGS = -DENABLE_GPU -DENABLE_OPENCL
+VECTOR_FLAGS = -DENABLE_VECTOR_DB
+
+# AI Router specific flags
+AI_FLAGS = -DAI_ROUTER_VERSION_MAJOR=1 -DAI_ROUTER_VERSION_MINOR=0
+AI_FLAGS += -DTARGET_ROUTING_LATENCY_NS=10000
+AI_FLAGS += -DMAX_CONCURRENT_INFERENCES=128
+
+# Libraries
+LIBS = -lpthread -lm -ldl -lrt -lnuma -latomic
+
+# Optional hardware acceleration libraries
+OPENVINO_LIBS = -lopenvino_c
+OPENCL_LIBS = -lOpenCL
+GNA_LIBS = -lgna
+
+# ============================================================================
+# SOURCE FILES AND TARGETS
+# ============================================================================
+
+# Core agent sources (existing)
+CORE_AGENT_SRCS = \
+    director_agent.c \
+    project_orchestrator.c \
+    architect_agent.c \
+    agent_coordination.c \
+    compatibility_layer.c
+
+# AI Router sources (new)
+AI_ROUTER_SRCS = \
+    ai_enhanced_router.c \
+    ai_router_integration.c
+
+# Transport layer sources (existing)
+TRANSPORT_SRCS = \
+    ultra_fast_protocol.c \
+    distributed_network.c \
+    message_router.c
+
+# All sources combined
+ALL_SRCS = $(CORE_AGENT_SRCS) $(AI_ROUTER_SRCS) $(TRANSPORT_SRCS)
+
+# Object files
+CORE_AGENT_OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(CORE_AGENT_SRCS))
+AI_ROUTER_OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(AI_ROUTER_SRCS))
+TRANSPORT_OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(TRANSPORT_SRCS))
+ALL_OBJS = $(CORE_AGENT_OBJS) $(AI_ROUTER_OBJS) $(TRANSPORT_OBJS)
+
+# Headers
+HEADERS = \
+    ultra_fast_protocol.h \
+    compatibility_layer.h \
+    distributed_network.h \
+    ai_enhanced_router.h
+
+# Libraries to build
+CORE_STATIC_LIB = $(LIB_DIR)/libclaude_agents.a
+CORE_SHARED_LIB = $(LIB_DIR)/libclaude_agents.so
+AI_STATIC_LIB = $(LIB_DIR)/libai_router.a
+AI_SHARED_LIB = $(LIB_DIR)/libai_router.so
+UNIFIED_STATIC_LIB = $(LIB_DIR)/libclaude_ai_unified.a
+UNIFIED_SHARED_LIB = $(LIB_DIR)/libclaude_ai_unified.so
+
+# Executables
+DIRECTOR_BIN = $(BIN_DIR)/director_agent
+ORCHESTRATOR_BIN = $(BIN_DIR)/project_orchestrator
+ARCHITECT_BIN = $(BIN_DIR)/architect_agent
+COORDINATION_BIN = $(BIN_DIR)/agent_coordination
+TEST_BIN = $(BIN_DIR)/agent_test
+AI_TEST_BIN = $(BIN_DIR)/ai_router_test
+AI_BENCHMARK_BIN = $(BIN_DIR)/ai_router_benchmark
+INTEGRATION_TEST_BIN = $(BIN_DIR)/integration_test
+
+# ============================================================================
+# BUILD TARGETS
+# ============================================================================
+
+# Default target - build everything
+all: release
+
+# Release build with AI routing
+release: CFLAGS += $(RELEASE_FLAGS) $(AI_FLAGS)
+release: dirs libs executables
+
+# Debug build with AI routing
+debug: CFLAGS += $(DEBUG_FLAGS) $(AI_FLAGS)
+debug: dirs libs executables tests
+
+# Hardware-accelerated builds
+ai-npu: CFLAGS += $(NPU_FLAGS) $(AI_FLAGS)
+ai-npu: LIBS += $(OPENVINO_LIBS)
+ai-npu: release
+
+ai-gpu: CFLAGS += $(GPU_FLAGS) $(AI_FLAGS) 
+ai-gpu: LIBS += $(OPENCL_LIBS)
+ai-gpu: release
+
+ai-gna: CFLAGS += $(GNA_FLAGS) $(AI_FLAGS)
+ai-gna: LIBS += $(GNA_LIBS)
+ai-gna: release
+
+ai-full: CFLAGS += $(NPU_FLAGS) $(GPU_FLAGS) $(GNA_FLAGS) $(VECTOR_FLAGS) $(AI_FLAGS)
+ai-full: LIBS += $(OPENVINO_LIBS) $(OPENCL_LIBS) $(GNA_LIBS)
+ai-full: release
+
+# Create build directories
+dirs:
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(LIB_DIR)
+	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(MODEL_DIR)
+
+# Build all libraries
+libs: $(CORE_STATIC_LIB) $(CORE_SHARED_LIB) $(AI_STATIC_LIB) $(AI_SHARED_LIB) $(UNIFIED_STATIC_LIB) $(UNIFIED_SHARED_LIB)
+
+# Build all executables
+executables: $(DIRECTOR_BIN) $(ORCHESTRATOR_BIN) $(ARCHITECT_BIN) $(COORDINATION_BIN)
+
+# Build all tests
+tests: $(TEST_BIN) $(AI_TEST_BIN) $(AI_BENCHMARK_BIN) $(INTEGRATION_TEST_BIN)
+
+# ============================================================================
+# OBJECT FILE COMPILATION
+# ============================================================================
+
+$(OBJ_DIR)/%.o: %.c $(HEADERS)
+	@echo "  CC    $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# ============================================================================
+# LIBRARY TARGETS
+# ============================================================================
+
+# Core agent library (without AI)
+$(CORE_STATIC_LIB): $(CORE_AGENT_OBJS) $(TRANSPORT_OBJS)
+	@echo "  AR    $@"
+	@$(AR) rcs $@ $^
+	@$(RANLIB) $@
+
+$(CORE_SHARED_LIB): $(CORE_AGENT_OBJS) $(TRANSPORT_OBJS)
+	@echo "  LD    $@"
+	@$(CC) -shared -o $@ $^ $(LIBS)
+
+# AI Router library
+$(AI_STATIC_LIB): $(AI_ROUTER_OBJS)
+	@echo "  AR    $@"
+	@$(AR) rcs $@ $^
+	@$(RANLIB) $@
+
+$(AI_SHARED_LIB): $(AI_ROUTER_OBJS)
+	@echo "  LD    $@"
+	@$(CC) -shared -o $@ $^ $(LIBS)
+
+# Unified library (core + AI)
+$(UNIFIED_STATIC_LIB): $(ALL_OBJS)
+	@echo "  AR    $@"
+	@$(AR) rcs $@ $^
+	@$(RANLIB) $@
+
+$(UNIFIED_SHARED_LIB): $(ALL_OBJS)
+	@echo "  LD    $@"
+	@$(CC) -shared -o $@ $^ $(LIBS)
+
+# ============================================================================
+# EXECUTABLE TARGETS
+# ============================================================================
+
+$(DIRECTOR_BIN): $(UNIFIED_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DDIRECTOR_TEST_MODE -DENABLE_AI_ROUTING \
+		director_agent.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+$(ORCHESTRATOR_BIN): $(UNIFIED_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DORCHESTRATOR_TEST_MODE -DENABLE_AI_ROUTING \
+		project_orchestrator.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+$(ARCHITECT_BIN): $(UNIFIED_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DARCHITECT_TEST_MODE -DENABLE_AI_ROUTING \
+		architect_agent.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+$(COORDINATION_BIN): $(UNIFIED_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DENABLE_AI_ROUTING \
+		agent_coordination.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+# ============================================================================
+# TEST TARGETS
+# ============================================================================
+
+$(TEST_BIN): $(UNIFIED_STATIC_LIB) test_agents.c
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DENABLE_AI_ROUTING test_agents.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+$(AI_TEST_BIN): $(AI_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DAI_ROUTER_TEST_MODE \
+		tests/ai_router_test.c -o $@ \
+		-L$(LIB_DIR) -lai_router $(LIBS)
+
+$(AI_BENCHMARK_BIN): $(AI_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) tests/ai_router_benchmark.c -o $@ \
+		-L$(LIB_DIR) -lai_router $(LIBS)
+
+$(INTEGRATION_TEST_BIN): $(UNIFIED_STATIC_LIB)
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) -DINTEGRATION_TEST_MODE \
+		tests/integration_test.c -o $@ \
+		-L$(LIB_DIR) -lclaude_ai_unified $(LIBS)
+
+# ============================================================================
+# TESTING AND VALIDATION
+# ============================================================================
+
+# Run comprehensive tests
+test: debug
+	@echo "Running Claude Agent + AI Router tests..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(TEST_BIN)
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(AI_TEST_BIN)
+
+# Test individual agents with AI routing
+test-ai-director: $(DIRECTOR_BIN)
+	@echo "Testing Director with AI routing..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(DIRECTOR_BIN)
+
+test-ai-orchestrator: $(ORCHESTRATOR_BIN)
+	@echo "Testing Orchestrator with AI routing..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(ORCHESTRATOR_BIN)
+
+test-ai-architect: $(ARCHITECT_BIN)
+	@echo "Testing Architect with AI routing..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(ARCHITECT_BIN)
+
+# AI Router specific tests
+test-ai-router: $(AI_TEST_BIN)
+	@echo "Testing AI Router..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(AI_TEST_BIN)
+
+# Performance benchmarks
+benchmark: release $(AI_BENCHMARK_BIN)
+	@echo "Running AI Router benchmarks..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(AI_BENCHMARK_BIN)
+
+# Integration tests
+integration-test: debug $(INTEGRATION_TEST_BIN)
+	@echo "Running integration tests..."
+	@LD_LIBRARY_PATH=$(LIB_DIR) $(INTEGRATION_TEST_BIN)
+
+# Performance profiling
+profile: release
+	@echo "Profiling AI-enhanced system..."
+	@perf record -g LD_LIBRARY_PATH=$(LIB_DIR) $(AI_BENCHMARK_BIN)
+	@perf report
+
+# Memory checking
+memcheck: debug
+	@echo "Checking memory with AI routing..."
+	@valgrind --leak-check=full --show-leak-kinds=all \
+		--track-origins=yes --verbose \
+		LD_LIBRARY_PATH=$(LIB_DIR) $(TEST_BIN)
+
+# Thread safety validation
+thread-check: debug
+	@echo "Checking thread safety..."
+	@valgrind --tool=helgrind LD_LIBRARY_PATH=$(LIB_DIR) $(TEST_BIN)
+
+# ============================================================================
+# HARDWARE DETECTION AND OPTIMIZATION
+# ============================================================================
+
+# Check hardware capabilities
+check-hw:
+	@echo "Claude Agent System - Hardware Capability Check"
+	@echo "==============================================="
+	@echo "CPU Architecture:"
+	@lscpu | grep -E "Model name|CPU MHz|Core|Thread|NUMA|Flags"
+	@echo ""
+	@echo "Intel Hardware Acceleration:"
+	@ls -la /dev/gna* 2>/dev/null && echo "✓ GNA devices found" || echo "✗ No GNA devices"
+	@ls -la /dev/dri/* 2>/dev/null && echo "✓ GPU devices found" || echo "✗ No GPU devices"
+	@echo ""
+	@echo "Software Support:"
+	@ldconfig -p | grep openvino >/dev/null && echo "✓ OpenVINO available" || echo "✗ OpenVINO not found"
+	@ldconfig -p | grep OpenCL >/dev/null && echo "✓ OpenCL available" || echo "✗ OpenCL not found"
+	@clinfo 2>/dev/null | head -10 || echo "✗ OpenCL runtime not available"
+
+# Optimize for current hardware
+optimize-hw: check-hw
+	@echo "Building optimized version for detected hardware..."
+	@$(MAKE) ai-full
+
+# ============================================================================
+# MODEL MANAGEMENT
+# ============================================================================
+
+# Download AI models
+download-models:
+	@echo "Setting up AI models..."
+	@mkdir -p $(MODEL_DIR)
+	@echo "Placeholder: Download routing models"
+	@touch $(MODEL_DIR)/load_predictor.onnx
+	@touch $(MODEL_DIR)/latency_estimator.xml
+	@touch $(MODEL_DIR)/anomaly_detector.bin
+	@touch $(MODEL_DIR)/semantic_router.pb
+
+# Validate models
+validate-models:
+	@echo "Validating AI models..."
+	@ls -la $(MODEL_DIR)/
+
+# ============================================================================
+# INSTALLATION AND DEPLOYMENT
+# ============================================================================
+
+# Install system-wide
+install: release
+	@echo "Installing Claude Agent System with AI Router..."
+	@install -d $(DESTDIR)/usr/local/lib
+	@install -d $(DESTDIR)/usr/local/include
+	@install -d $(DESTDIR)/usr/local/bin/claude-agents
+	@install -m 644 $(UNIFIED_STATIC_LIB) $(DESTDIR)/usr/local/lib/
+	@install -m 755 $(UNIFIED_SHARED_LIB) $(DESTDIR)/usr/local/lib/
+	@install -m 644 $(HEADERS) $(DESTDIR)/usr/local/include/
+	@install -m 755 $(BIN_DIR)/* $(DESTDIR)/usr/local/bin/claude-agents/
+	@ldconfig
+
+# Uninstall
+uninstall:
+	@echo "Uninstalling Claude Agent System..."
+	@rm -f $(DESTDIR)/usr/local/lib/libclaude_*.{a,so}
+	@rm -f $(DESTDIR)/usr/local/lib/libai_router.{a,so}
+	@rm -f $(DESTDIR)/usr/local/include/{ultra_fast_protocol,compatibility_layer,distributed_network,ai_enhanced_router}.h
+	@rm -rf $(DESTDIR)/usr/local/bin/claude-agents
+
+# ============================================================================
+# STATIC ANALYSIS AND CODE QUALITY
+# ============================================================================
+
+# Static analysis
+analyze:
+	@echo "Running static analysis..."
+	@cppcheck --enable=all --inconclusive --std=c11 \
+		--suppress=missingIncludeSystem \
+		$(ALL_SRCS)
+
+# Format code
+format:
+	@echo "Formatting code..."
+	@clang-format -i $(ALL_SRCS) $(HEADERS)
+
+# Generate compile_commands.json
+compile-commands:
+	@echo "Generating compile_commands.json..."
+	@bear -- $(MAKE) clean all
+
+# ============================================================================
+# CLEANUP TARGETS
+# ============================================================================
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR)
+	@rm -f *.o *.so *.a
+	@rm -f *.gcno *.gcda *.gcov coverage.info
+	@rm -rf coverage_html
+	@rm -f perf.data*
+
+# Clean everything
+distclean: clean
+	@echo "Cleaning everything..."
+	@rm -f *~
+	@rm -f core core.*
+	@rm -f vgcore.*
+	@rm -rf $(MODEL_DIR)
+
+# ============================================================================
+# INFORMATION AND HELP
+# ============================================================================
+
+# Show build information
+info:
+	@echo "Claude Agent Communication System v$(VERSION_MAJOR).$(VERSION_MINOR) + AI Router v$(AI_ROUTER_VERSION)"
+	@echo "==============================================================================="
+	@echo "Compiler: $(CC)"
+	@echo "CFLAGS: $(CFLAGS)"
+	@echo "LIBS: $(LIBS)"
+	@echo "Build date: $$(date)"
+	@echo "System: $$(uname -a)"
+	@echo ""
+	@echo "Libraries:"
+	@echo "  Core: $(CORE_STATIC_LIB)"
+	@echo "  AI Router: $(AI_STATIC_LIB)"
+	@echo "  Unified: $(UNIFIED_STATIC_LIB)"
+	@echo ""
+	@echo "Executables:"
+	@echo "  Director: $(DIRECTOR_BIN)"
+	@echo "  Orchestrator: $(ORCHESTRATOR_BIN)"
+	@echo "  Architect: $(ARCHITECT_BIN)"
+	@echo "  Coordination: $(COORDINATION_BIN)"
+
+# Help
+help:
+	@echo "Claude Agent Communication System v7.0 + AI Router v1.0"
+	@echo "========================================================"
+	@echo ""
+	@echo "Main Targets:"
+	@echo "  all              - Build optimized release (default)"
+	@echo "  release          - Build optimized release with AI routing"
+	@echo "  debug            - Build debug version with AI routing"
+	@echo ""
+	@echo "AI-Enhanced Builds:"
+	@echo "  ai-npu           - Build with NPU acceleration"
+	@echo "  ai-gpu           - Build with GPU acceleration"
+	@echo "  ai-gna           - Build with GNA acceleration"
+	@echo "  ai-full          - Build with all accelerations"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test             - Run all tests"
+	@echo "  test-ai-*        - Test individual AI-enhanced agents"
+	@echo "  benchmark        - Run AI router benchmarks"
+	@echo "  integration-test - Run integration tests"
+	@echo ""
+	@echo "Analysis:"
+	@echo "  memcheck         - Memory leak detection"
+	@echo "  thread-check     - Thread safety validation"
+	@echo "  profile          - Performance profiling"
+	@echo "  analyze          - Static code analysis"
+	@echo ""
+	@echo "Hardware:"
+	@echo "  check-hw         - Check hardware capabilities"
+	@echo "  optimize-hw      - Build optimized for current hardware"
+	@echo ""
+	@echo "Models:"
+	@echo "  download-models  - Download AI routing models"
+	@echo "  validate-models  - Validate model files"
+	@echo ""
+	@echo "Maintenance:"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  distclean        - Clean everything"
+	@echo "  install          - Install to system"
+	@echo "  format           - Format source code"
+	@echo "  info             - Show build information"
+
+.PHONY: all release debug ai-npu ai-gpu ai-gna ai-full dirs libs executables tests \
+        test test-ai-director test-ai-orchestrator test-ai-architect test-ai-router \
+        benchmark integration-test profile memcheck thread-check check-hw optimize-hw \
+        download-models validate-models install uninstall analyze format compile-commands \
+        clean distclean info help

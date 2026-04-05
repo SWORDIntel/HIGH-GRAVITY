@@ -1,0 +1,1 @@
+claude_agents/bridges/hybrid_bridge_manager.py

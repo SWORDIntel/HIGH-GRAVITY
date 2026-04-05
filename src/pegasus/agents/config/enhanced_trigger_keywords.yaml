@@ -1,0 +1,127 @@
+compound_triggers:
+  parallel_execution:
+    agents:
+    - projectorchestrator
+    - monitor
+    parallel: true
+    pattern:
+    - parallel
+    - concurrent
+    - simultaneously
+  security_deployment:
+    agents:
+    - security
+    - deployer
+    - infrastructure
+    pattern:
+    - security
+    - deploy
+    - production
+    sequential: true
+context_triggers:
+  content_patterns:
+    CREATE\s+TABLE:
+    - database
+    - sql-internal
+    class\s+\w+:
+    - architect
+    - linter
+    def\s+\w+:
+    - python-internal
+    - linter
+    docker:
+    - docker-agent
+    - infrastructure
+  file_extensions:
+    .js|.ts|.jsx|.tsx:
+    - typescript-internal
+    - web
+    .md:
+    - docgen
+    - researcher
+    .py:
+    - python-internal
+    - linter
+    .sql:
+    - sql-internal
+    - database
+    .yaml|.yml:
+    - infrastructure
+    - deployer
+immediate_triggers:
+  database_operations:
+    agents:
+    - database
+    - sql-internal
+    keywords:
+    - - database
+      - sql
+      - query
+    - - table
+      - schema
+      - migration
+    - - postgresql
+      - mysql
+      - mongodb
+  multi_step_task:
+    agents:
+    - director
+    - projectorchestrator
+    keywords:
+    - - multi-step
+      - multi step
+      - multiple steps
+    - - workflow
+      - pipeline
+      - process
+    - - coordinate
+      - orchestrate
+      - manage
+  performance_optimization:
+    agents:
+    - optimizer
+    - monitor
+    keywords:
+    - - optimize
+      - optimization
+      - performance
+    - - slow
+      - bottleneck
+      - latency
+    - - speed up
+      - accelerate
+      - improve
+  security_audit:
+    agents:
+    - security
+    - securityauditor
+    - cso
+    keywords:
+    - - security
+      - audit
+      - vulnerability
+    - - threat
+      - risk
+      - compliance
+    - - penetration
+      - assessment
+negative_triggers:
+  exclude_tests:
+    patterns:
+    - test_
+    - _test
+    - .test
+    unless_contains:
+    - production
+    - deploy
+priority_rules:
+- condition: critical
+  priority:
+  - director
+  - security
+  - monitor
+- condition: urgent
+  priority:
+  - projectorchestrator
+  - patcher
+  - debugger

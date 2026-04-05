@@ -1,0 +1,33 @@
+{
+  "pipeline": {
+    "max_connections": 100,
+    "worker_count": 10,
+    "stream_chunk_size": 8192,
+    "max_memory_mb": 100,
+    "request_timeout": 30
+  },
+  "cache": {
+    "l1_capacity": 50000,
+    "l1_max_capacity": 200000,
+    "redis_url": "redis://localhost:6379/0",
+    "postgres_url": "postgresql://claude_agent:password@localhost:5433/claude_agents_auth",
+    "cache_prefix": "claude_optimization"
+  },
+  "security": {
+    "security_mode": true,
+    "max_chunk_size_mb": 1,
+    "pattern_timeout_ms": 100
+  },
+  "performance": {
+    "prometheus_port": 8001,
+    "monitor_interval": 5,
+    "baseline_memory_mb": 100,
+    "baseline_cpu_percent": 50
+  },
+  "optimization": {
+    "token_cache_size": 1000,
+    "max_context_tokens": 8000,
+    "compression_enabled": true,
+    "streaming_enabled": true
+  }
+}

@@ -1,0 +1,129 @@
+# Modular Agent Communication System - Build Configuration
+# Ultra-minimal runtime with dynamic module loading
+# Target: 4.2M msg/sec with <200ns P99 latency
+
+CC = gcc
+CFLAGS = -O3 -march=native -mtune=native -Wall -Wextra -fPIC -D_GNU_SOURCE
+CFLAGS += -mavx2 -mfma -mbmi2  # AVX-512 disabled due to microcode 0x24
+CFLAGS += -fno-omit-frame-pointer -g3
+LDFLAGS = -pthread -luring -ldl -lnuma -lm -lrt
+
+# Directories
+RUNTIME_DIR = runtime
+MODULE_DIR = modules
+BUILD_DIR = ../../build
+BIN_DIR = $(BUILD_DIR)/bin
+OBJ_DIR = $(BUILD_DIR)/obj
+
+# Create directories
+$(shell mkdir -p $(OBJ_DIR)/runtime $(OBJ_DIR)/modules $(BIN_DIR))
+
+# Runtime core files
+RUNTIME_SRCS = $(RUNTIME_DIR)/main.c \
+               $(RUNTIME_DIR)/shm_arena.c \
+               $(RUNTIME_DIR)/module_loader.c \
+               $(RUNTIME_DIR)/io_dispatcher.c
+
+RUNTIME_OBJS = $(RUNTIME_SRCS:%.c=$(OBJ_DIR)/%.o)
+
+# Core modules
+CORE_MODULES = discovery router health
+
+# Agent modules  
+AGENT_MODULES = director architect debugger
+
+# All modules
+ALL_MODULES = $(CORE_MODULES) $(AGENT_MODULES)
+
+# Main runtime target
+runtime: $(BIN_DIR)/agent_runtime
+
+$(BIN_DIR)/agent_runtime: $(RUNTIME_OBJS)
+	$(CC) $(RUNTIME_OBJS) -o $@ $(LDFLAGS)
+	@echo "✓ Built runtime: $@"
+
+# Compile runtime objects
+$(OBJ_DIR)/runtime/%.o: runtime/%.c runtime/module_interface.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Module targets
+.PHONY: modules
+modules: $(ALL_MODULES:%=$(BIN_DIR)/%.so)
+
+# Core modules
+$(BIN_DIR)/discovery.so: $(MODULE_DIR)/core/discovery.c
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	@echo "✓ Built module: $@"
+
+$(BIN_DIR)/router.so: $(MODULE_DIR)/core/router.c
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	@echo "✓ Built module: $@"
+
+$(BIN_DIR)/health.so: $(MODULE_DIR)/core/health.c
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	@echo "✓ Built module: $@"
+
+# Agent modules
+$(BIN_DIR)/%.so: $(MODULE_DIR)/agents/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	@echo "✓ Built module: $@"
+
+# Test target
+test: runtime
+	@echo "Running runtime tests..."
+	./$(BIN_DIR)/agent_runtime --test
+
+# Benchmark target
+benchmark: runtime modules
+	@echo "Running performance benchmarks..."
+	./$(BIN_DIR)/agent_runtime --benchmark
+
+# Clean target
+clean:
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	@echo "✓ Cleaned build artifacts"
+
+# Install target
+install: runtime modules
+	@echo "Installing to /usr/local..."
+	sudo cp $(BIN_DIR)/agent_runtime /usr/local/bin/
+	sudo mkdir -p /usr/local/lib/agent-modules
+	sudo cp $(BIN_DIR)/*.so /usr/local/lib/agent-modules/
+	@echo "✓ Installation complete"
+
+# Development helpers
+.PHONY: watch
+watch:
+	@echo "Watching for changes..."
+	@while true; do \
+		inotifywait -q -e modify -r $(RUNTIME_DIR) $(MODULE_DIR); \
+		$(MAKE) -f Makefile.modular runtime modules; \
+	done
+
+.PHONY: debug
+debug: CFLAGS += -O0 -g3 -DDEBUG -fsanitize=address
+debug: LDFLAGS += -fsanitize=address
+debug: runtime
+
+.PHONY: profile
+profile: CFLAGS += -pg
+profile: LDFLAGS += -pg
+profile: runtime
+
+# Help target
+help:
+	@echo "Modular Agent System Build Targets:"
+	@echo "  runtime    - Build the minimal runtime core"
+	@echo "  modules    - Build all loadable modules"
+	@echo "  test       - Run test suite"
+	@echo "  benchmark  - Run performance benchmarks"
+	@echo "  clean      - Remove build artifacts"
+	@echo "  install    - Install system-wide"
+	@echo "  debug      - Build with debug symbols and sanitizers"
+	@echo "  profile    - Build with profiling support"
+	@echo "  watch      - Auto-rebuild on file changes"
+
+.DEFAULT_GOAL := runtime
+.PHONY: all clean install test benchmark help

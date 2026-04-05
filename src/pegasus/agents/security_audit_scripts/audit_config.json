@@ -1,0 +1,10 @@
+{
+  "security_frameworks": ["owasp_top10", "nist_csf", "pci_dss", "hipaa"],
+  "scan_types": ["sast", "dast", "dependency_scan", "container_scan"],
+  "compliance_levels": ["basic", "enhanced", "premium"],
+  "threat_methodologies": ["stride", "pasta", "octave"],
+  "policy_types": ["password", "access_control", "data_classification"],
+  "tools_enabled": true,
+  "reporting_format": "json",
+  "audit_frequency": "monthly"
+}

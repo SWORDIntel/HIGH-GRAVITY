@@ -1,0 +1,334 @@
+# Alerting Rules for Claude Agent Communication System
+groups:
+  - name: transport_layer_alerts
+    interval: 5s
+    rules:
+      - alert: TransportThroughputDegraded
+        expr: agent_transport_throughput_mps < 4000000
+        for: 30s
+        labels:
+          severity: critical
+          component: transport
+          team: platform
+        annotations:
+          summary: "Transport layer throughput degraded"
+          description: "Transport throughput is {{ $value }} msg/s, below target of 4.2M msg/s"
+          runbook_url: "https://wiki.company.com/runbooks/transport-throughput"
+          
+      - alert: TransportLatencyHigh
+        expr: histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          component: transport
+          team: platform
+        annotations:
+          summary: "High transport latency detected"
+          description: "99th percentile latency is {{ $value }}s, above target of 100ms"
+          
+      - alert: TransportErrorRateHigh
+        expr: sum(rate(agent_transport_errors_total[5m])) / sum(rate(agent_transport_messages_total[5m])) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          component: transport
+          team: platform
+        annotations:
+          summary: "High transport error rate"
+          description: "Transport error rate is {{ $value | humanizePercentage }}, above target of 0.1%"
+          
+      - alert: TransportDown
+        expr: up{job="transport-layer"} == 0
+        for: 10s
+        labels:
+          severity: critical
+          component: transport
+          team: platform
+        annotations:
+          summary: "Transport layer is down"
+          description: "Transport layer metrics are not available"
+
+  - name: agent_health_alerts
+    interval: 10s
+    rules:
+      - alert: AgentHealthLow
+        expr: agent_health_score < 50
+        for: 1m
+        labels:
+          severity: warning
+          component: agent
+          team: platform
+        annotations:
+          summary: "Agent health score low"
+          description: "Agent {{ $labels.agent_id }} ({{ $labels.agent_type }}) has health score of {{ $value }}"
+          
+      - alert: AgentHealthCritical
+        expr: agent_health_score < 20
+        for: 30s
+        labels:
+          severity: critical
+          component: agent
+          team: platform
+        annotations:
+          summary: "Agent health critical"
+          description: "Agent {{ $labels.agent_id }} ({{ $labels.agent_type }}) has critical health score of {{ $value }}"
+          
+      - alert: AgentDown
+        expr: agent_status != 1 and agent_status != 2  # Not idle or running
+        for: 30s
+        labels:
+          severity: critical
+          component: agent
+          team: platform
+        annotations:
+          summary: "Agent is down"
+          description: "Agent {{ $labels.agent_id }} ({{ $labels.agent_type }}) is not responding"
+          
+      - alert: AgentHighFailureRisk
+        expr: failure_prediction_score > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: agent
+          team: platform
+        annotations:
+          summary: "High failure risk detected"
+          description: "Agent {{ $labels.agent_id }} has {{ $value }}% failure risk"
+          runbook_url: "https://wiki.company.com/runbooks/agent-failure-prediction"
+
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: capacity_utilization_ratio{resource_type="cpu"} > 90
+        for: 2m
+        labels:
+          severity: warning
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "System CPU usage is {{ $value }}%"
+          
+      - alert: HighMemoryUsage
+        expr: capacity_utilization_ratio{resource_type="memory"} > 95
+        for: 1m
+        labels:
+          severity: critical
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "System memory usage is {{ $value }}%"
+          
+      - alert: AgentQueueBackup
+        expr: agent_queue_depth > 1000
+        for: 2m
+        labels:
+          severity: warning
+          component: agent
+          team: platform
+        annotations:
+          summary: "Agent queue backup"
+          description: "Agent {{ $labels.agent_id }} queue depth is {{ $value }} messages"
+          
+      - alert: AgentProcessingTimeSlow
+        expr: histogram_quantile(0.95, sum(rate(agent_processing_time_seconds_bucket[5m])) by (agent_id, le)) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: agent
+          team: platform
+        annotations:
+          summary: "Slow agent processing"
+          description: "Agent {{ $labels.agent_id }} p95 processing time is {{ $value }}s"
+
+  - name: slo_alerts
+    interval: 60s
+    rules:
+      - alert: SLOAvailabilityBreach
+        expr: 1 - (sum(increase(agent_transport_errors_total[1h])) / sum(increase(agent_transport_messages_total[1h]))) < 0.999
+        for: 0m
+        labels:
+          severity: critical
+          component: slo
+          team: platform
+        annotations:
+          summary: "SLO availability breach"
+          description: "System availability is {{ $value | humanizePercentage }}, below SLO of 99.9%"
+          
+      - alert: ErrorBudgetBurnRateHigh
+        expr: |
+          (
+            sum(rate(agent_transport_errors_total[1h])) / sum(rate(agent_transport_messages_total[1h])) > (14.4 * 0.001)
+          ) or (
+            sum(rate(agent_transport_errors_total[5m])) / sum(rate(agent_transport_messages_total[5m])) > (6 * 0.001)
+          )
+        for: 2m
+        labels:
+          severity: critical
+          component: slo
+          team: platform
+        annotations:
+          summary: "High error budget burn rate"
+          description: "Error budget is burning at {{ $value | humanizePercentage }}/hour"
+          runbook_url: "https://wiki.company.com/runbooks/error-budget-burn"
+          
+      - alert: SLOLatencyBreach
+        expr: histogram_quantile(0.99, sum(rate(agent_transport_latency_seconds_bucket[5m])) by (le)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: slo
+          team: platform
+        annotations:
+          summary: "SLO latency breach"
+          description: "p99 latency is {{ $value }}s, above SLO of 100ms"
+
+  - name: capacity_alerts
+    interval: 60s
+    rules:
+      - alert: AgentCapacityLow
+        expr: system_active_agents < 20
+        for: 5m
+        labels:
+          severity: warning
+          component: capacity
+          team: platform
+        annotations:
+          summary: "Low agent capacity"
+          description: "Only {{ $value }} agents active across all types"
+          
+      - alert: MessageFlowImbalance
+        expr: |
+          (
+            max(sum(rate(message_flow_matrix[5m])) by (source_agent)) / 
+            min(sum(rate(message_flow_matrix[5m])) by (source_agent))
+          ) > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: capacity
+          team: platform
+        annotations:
+          summary: "Message flow imbalance detected"
+          description: "Message flow variance ratio is {{ $value }}"
+          
+      - alert: NetworkCapacityHigh
+        expr: capacity_utilization_ratio{resource_type="network"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+          team: infrastructure
+        annotations:
+          summary: "High network utilization"
+          description: "Network utilization is {{ $value }}%"
+
+  - name: security_alerts
+    interval: 30s
+    rules:
+      - alert: SecurityAgentDown
+        expr: agent_status{agent_type="SECURITY"} != 1 and agent_status{agent_type="SECURITY"} != 2
+        for: 10s
+        labels:
+          severity: critical
+          component: security
+          team: security
+        annotations:
+          summary: "Security agent down"
+          description: "Security agent {{ $labels.agent_id }} is not operational"
+          
+      - alert: AnomalousMessagePattern
+        expr: increase(agent_transport_messages_total{msg_type="EMERGENCY"}[1m]) > 100
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+          team: security
+        annotations:
+          summary: "Anomalous emergency message pattern"
+          description: "{{ $value }} emergency messages in last minute"
+          
+      - alert: UnauthorizedAgentAccess
+        expr: increase(agent_transport_errors_total{error_type="UNAUTHORIZED"}[5m]) > 10
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+          team: security
+        annotations:
+          summary: "Unauthorized agent access attempts"
+          description: "{{ $value }} unauthorized access attempts in 5 minutes"
+
+  - name: voice_system_alerts
+    interval: 30s
+    rules:
+      - alert: VoiceRecognitionDown
+        expr: up{job="voice-agents",instance=~".*:8010"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: voice
+          team: ai
+        annotations:
+          summary: "Voice recognition system down"
+          description: "Voice recognition system is not responding"
+          
+      - alert: AudioCaptureFailure
+        expr: up{job="voice-agents",instance=~".*:8012"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: voice
+          team: ai
+        annotations:
+          summary: "Audio capture system failure"
+          description: "Audio capture system is not responding"
+          
+      - alert: VoiceBiometricAuthFailure
+        expr: rate(voice_biometric_auth_failures[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: voice
+          team: security
+        annotations:
+          summary: "High voice biometric authentication failures"
+          description: "{{ $value }} voice auth failures per second"
+
+  - name: integration_alerts
+    interval: 60s
+    rules:
+      - alert: OpenTelemetryDown
+        expr: up{job="otel-collector"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: observability
+          team: platform
+        annotations:
+          summary: "OpenTelemetry collector down"
+          description: "Distributed tracing may be impacted"
+          
+      - alert: JaegerDown
+        expr: up{job="jaeger"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: observability
+          team: platform
+        annotations:
+          summary: "Jaeger tracing down"
+          description: "Trace visualization may be impacted"
+          
+      - alert: PrometheusStorageLow
+        expr: prometheus_tsdb_symbol_table_size_bytes / prometheus_config_last_reload_successful > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+          team: platform
+        annotations:
+          summary: "Prometheus storage usage high"
+          description: "Prometheus storage usage is {{ $value | humanizePercentage }}"

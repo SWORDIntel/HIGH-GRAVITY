@@ -1,0 +1,16 @@
+{
+  "agents_root": "${CLAUDE_PROJECT_ROOT:-$(dirname "$0")/../../}agents",
+  "execution_modes": [
+    "INTELLIGENT",
+    "PYTHON_ONLY",
+    "SPEED_CRITICAL",
+    "REDUNDANT"
+  ],
+  "default_mode": "INTELLIGENT",
+  "c_bridge_path": null,
+  "performance_targets": {
+    "python_throughput": 5000,
+    "c_throughput": 100000,
+    "latency_p99": 0.002
+  }
+}

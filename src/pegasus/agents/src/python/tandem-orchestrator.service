@@ -1,0 +1,47 @@
+[Unit]
+Description=Claude Agent Framework - Tandem Orchestration System
+Documentation=file://${CLAUDE_PROJECT_ROOT:-$(dirname "$0")/../../}docs/TANDEM_ORCHESTRATION_SYSTEM.md
+After=network.target multi-user.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python
+Environment=PYTHONPATH=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python:${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python
+Environment=ENABLE_METEOR_LAKE_OPT=1
+Environment=ENABLE_AVX512=0
+Environment=TANDEM_LOG_LEVEL=INFO
+Environment=TANDEM_CONFIG_DIR=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/config
+Environment=OPENVINO_AVAILABLE=0
+Environment=NPU_ACCELERATION_ENABLED=0
+Environment=INTEL_OPENVINO_DIR=
+ExecStartPre=/bin/bash -c "[ -f '/root/openvino_ml_env/bin/setupvars.sh' ] && source '/root/openvino_ml_env/bin/setupvars.sh' || true"
+ExecStartPre=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/venv_production/bin/python -c "import production_orchestrator; print('Tandem Orchestrator module check: OK')"
+ExecStart=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/venv_production/bin/python -m production_orchestrator --mode=production --config=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python/config/production.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tandem-orchestrator
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../src/python ${CLAUDE_AGENTS_ROOT:-$(dirname "$0")}/../monitoring/logs
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=32768
+MemoryLimit=16G
+CPUQuota=800%
+
+[Install]
+WantedBy=multi-user.target

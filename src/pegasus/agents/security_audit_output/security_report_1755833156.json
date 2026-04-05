@@ -1,0 +1,47 @@
+{
+  "status": "success",
+  "agent": "SECURITY",
+  "version": "9.0.0",
+  "command": "vulnerability_scan",
+  "result": {
+    "scan_type": "sast",
+    "target": "/tmp",
+    "vulnerabilities_found": 0,
+    "vulnerabilities": [],
+    "risk_score": 0.0,
+    "critical_count": 0,
+    "high_count": 0,
+    "medium_count": 0,
+    "low_count": 0,
+    "remediation_priority": [],
+    "compliance_impact": {
+      "pci_dss": 0,
+      "hipaa": 0,
+      "gdpr": 0,
+      "sox": 0,
+      "iso27001": 0
+    }
+  },
+  "execution_time": 0.0006897449493408203,
+  "security_frameworks": [
+    "owasp_top10",
+    "nist_csf",
+    "cwe_top25",
+    "pci_dss",
+    "hipaa",
+    "iso27001"
+  ],
+  "tools_available": 0,
+  "metrics": {
+    "vulnerabilities_found": 1,
+    "security_audits": 1,
+    "compliance_checks": 0,
+    "threat_models_created": 0,
+    "penetration_tests": 0,
+    "policy_violations": 0,
+    "risk_assessments": 0,
+    "false_positives": 0,
+    "security_score": 85.0
+  },
+  "timestamp": "2025-08-22T03:25:56.014587"
+}

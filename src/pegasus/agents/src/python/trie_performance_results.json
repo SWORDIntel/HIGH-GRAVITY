@@ -1,0 +1,13 @@
+{
+  "avg_trie_time_ms": 0.015902200296598796,
+  "avg_linear_time_ms": 0.0096143997022106,
+  "speedup": 0.604595560544345,
+  "memory_mb": 0.0232696533203125,
+  "build_time_ms": 7.486079000955215,
+  "targets_met": {
+    "lookup_time": true,
+    "speedup": false,
+    "memory": true,
+    "build_time": true
+  }
+}

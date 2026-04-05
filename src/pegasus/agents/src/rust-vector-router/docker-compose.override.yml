@@ -1,0 +1,297 @@
+# Docker Compose Override for Development Environment
+# Provides development-specific configurations and debugging tools
+
+version: '3.9'
+
+# Development-specific service overrides
+services:
+
+  # Message Router - Development Mode
+  message-router:
+    environment:
+      - UFP_LOG_LEVEL=DEBUG
+      - UFP_ENABLE_PROFILING=true
+      - UFP_DEBUG_MODE=true
+    ports:
+      - "8080:8080"  # Admin interface
+      - "8081:8081"  # Agent discovery
+      - "8082:8082"  # Debug interface
+    volumes:
+      - ./debug:/app/debug
+      - ./logs/message-router:/app/logs
+
+  # Director - Enhanced Logging
+  director:
+    environment:
+      - PYTHONPATH=/app/python:/app/debug
+      - LOG_LEVEL=DEBUG
+      - AGENT_DEBUG_MODE=true
+    volumes:
+      - ./debug:/app/debug
+      - ./logs/director:/app/logs
+      - .:/workspace:ro  # Read-only workspace for debugging
+
+  # Security - Development Tools
+  security:
+    environment:
+      - SECURITY_DEV_MODE=true
+      - ENABLE_SECURITY_BYPASS=false  # Never enable in production
+    volumes:
+      - ./security-policies:/app/security-policies
+      - ./logs/security:/app/logs
+
+  # Voice Recognition - Debug Audio
+  voice-recognition:
+    environment:
+      - RUST_LOG=debug
+      - INTEL_GNA_DEBUG=1
+      - AUDIO_DEBUG_ENABLED=true
+    volumes:
+      - ./debug/audio:/app/debug/audio
+      - ./test-audio:/app/test-audio:ro
+    ports:
+      - "8090:8090"  # Debug WebSocket for audio streaming
+
+  # Monitor - Development Dashboards
+  monitor:
+    environment:
+      - GRAFANA_DEV_MODE=true
+      - PROMETHEUS_DEBUG=true
+    ports:
+      - "9090:9090"  # Prometheus
+      - "3001:3001"  # Grafana dev server
+    volumes:
+      - ./monitoring/dev-dashboards:/app/monitoring/dev-dashboards
+
+  # Infrastructure - Development Privileges
+  infrastructure:
+    environment:
+      - DOCKER_DEV_MODE=true
+      - ENABLE_CONTAINER_DEBUGGING=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infrastructure:/app/infrastructure
+
+# Additional development services
+  
+  # Development Database
+  dev-postgres:
+    image: postgres:15-alpine
+    container_name: claude-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: claude_agents_dev
+      POSTGRES_USER: claude_dev
+      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    networks:
+      - agent-internal
+    volumes:
+      - dev-postgres-data:/var/lib/postgresql/data
+      - ./database/init-dev.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis for Development Caching
+  dev-redis:
+    image: redis:7-alpine
+    container_name: claude-dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - agent-internal
+    volumes:
+      - dev-redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # Development MQTT Broker for Agent Pub/Sub
+  dev-mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: claude-dev-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    networks:
+      - agent-internal
+    volumes:
+      - dev-mqtt-data:/mosquitto/data
+      - dev-mqtt-logs:/mosquitto/log
+      - ./mqtt/mosquitto-dev.conf:/mosquitto/config/mosquitto.conf
+
+  # Code Server for Remote Development
+  code-server:
+    image: codercom/code-server:latest
+    container_name: claude-code-server
+    restart: unless-stopped
+    ports:
+      - "8443:8080"
+    networks:
+      - agent-internal
+    environment:
+      - PASSWORD=dev_access_2024
+    volumes:
+      - .:/workspace
+      - code-server-data:/home/coder/.local/share/code-server
+    command: --bind-addr 0.0.0.0:8080 --workspace-folder /workspace --disable-telemetry
+
+  # Jupyter Lab for Data Science Development
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: claude-jupyter
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    networks:
+      - agent-internal
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=dev_token_2024
+    volumes:
+      - .:/workspace
+      - jupyter-data:/home/jovyan/work
+    command: start-notebook.sh --NotebookApp.token='dev_token_2024' --NotebookApp.password=''
+
+  # MailHog for Email Testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: claude-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - agent-internal
+
+  # Minio for S3-Compatible Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: claude-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - agent-internal
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+
+  # ElasticSearch for Log Aggregation
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: claude-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    networks:
+      - agent-internal
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+  # Kibana for Log Visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: claude-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    networks:
+      - agent-internal
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  # Vector for Log Processing Pipeline
+  vector:
+    image: timberio/vector:0.31.0-alpine
+    container_name: claude-vector
+    restart: unless-stopped
+    networks:
+      - agent-internal
+    volumes:
+      - agent-logs:/app/logs:ro
+      - ./vector/vector-dev.toml:/etc/vector/vector.toml
+    depends_on:
+      - elasticsearch
+
+  # Adminer for Database Management
+  adminer:
+    image: adminer:latest
+    container_name: claude-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - agent-internal
+    environment:
+      ADMINER_DEFAULT_SERVER: dev-postgres
+
+  # Portainer for Container Management
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: claude-portainer
+    restart: unless-stopped
+    ports:
+      - "9443:9443"
+    networks:
+      - agent-internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+
+# Development-specific volumes
+volumes:
+  dev-postgres-data:
+    driver: local
+  dev-redis-data:
+    driver: local
+  dev-mqtt-data:
+    driver: local
+  dev-mqtt-logs:
+    driver: local
+  code-server-data:
+    driver: local
+  jupyter-data:
+    driver: local
+  minio-data:
+    driver: local
+  elasticsearch-data:
+    driver: local
+  portainer-data:
+    driver: local
+
+# Development profiles
+profiles:
+  development:
+    services:
+      - code-server
+      - jupyter
+      - mailhog
+      - adminer
+      - portainer
+  
+  monitoring:
+    services:
+      - elasticsearch
+      - kibana
+      - vector
+  
+  storage:
+    services:
+      - dev-postgres
+      - dev-redis
+      - minio
