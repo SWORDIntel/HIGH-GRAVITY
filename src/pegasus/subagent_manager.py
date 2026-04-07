@@ -1,19 +1,22 @@
 import subprocess
 import uuid
 import logging
-from typing import Dict, List
+import threading
+import time
+import psutil
 from pathlib import Path
-from tools.integration.pegasus.jit_engine.compiler import JITCompiler
-from tools.integration.pegasus.gsl_manager import GlobalStateLedger
-from tools.integration.pegasus.memory_sync.superposition import MemorySuperposition
-from tools.integration.pegasus.generator.agent_factory import AgentFactory
-from tools.integration.pegasus.governance.delegation import DelegationEngine
-from tools.integration.pegasus.governance.veto_engine import VetoEngine
-from tools.integration.pegasus.governance.locks.lock_manager import ResourceLockManager
-from tools.integration.pegasus.scheduler.hw_aware import HardwareScheduler
-from tools.integration.pegasus.network.rotator import NetworkRotator
-from tools.integration.pegasus.index.vector_store import PegasusVectorStore
-from tools.integration.pegasus.index.indexer import CodebaseIndexer
+from src.pegasus.jit_engine.compiler import JITCompiler
+from src.pegasus.gsl_manager import GlobalStateLedger
+from src.pegasus.memory_sync.superposition import MemorySuperposition
+from src.pegasus.generator.agent_factory import AgentFactory
+from src.pegasus.governance.delegation import DelegationEngine
+from src.pegasus.governance.veto_engine import VetoEngine
+from src.pegasus.governance.locks.lock_manager import ResourceLockManager
+from src.pegasus.scheduler.hw_aware import HardwareScheduler
+from src.pegasus.network.rotator import NetworkRotator
+from src.pegasus.index.vector_store import PegasusVectorStore
+from src.pegasus.index.indexer import CodebaseIndexer
+from lib.protocols.ufp_bridge import UFPBridge
 
 logger = logging.getLogger("Pegasus-Swarm")
 
@@ -23,17 +26,38 @@ class SubAgentManager:
         self.jit = JITCompiler()
         self.gsl = GlobalStateLedger()
         self.superposition = MemorySuperposition()
-        self.factory = AgentFactory(Path("tools/integration/pegasus/agents"))
+        self.factory = AgentFactory(Path("src/pegasus/agents"))
         self.governance = DelegationEngine()
         self.veto = VetoEngine(self.gsl)
         self.locks = ResourceLockManager(self.gsl)
         self.scheduler = HardwareScheduler()
-        self.network = NetworkRotator(Path("tools/integration/pegasus/network"))
+        self.network = NetworkRotator(Path("src/pegasus/network"))
+        self.bridge = UFPBridge()
+        
         # Initialize Vector Indexer
         self.vector_store = PegasusVectorStore()
         self.indexer = CodebaseIndexer(self.vector_store)
         self.indexer.index_project(".")
-        logger.info("PEGASUS_INDEXER: Codebase indexed into Hilbert Space.")
+        
+        # Start Proactive Auto-Tasker
+        threading.Thread(target=self._auto_tasker_loop, daemon=True).start()
+        logger.info("PEGASUS_INDEXER: Codebase indexed. Auto-Tasker Active.")
+
+    def _auto_tasker_loop(self):
+        """Periodically scans for idle agents and assigns background maintenance tasks."""
+        while True:
+            time.sleep(30) # Check every 30 seconds
+            for aid, proc in list(self.active_agents.items()):
+                if proc.poll() is None: # Still running
+                    try:
+                        p = psutil.Process(proc.pid)
+                        if p.cpu_percent(interval=1.0) < 1.0: # Agent is idle
+                            logger.info(f"PROACTIVE_SCHEDULER: Agent {aid} is idle. Assigning maintenance task.")
+                            # Assign a maintenance task based on role
+                            role = aid.split("-")[0]
+                            task = "AUDIT_LOCAL_RECON" if "SECURITY" in role else "MAP_INTERNAL_FLOW"
+                            self.bridge.send_task(role, task)
+                    except: continue
 
     def spawn_agent(self, role: str, prompt: str, source: str = "HUMAN") -> str:
         # Check Hardware capability
@@ -56,7 +80,7 @@ class SubAgentManager:
         logger.info(f"SPAWNING_GEODISTRIBUTED_AGENT: {agent_id} via {vpn_config} (Spec: {spec})")
 
         # Pass VPN config to the launch script
-        cmd = ["bash", "tools/integration/launch_claude_interface.sh", "-p", prompt, "--vpn", vpn_config]
+        cmd = ["bash", "bin/launch_claude_interface.sh", "-p", prompt, "--vpn", vpn_config]
         proc = subprocess.Popen(
             cmd, 
             stdout=subprocess.PIPE, 

@@ -17,7 +17,7 @@ sleep 1
 # 2. Start Proxy with DEBUG logging
 echo "[*] Starting Proxy with DEBUG logging..." | tee -a "${DEBUG_LOG}"
 export HG_LOG_LEVEL=DEBUG
-python3 "${REPO_ROOT}/tools/integration/highgravity_proxy.py" >> "${DEBUG_LOG}" 2>&1 &
+python3 "${REPO_ROOT}/src/proxy.py" >> "${DEBUG_LOG}" 2>&1 &
 PROXY_PID=$!
 echo "[+] Proxy started (PID: ${PROXY_PID})" | tee -a "${DEBUG_LOG}"
 

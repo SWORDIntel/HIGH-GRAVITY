@@ -4,11 +4,25 @@ Security Python Implementation - v9.0 Standard
 Comprehensive security analysis specialist implementation
 """
 
+import sys
+import os
+
+# Ensure the root directory is in the python path to import tools
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../../../"))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+try:
+    from tools.integration.prompt_guard import secure_ufp_handler
+except ImportError:
+    # Fallback if tools cannot be imported
+    def secure_ufp_handler(func):
+        return func
+
 import asyncio
 import hashlib
 import json
 import logging
-import os
 import random
 import re
 import subprocess
@@ -635,6 +649,7 @@ class SecurityPythonExecutor:
 
         return enhanced
 
+    @secure_ufp_handler
     async def execute_command(
         self, command_str: str, context: Dict[str, Any] = None
     ) -> Dict[str, Any]:

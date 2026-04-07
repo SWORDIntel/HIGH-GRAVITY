@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from tools.integration.pegasus.subagent_manager import SubAgentManager
+from src.pegasus.subagent_manager import SubAgentManager
 
 class SwarmLoadTester:
     def __init__(self, manager: SubAgentManager):

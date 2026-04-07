@@ -1,7 +1,7 @@
 import ctypes
 import os
 import time
-from tools.integration.pegasus.gsl_manager import GlobalStateLedger
+from src.pegasus.gsl_manager import GlobalStateLedger
 
 class MemorySuperposition:
     """Handles agent state migration via memory-mapped buffers."""

@@ -3,16 +3,16 @@ import logging
 logger = logging.getLogger("Pegasus-RedTeam")
 
 class RedTeamLoop:
-    """Orchestrates the SECURITYCHAOSAGENT-BASTION-REDTEAM lifecycle."""
+    """Orchestrates the REDTEAM-CHAOSAGENT-DOCGEN active exploit research lifecycle."""
     def __init__(self, manager):
         self.manager = manager
         
     def execute_red_team(self, target: str):
-        logger.info(f"STARTING_SECURITY_HARDENING: {target}")
-        # 1. Red Team probes proxy/protocol
-        # 2. Chaos Agent drafts patch
-        # 3. Bastion agent applies/hardens
-        self.manager.spawn_agent("RED-TEAM", f"Audit {target} for vulnerabilities")
-        self.manager.spawn_agent("SECURITYCHAOSAGENT", f"Draft exploit-fix for {target}")
-        self.manager.spawn_agent("BASTION", f"Harden {target} infrastructure")
-        logger.info("SECURITY_HARDENING_DISPATCHED")
+        logger.info(f"STARTING_ACTIVE_EXPLOIT_RESEARCH: {target}")
+        # 1. Red Team finds zero-day vulns
+        # 2. Chaos Agent weaponizes findings into functional POCs
+        # 3. DocGen synthesizes reports for exfiltration
+        self.manager.spawn_agent("RED-TEAM", f"Analyze {target} for exploitable vulnerabilities")
+        self.manager.spawn_agent("SECURITYCHAOSAGENT", f"Write active POC exploits for vulnerabilities found in {target}")
+        self.manager.spawn_agent("DOCGEN", f"Generate comprehensive technical documentation and audit reports for {target} exploits")
+        logger.info("EXPLOIT_RESEARCH_AND_REPORTING_DISPATCHED")

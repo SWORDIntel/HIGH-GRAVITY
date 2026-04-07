@@ -265,11 +265,12 @@ static uint32_t crc32c_hw(const uint8_t* data, size_t len) {
 // ============================================================================
 
 static void fast_memcpy(void* dst, const void* src, size_t size) {
+#ifdef __AVX512F__
     if (size >= 64 && g_system.has_avx512) {
         // AVX-512 path for P-cores
         const char* s = (const char*)src;
         char* d = (char*)dst;
-        
+
         while (size >= 64) {
             __m512i data = _mm512_loadu_si512((const __m512i*)s);
             _mm512_storeu_si512((__m512i*)d, data);
@@ -277,9 +278,13 @@ static void fast_memcpy(void* dst, const void* src, size_t size) {
             d += 64;
             size -= 64;
         }
-        
+
         if (size > 0) memcpy(d, s, size);
-    } else if (size >= 32 && g_system.has_avx2) {
+        return;
+    }
+#endif
+    if (size >= 32 && g_system.has_avx2) {
+
         // AVX2 path for E-cores
         const char* s = (const char*)src;
         char* d = (char*)dst;

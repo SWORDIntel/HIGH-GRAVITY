@@ -1,24 +1,35 @@
 import numpy as np
 import hashlib
 from pathlib import Path
-from tools.integration.qihse_wrapper import QIHSE
+from src.qihse_wrapper import QIHSE
 
 class PegasusVectorStore:
-    """Memory-resident vector index for codebase knowledge."""
+    """Full-integrated memory-resident vector index powered by QIHSE."""
     def __init__(self):
+        from src.qihse_wrapper import QIHSE
         self.qihse = QIHSE()
-        self.vector_db = {} # Simple map for demo: hash -> vector
+        self.vector_data = [] # List of binary hashes (SHA-384)
+        self.metadata = {}    # Map: hash -> file_info
         
-    def add_file(self, file_path: str, content: str):
-        # Generate a high-dimensional hash-vector (simplified)
-        hash_val = int(hashlib.sha384(content.encode()).hexdigest()[:16], 16)
-        self.vector_db[hash_val] = file_path
+    def add_artifact(self, content: str, file_path: str):
+        import hashlib
+        # CNSA 2.0 Compliant SHA-384
+        content_hash = hashlib.sha384(content.encode()).digest()
+        self.vector_data.append(content_hash)
+        self.metadata[content_hash] = {
+            "path": file_path,
+            "timestamp": time.time(),
+            "type": "code_artifact"
+        }
         
-    def search(self, query: str):
-        # QIHSE binary search against stored file vectors
-        query_hash = int(hashlib.sha384(query.encode()).hexdigest()[:16], 16)
-        data = np.array(list(self.vector_db.keys()), dtype=np.int64)
-        result_idx = self.qihse.search_int64(data, query_hash)
-        if result_idx != -1:
-            return list(self.vector_db.values())[result_idx]
+    def query_context(self, query: str) -> Optional[dict]:
+        """Performs Hilbert-space expanded search for query context."""
+        import hashlib
+        query_hash = hashlib.sha384(query.encode()).digest()
+        
+        # Utilize QIHSE binary search for instant matching
+        idx = self.qihse.search_binary(self.vector_data, query_hash)
+        if idx != -1:
+            artifact_hash = self.vector_data[idx]
+            return self.metadata.get(artifact_hash)
         return None

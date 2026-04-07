@@ -1,5 +1,5 @@
 import os
-from tools.integration.pegasus.index.vector_store import PegasusVectorStore
+from src.pegasus.index.vector_store import PegasusVectorStore
 
 class CodebaseIndexer:
     """Recursively indexes the project into the Vector Store."""

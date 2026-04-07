@@ -7,7 +7,7 @@ HIGH-GRAVITY is a sophisticated local identity proxy, optimization shield, and c
 The project is built with Python and utilizes a modular architecture with several key components:
 
 *   **Pegasus Dashboard:** A terminal-based dashboard (`hg.py`) for monitoring and controlling the system.
-*   **High-Performance Proxy:** A FastAPI-based proxy (`tools/integration/highgravity_proxy.py`) that handles request routing, response streaming, and model remapping.
+*   **High-Performance Proxy:** A FastAPI-based proxy (`src/proxy.py`) that handles request routing, response streaming, and model remapping.
 *   **Pegasus Swarm:** A collection of specialized agents that perform tasks such as security auditing, research, and context optimization.
 *   **Quantum Infrastructure (QIHSE):** An advanced search and acceleration engine.
 *   **Claude Interface:** A unified interface for interacting with Claude models.

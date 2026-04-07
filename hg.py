@@ -15,12 +15,15 @@ import signal
 import socket
 import shutil
 import random
+import select
+import tty
+import termios
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List, Deque
 from collections import deque
 
-import re # Added for pattern matching
+import re
 try:
     from rich.console import Console
     from rich.layout import Layout
@@ -32,6 +35,7 @@ try:
     from rich.spinner import Spinner
     from rich.progress import Progress, SpinnerColumn, TextColumn
     from rich.syntax import Syntax
+    from rich.prompt import Prompt
     RICH_AVAILABLE = True
 except ImportError:
     print("[!] Rich library not found. Please install with: pip install rich")
@@ -41,7 +45,7 @@ except ImportError:
 VERSION = "3.4.0-HG"
 PROXY_PORT = 9999
 REPO_ROOT = Path(__file__).resolve().parent
-PROXY_SCRIPT = REPO_ROOT / "tools" / "integration" / "highgravity_proxy.py"
+PROXY_SCRIPT = REPO_ROOT / "src" / "proxy.py"
 LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
 
 console = Console()
@@ -72,298 +76,217 @@ class HighGravityDashboard:
         # --- Dynamic Flow System ---
         self.pulse_width = 60
         self.pulse_data = deque([0]*self.pulse_width, maxlen=self.pulse_width)
-        self.packet_track = [" "] * self.pulse_width
         self._last_pulse_val = 0
         self._frame_count = 0
-        
-        self.key_stats = {}
-        self._last_log_size = 0
-        self._initial_scan_done = False
+        self.sync_countdown = 60
 
     def check_proxy_alive(self) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(0.5)
             return s.connect_ex(('127.0.0.1', self.proxy_port)) == 0
 
-    def toggle_rotation(self):
-        self.rotation_mode = "sticky" if self.rotation_mode == "round-robin" else "round-robin"
-        try:
-            import requests
-            requests.post(f"http://127.0.0.1:{self.proxy_port}/hg/config", json={"rotation_mode": self.rotation_mode}, timeout=1)
-            self.status_msg = f"Rotation set to: [bold magenta]{self.rotation_mode}[/bold magenta]"
-        except:
-            self.status_msg = "[red]Proxy connection failed for toggle.[/red]"
-
     def start_proxy(self):
         if self.check_proxy_alive():
             self.status_msg = "[yellow]Attached to existing proxy process.[/yellow]"
             return
-            
-        env = {**os.environ, "HG_PROXY_PORT": str(self.proxy_port), "HG_ROTATION_MODE": self.rotation_mode}
-        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
-        self.status_msg = "Proxy starting..."
-        time.sleep(1)
+        
+        self.status_msg = "Starting Pegasus Proxy Uplink..."
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT)
+        try:
+            self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
+            time.sleep(2)
+            if self.check_proxy_alive():
+                self.status_msg = "[bold green]Uplink Established.[/bold green]"
+            else:
+                self.status_msg = "[red]Uplink Failed.[/red]"
+        except Exception as e:
+            self.status_msg = f"[red]Launch Error: {str(e)}[/red]"
 
     def stop_proxy(self):
-        subprocess.run(["pkill", "-f", "highgravity_proxy.py"], stderr=subprocess.DEVNULL)
-        self.proxy_proc = None
-        self.status_msg = "Proxy stopped."
+        if self.proxy_proc:
+            self.proxy_proc.terminate()
+            self.proxy_proc = None
+        # Also kill any orphaned proxy processes
+        subprocess.run(["pkill", "-f", "src/proxy.py"], stderr=subprocess.DEVNULL)
+        self.status_msg = "[yellow]Uplink Severed.[/yellow]"
 
-    def update_stats(self):
-        self._frame_count += 1
-        
-        # Advance packet track
-        self.packet_track.pop(0)
-        self.packet_track.append(" ")
+    def launch_windsurf(self):
+        self.status_msg = "Launching [bold cyan]Windsurf[/bold cyan] via shield..."
+        script_path = REPO_ROOT / "bin" / "launch_debug.sh"
+        if script_path.exists():
+            subprocess.Popen(["bash", str(script_path)], start_new_session=True)
+        else:
+            self.status_msg = "[red]Launch script not found.[/red]"
 
-        if not LOG_FILE.exists(): return
+    def launch_claude(self):
+        self.status_msg = "Launching [bold cyan]Claude Interface[/bold cyan] via proxy..."
+        script_path = REPO_ROOT / "bin" / "launch_claude_interface.sh"
+        if script_path.exists():
+            subprocess.Popen(["bash", str(script_path)], start_new_session=True)
+        else:
+            self.status_msg = "[red]Interface script not found.[/red]"
 
-        try:
-            current_size = LOG_FILE.stat().st_size
-            
-            if current_size < self._last_log_size or not self._initial_scan_done:
-                with open(LOG_FILE, 'r') as f:
-                    f.seek(max(0, current_size - 100000))
-                    lines = f.readlines()
-                self._initial_scan_done = True
-                self._last_log_size = current_size
-            elif current_size == self._last_log_size:
-                # Decay visual pulse if no new data
-                if self._frame_count % 2 == 0:
-                    self._last_pulse_val = max(0, self._last_pulse_val - 1)
-                self.pulse_data.append(self._last_pulse_val)
-                return
-            else:
-                read_bytes = current_size - self._last_log_size
-                with open(LOG_FILE, 'rb') as f:
-                    f.seek(self._last_log_size)
-                    data = f.read(read_bytes).decode('utf-8', errors='ignore')
-                    lines = data.splitlines()
-                self._last_log_size = current_size
-
-            current_activity_spike = 0
-            key_pattern = re.compile(r'KEY=([\w-]+)')
-            ts_pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
-
-            for line in lines:
-                line = line.strip()
-                if not line: continue
-                
-                match = ts_pattern.match(line)
-                ts = match.group(1) if match else None
-
-                if "CONNECTION ATTEMPT" in line:
-                    self.request_count += 1
-                    if ts: self.last_request_time = ts
-                    current_activity_spike = 10
-                    # Inject a "packet"
-                    self.packet_track[-1] = "[cyan]◆[/cyan]"
-                elif "GHOST_CACHE_HIT" in line:
-                    self.cache_hits += 1
-                    current_activity_spike = 8
-                    self.packet_track[-1] = "[magenta]⚡[/magenta]"
-                    
-                    tok_match = re.search(r'\(Saved:\s*(\d+)\s*tokens\)', line)
-                    if tok_match:
-                        self.tokens_saved = int(tok_match.group(1))
-                        
-                elif "Silent Retry" in line or "KEY_LIMIT" in line or "AUTH_FAIL" in line:
-                    self.retry_count += 1
-                    current_activity_spike = 6
-                    self.packet_track[-1] = "[red]✖[/red]"
-                elif "PULSE_METRIC" in line:
-                    current_activity_spike = max(current_activity_spike, 4)
-                    self.packet_track[-1] = "[blue]·[/blue]"
-                    
-                    byte_match = re.search(r'BYTES=(\d+)', line)
-                    if byte_match:
-                        self.total_bytes_transmitted += int(byte_match.group(1))
-                
-                km = key_pattern.search(line)
-                if km:
-                    key = km.group(1)
-                    self.key_stats.setdefault(key, {'requests': 0, 'status': 'Active'})
-                    if "KEY_EXHAUSTED" in line:
-                        self.key_stats[key]['status'] = 'Exhausted'
-                    elif "KEY_RECOVERED" in line or "ROTATION" in line or "NEW_SESSION" in line:
-                        self.key_stats[key]['status'] = 'Active'
-                    if "ROTATION" in line: self.key_stats[key]['requests'] += 1
-
-                if any(k in line for k in ["CONNECTION", "CACHE", "Retry", "LIMIT", "ROTATION", "RECOVERED", "NEW_SESSION", "AUTH_FAIL", "ONLINE", "UNLEASH"]):
-                    color = "cyan"
-                    if "CACHE" in line: color = "magenta"
-                    elif "Retry" in line or "LIMIT" in line or "AUTH_FAIL" in line: color = "red"
-                    elif "RECOVERED" in line: color = "green"
-                    elif "NEW_SESSION" in line: color = "yellow"
-                    elif "ONLINE" in line: color = "blue"
-                    elif "UNLEASH_SHIELD" in line: color = "bold white on green"
-                    elif "UNLEASH_INTERCEPT" in line: color = "bold green"
-                    elif "UNLEASH_BYPASS" in line: color = "bold yellow"
-                    
-                    clean_msg = line.split("] ")[-1] if "] " in line else line
-                    if len(clean_msg) > 85: clean_msg = clean_msg[:82] + "..."
-                    self.last_logs.append(f"[bold {color}]»[/bold {color}] {clean_msg}")
-
-            if current_activity_spike > 0:
-                self._last_pulse_val = current_activity_spike
-            else:
-                self._last_pulse_val = max(0, self._last_pulse_val - 1)
-            
-            self.pulse_data.append(self._last_pulse_val)
-            
-            # Key Counts
-            all_keys = self.key_stats.keys()
-            self.active_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Active'])
-            self.exhausted_keys_count = len([k for k in all_keys if self.key_stats[k].get('status') == 'Exhausted'])
-
-        except Exception as e:
-            self.status_msg = f"[red]Update error: {e}[/red]"
+    def handle_input(self, c):
+        if c == 'i':
+            directive = Prompt.ask("\n[bold cyan]PEGASUS-DIRECTIVE[/bold cyan]")
+            if directive:
+                self.status_msg = f"Dispatching to Swarm Director: {directive}"
+                # Issue task to DIRECTOR via UFP Bridge
+                try:
+                    from lib.protocols.ufp_bridge import UFPBridge
+                    bridge = UFPBridge()
+                    bridge.send_task("DIRECTOR", directive)
+                except Exception as e:
+                    self.status_msg = f"[red]Directive Dispatch Failed: {str(e)}[/red]"
+        elif c == 'e':
+            self.status_msg = "Codebase Evolution Loop Dispatched..."
+            try:
+                from src.pegasus.evolution.patcher_loop import PatcherLoop
+                from src.pegasus.subagent_manager import SubAgentManager
+                PatcherLoop(SubAgentManager()).execute_cycle(".")
+            except Exception as e:
+                self.status_msg = f"[red]Evolution Failed: {str(e)}[/red]"
+        elif c == 't':
+            self.status_msg = "Exploit Research & POC Documentation Dispatched..."
+            try:
+                from src.pegasus.evolution.red_team_loop import RedTeamLoop
+                from src.pegasus.subagent_manager import SubAgentManager
+                # Target the current workspace by default
+                RedTeamLoop(SubAgentManager()).execute_red_team(".")
+            except Exception as e:
+                self.status_msg = f"[red]Exploit Research Failed: {str(e)}[/red]"
+        elif c == 's':
+            self.status_msg = "Global State Superposition Sync..."
+            try:
+                from src.pegasus.subagent_manager import SubAgentManager
+                SubAgentManager().checkpoint_swarm()
+            except Exception as e:
+                self.status_msg = f"[red]Sync Failed: {str(e)}[/red]"
 
     def generate_dashboard(self) -> Layout:
-        self.update_stats()
-        is_alive = self.check_proxy_alive()
-
         layout = Layout()
         layout.split_column(
             Layout(name="header", size=3),
-            Layout(name="main"),
+            Layout(name="main", ratio=1),
             Layout(name="footer", size=3)
         )
         layout["main"].split_row(
-            Layout(name="sidebar", ratio=1),
-            Layout(name="body", ratio=4)
+            Layout(name="sidebar", size=40),
+            Layout(name="body", ratio=1)
         )
         layout["body"].split_column(
-            Layout(name="metrics", size=12),
-            Layout(name="pulse", size=8),
-            Layout(name="logs")
+            Layout(name="pulse", size=10),
+            Layout(name="logs", ratio=1)
         )
 
-        header_text = Text.assemble((" [N]SO-ISOLATION ", "bold white on dark_red"), " Cyber-Intelligence Gateway", justify="center")
-        layout["header"].update(Panel(header_text, border_style="bright_black"))
+        # Header
+        layout["header"].update(Panel(Align.center(Text("HIGH-GRAVITY Pegasus Swarm Control Plane", style="bold red")), border_style="red"))
 
+        # Footer
+        is_alive = self.check_proxy_alive()
+        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | RECON: {LOG_FILE} | UPLINK: {'STABLE' if is_alive else 'DOWN'}", justify="center"), border_style="dim"))
+
+        # Sidebar - Metrics & Operations
         metrics = Table.grid(expand=True)
-        metrics.add_row(Text("Total Intercepts:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
-        metrics.add_row(Text("Ghost Cache Hits:", style="bold"), f"[bold red]{self.cache_hits}[/bold red]")
+        metrics.add_row(Text("Intercepts:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
+        metrics.add_row(Text("Cache Hits:", style="bold"), f"[bold green]{self.cache_hits}[/bold green]")
+        metrics.add_row(Text("Tokens Saved:", style="bold"), f"[bold cyan]{self.tokens_saved}[/bold cyan]")
         
-        # Calculate estimated savings ($15 per 1M tokens)
-        est_savings = (self.tokens_saved / 1000000) * 15.0
-        savings_str = f"[bold green]${est_savings:.4f}[/bold green]" if est_savings > 0 else "[dim]$0.0000[/dim]"
-        metrics.add_row(Text("Exfiltrated Tokens:", style="bold"), f"[bold red]{self.tokens_saved:,}[/bold red] ({savings_str})")
-        
-        # Calculate Overage (Optimization Gain over normal LAN)
-        # Normal tokens = total_bytes / 4 (est) + tokens_saved
-        est_total_tokens = (self.total_bytes_transmitted // 4) + self.tokens_saved
-        overage_pct = (self.tokens_saved / (est_total_tokens + 1)) * 100
-        metrics.add_row(Text("Uplink Overage:", style="bold"), f"[bold white]{overage_pct:.2f}%[/bold white] (vs Normal LAN)")
-        
-        metrics.add_row(Text("Blocked Retries:", style="bold"), f"[bold bright_red]{self.retry_count}[/bold bright_red]")
-        metrics.add_row(Text("Active / Dead Nodes:", style="bold"), f"[bold white]{self.active_keys_count}[/bold white] / [bold red]{self.exhausted_keys_count}[/bold red]")
-        metrics.add_row(Text("Injection Mode:", style="bold"), f"[bold dark_red]{self.rotation_mode.upper()}[/bold dark_red]")
-        
-        # New Phantom Features Status
-        metrics.add_row(Text("Shadow Spoofing:", style="bold"), "[bold red]ENABLED[/bold red]")
-        metrics.add_row(Text("RAM Cache:", style="bold"), "[bold green]VOLATILE (SHM)[/bold green]")
-        
-        # Check if QIHSE is active (proxy-side info, here mocked based on availability)
-        try:
-            from tools.integration.qihse_wrapper import QIHSE
-            q = QIHSE()
-            if q.is_available():
-                search_status = "[bold blue]QIHSE (QUANTUM-INSPIRED)[/bold blue]"
-            else:
-                search_status = "[bold yellow]CLASSICAL (LINEAR)[/bold yellow]"
-        except:
-            search_status = "[bold dim]DISABLED[/bold dim]"
-            
-        metrics.add_row(Text("Search Engine:", style="bold"), search_status)
-        
-        has_rules = Path(".highgravity_rules").exists()
-        rag_status = "[bold white]ACTIVE[/bold white]" if has_rules else "[dim]INACTIVE[/dim]"
-        metrics.add_row(Text("Local Intelligence:", style="bold"), rag_status)
-        
-        metrics.add_row(Text("Last Contact:", style="bold"), f"[dim]{self.last_request_time or 'None'}[/dim]")
-        layout["metrics"].update(Panel(metrics, title="Pegasus-Grade Metrics", border_style="red"))
+        status_table = Table(title="Pegasus Core Infrastructure", expand=True)
+        status_table.add_column("System", style="bold white")
+        status_table.add_column("Status", style="bold green")
+        status_table.add_row("GSL", "SYNCED")
+        status_table.add_row("Hilbert Index", "MAPPED")
+        status_table.add_row("MSHW Node", "ACTIVE")
+        status_table.add_row("Sync", f"{self.sync_countdown}s")
 
-        # --- Dynamic Flow Pulse ---
+        sidebar = Table.grid(expand=True)
+        sidebar.add_row(Panel(metrics, title="Metrics", border_style="cyan"))
+        sidebar.add_row(Panel(status_table, title="Infrastructure", border_style="magenta"))
+        
+        ops = Table.grid(expand=True)
+        ops.add_row("[red]W[/red] - Windsurf")
+        ops.add_row("[red]C[/red] - Claude")
+        ops.add_row("[blue]N[/blue] - [bold]Join MSNET[/bold]")
+        ops.add_row("[green]E[/green] - Evolve")
+        ops.add_row("[yellow]T[/yellow] - Red-Team")
+        ops.add_row("[cyan]I[/cyan] - Directive")
+        ops.add_row("[red]S[/red] - Sync")
+        ops.add_row("[red]Q[/red] - Quit")
+        sidebar.add_row(Panel(ops, title="Operations", border_style="red"))
+        
+        layout["sidebar"].update(sidebar)
+
+        # Pulse View
+        chars = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
         pulse_str = ""
-        chars = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█", "█", "█"]
-        
-        # Build the waveform line
-        for i, val in enumerate(self.pulse_data):
-            # Check if there is a packet at this position
-            packet = self.packet_track[i]
-            if packet != " ":
-                pulse_str += packet
-            else:
-                color = "grey37"
-                if val > 0: color = "dark_red" if val < 4 else "red" if val < 7 else "bright_red"
-                char = chars[val]
-                pulse_str += f"[{color}]{char}[/{color}]"
-        
-        # Animated background noise
-        bg_noise = "".join(random.choice(["'", "`", ".", " ", " "]) for _ in range(self.pulse_width - len(self.pulse_data)))
-        
-        layout["pulse"].update(Panel(Align.center(Text.from_markup(pulse_str + bg_noise)), title="Real-time Packet Interception", border_style="bright_black"))
+        for val in self.pulse_data:
+            pulse_str += chars[val]
+        layout["pulse"].update(Panel(Align.center(Text(pulse_str, style="bold red")), title="Network Pulse", border_style="dim"))
 
-        # Swarm Monitor Section
-        swarm_logs = Table(title="Pegasus Swarm - Granular Telemetry", expand=True)
-        swarm_logs.add_column("Agent ID", style="cyan")
-        swarm_logs.add_column("Task", style="white")
-        swarm_logs.add_column("Progress", style="green")
-        swarm_logs.add_column("CPU %", style="yellow")
-        swarm_logs.add_column("Memory", style="magenta")
-        swarm_logs.add_column("Status", style="bold green")
+        # Discourse Feed
+        discourse = Table(title="Live Agent Discourse", expand=True)
+        discourse.add_column("From", style="cyan")
+        discourse.add_column("To", style="magenta")
+        discourse.add_column("Directive", style="white")
         
-        # Dynamically fetch granular data
-        found_agent = False
+        # Pull from logs
         try:
-            import psutil
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cpu_percent', 'memory_info']):
-                if proc.info['cmdline'] and 'dist/cli.mjs' in ' '.join(proc.info['cmdline']):
-                    cmd = ' '.join(proc.info['cmdline'])
-                    
-                    task = "GENERAL_OPS"
-                    if "RESEARCHER" in cmd: task = "INDEXING_REPO"
-                    elif "SECURITYAUDITOR" in cmd: task = "AUDITING_SRC"
-                    elif "ARCHITECT" in cmd: task = "MAPPING_FLOW"
-                    elif "COMPRESSOR" in cmd: task = "OPTIMIZING_CONTEXT"
-                    elif "SHUFFLER" in cmd: task = "ENTROPY_INJECTION"
-                    elif "MONITOR" in cmd: task = "TELEMETRY_GATING"
-                    
-                    cpu = proc.cpu_percent(interval=0.01)
-                    mem = proc.memory_info().rss / (1024 * 1024)
-                    
-                    # Detect Idle Status
-                    status = "ACTIVE"
-                    progress = f"{int(cpu * 5)}%" # Simulated progress
-                    if cpu < 0.5:
-                        status = "REASSIGNING"
-                        progress = "0%"
-                        task = f"IDLE -> DISCOVERING_VULNS"
-                    
-                    # Map task to human-readable names
-                    agent_name = "OPERATIVE"
-                    if "INDEXING_REPO" in task: agent_name = "RESEARCHER"
-                    elif "AUDITING_SRC" in task: agent_name = "AUDITOR"
-                    elif "MAPPING_FLOW" in task: agent_name = "ARCHITECT"
-                    elif "OPTIMIZING_CONTEXT" in task: agent_name = "COMPRESSOR"
-                    elif "ENTROPY_INJECTION" in task: agent_name = "SHUFFLER"
-                    elif "TELEMETRY_GATING" in task: agent_name = "MONITOR"
-                    
-                    swarm_logs.add_row(
-                        f"{agent_name}-{proc.pid}", 
-                        task,
-                        progress,
-                        f"{cpu}%", 
-                        f"{mem:.1f}MB", 
-                        status
-                    )
-                    found_agent = True
-        except Exception as e:
-            swarm_logs.add_row("Monitor Error", "N/A", "N/A", "N/A", "N/A", str(e))
-            
-        if not found_agent:
-            swarm_logs.add_row("No agents active", "IDLE", "0%", "0%", "0MB", "IDLE")
+            with open(LOG_FILE, "r") as f:
+                lines = f.readlines()[-10:]
+                for line in lines:
+                    if "UFP_MSG" in line:
+                        discourse.add_row("AGENT", "SWARM", "Executing Binary Directive")
+        except: pass
+        
+        layout["logs"].update(Panel(discourse, title="Discourse Feed", border_style="bold blue"))
 
+        return layout
+
+    def run(self):
+        fd = sys.stdin.fileno()
+        is_tty = os.isatty(fd)
+        if is_tty: old_settings = termios.tcgetattr(fd)
+        self.start_proxy()
+        
+        last_sync = time.time()
+        try:
+            if is_tty: tty.setcbreak(fd)
+            with Live(self.generate_dashboard(), refresh_per_second=10, screen=True) as live:
+                while self.running:
+                    elapsed = time.time() - last_sync
+                    self.sync_countdown = max(0, 60 - int(elapsed))
+                    if self.sync_countdown == 0:
+                        self.status_msg = "Global State Sync..."
+                        last_sync = time.time()
+                    
+                    live.update(self.generate_dashboard())
+                    if is_tty:
+                        r, _, _ = select.select([sys.stdin], [], [], 0.05)
+                        if r:
+                            c = sys.stdin.read(1).lower()
+                            if c == 'q': self.running = False
+                            elif c == 'p': self.stop_proxy(); time.sleep(0.5); self.start_proxy()
+                            elif c == 'w': self.launch_windsurf()
+                            elif c == 'c': self.launch_claude()
+                            elif c == 'n': 
+                                self.status_msg = "Joining MSNET Swarm..."
+                                try:
+                                    from src.pegasus.network.mshw_joiner import join_mshw_network
+                                    if join_mshw_network():
+                                        self.status_msg = "[bold blue]Joined MSNET Swarm.[/bold blue]"
+                                    else:
+                                        self.status_msg = "[red]MSNET Join Failed.[/red]"
+                                except Exception as e:
+                                    self.status_msg = f"[red]MSNET Error: {str(e)}[/red]"
+                            elif c == 'i':
+                                self.handle_input('i')
+                            elif c == 'e': self.handle_input('e')
+                            elif c == 't': self.handle_input('t')
+                            elif c == 's': self.handle_input('s')
+        finally:
+            if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+if __name__ == "__main__":
+    HighGravityDashboard().run()

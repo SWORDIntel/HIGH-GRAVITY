@@ -1,0 +1,20 @@
+{
+  "peer_id": "HG-NODE",
+  "peers": [
+    {
+      "peer_id": "HG-NODE",
+      "address": "127.0.0.1",
+      "port": 8901,
+      "platform": "linux",
+      "status": 1,
+      "last_seen": 1775449659.9334238,
+      "capabilities": {
+        "self": true
+      },
+      "has_internet": false,
+      "relay_depth": 0,
+      "created_at": 1775449659.9334323
+    }
+  ],
+  "updated_at": 1775449659.9334972
+}

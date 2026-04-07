@@ -8,14 +8,14 @@ To enable redirection to the local proxy and activate multi-model token optimiza
 ### Automatic Patching (All Versions)
 The system now automatically detects all Windsurf installations (Stable, Next, Insiders) and applies the patches to each. Run the auto-modifier script:
 ```bash
-./tools/integration/auto_modifier.sh
+./bin/auto_modifier.sh
 ```
 *Note: This requires sudo permissions to write to `/usr/share/`.*
 
 ### Persistent Auto-Modifier
 To ensure patches are re-applied automatically after Windsurf updates itself, you can install a systemd timer:
 ```bash
-./tools/integration/auto_modifier.sh --install
+./bin/auto_modifier.sh --install
 ```
 This will set up a background task that re-scans and patches all Windsurf versions every hour.
 
@@ -37,7 +37,7 @@ HIGH-GRAVITY is verified to work with:
 ---
 
 ## 2. Universal Optimization Proxy
-The proxy server (`tools/integration/highgravity_proxy.py`) handles the backend logic for cost reduction and identity protection.
+The proxy server (`src/proxy.py`) handles the backend logic for cost reduction and identity protection.
 
 ### Key Features:
 - **Identity Cloaking:** Automatically randomizes `deviceFingerprint` and `installationId` to prevent account-level tracking and throttling.
@@ -47,13 +47,13 @@ The proxy server (`tools/integration/highgravity_proxy.py`) handles the backend 
 
 ### Launching the Proxy:
 ```bash
-python3 tools/integration/highgravity_proxy.py
+python3 src/proxy.py
 ```
 
 ### Automatic Wiring
 Open Windsurf to the project you want to wire, then run:
 ```bash
-./tools/integration/detect_and_wire_windsurf.py
+./src/detect_and_wire_windsurf.py
 ```
 This script will:
 1. Detect your running Windsurf session.

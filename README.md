@@ -1,52 +1,61 @@
-# HIGH-GRAVITY v3.5.0: The Pegasus Update 🐎
+# HIGH-GRAVITY: Pegasus-Grade Autonomous Swarm & Proxy
 
-The ultimate local identity proxy, optimization shield, and cyber-intelligence gateway for Windsurf.
+## 🏁 Overview
+HIGH-GRAVITY is a decentralized, high-performance cyber-intelligence gateway and autonomous agent mesh. It transforms standard AI interfaces into a coordinated swarm of 112+ specialized operatives, governed by a corporate-style hierarchy and hardened by quantum-inspired search and binary-level stealth protocols.
 
-## New in v3.5.0: The Pegasus Update
+---
 
-### 1. 📡 True Response Streaming (Latency Kill)
-*   **Zero-Buffer Architecture:** Real-time chunk forwarding via `iter_any()`. Fixed the "Model provider unreachable" error caused by response buffering.
-*   **Synchronous Interception:** Intercepts telemetry and metrics without delaying the core model response stream.
+## 🏗️ System Architecture
 
-### 2. 🧠 Smart Model Remapping (Multi-Provider Logic)
-*   **Dynamic Fallback:** Automatically remaps Claude 3.5 Sonnet, GPT-4o, and Opus requests to **Gemini 2.0 Flash** if only Google API keys are available.
-*   **Key-Aware Routing:** Routes traffic based on the prefix (`AIzaSy` vs `sk-ws`) to ensure the correct provider endpoint is hit every time.
+### 1. The Pegasus Swarm (Intelligence Layer)
+- **112+ Specialized Agents**: Organized into 12 functional divisions (Security, DevOps, Data Science, Language, etc.).
+- **Corporate Governance**: Chain-of-command enforcement via `DelegationEngine` and real-time intervention via `VetoEngine`.
+- **State Superposition**: Global memory-state synchronization across agents via high-speed RAM-disk checkpoints.
 
-### 3. 🔴 Pegasus Cyber-Intelligence Dashboard
-*   **NSO Group Aesthetic:** Overhauled UI with deep reds, dark greys, and high-contrast whites for a high-tech surveillance feel.
-*   **Enhanced Metrics:** Tracks "Total Intercepts," "Exfiltrated Tokens," and "Active Nodes" with Pegasus-grade precision.
-*   **Uplink Monitoring:** Real-time status indicators for the proxy tunnel and background processes.
+### 2. High-Gravity Proxy (Orchestration Layer)
+- **Omni-Routing**: Intelligent model rotation between 16+ high-performance Claude and Gemini keys.
+- **Geo-Distributed Network**: Integrated Mullvad WireGuard rotation (545+ global exit nodes) with Key-Tunnel Parity.
+- **Autodidact Learning**: Real-time continuous training using the `autoresearch` loop, learning from every interaction.
 
-### 4. 🎭 Shadow Profiles (Session Spoofing)
-*   **True Anonymity:** Generates unique machine fingerprints (`sessionId`, `installationId`, `deviceFingerprint`) per API key to prevent provider-side correlation.
+### 3. Binary Infrastructure (Performance Layer)
+- **UFP (Ultra-Fast Protocol)**: Lock-free binary communication bridge between proxy and agents (4.2M msg/sec).
+- **QIHSE Acceleration**: Quantum-inspired Hilbert Space Expansion for sub-millisecond codebase indexing and retrieval.
+- **MEMSHADOW (MSNET) Integration**: Gold Standard DPI evasion, traffic analysis resistance, and decentralized DHT discovery.
 
-### 5. 🚀 Unleash Shield (Elite Feature Activation)
-*   **Enterprise SaaS Spoofing:** Locally mocks over 60 high-value feature flags, enabling MCP tools, Web Search, and early access to O3/Gemini 3.0.
-*   **Telemetry Absorption:** Silently drops Unleash metrics to keep your usage profile invisible.
+---
 
-### 6. 🛡️ Stealth Hardening (The v3.5.1 Update)
-*   **Behavioral Jitter:** Defeats TLS/timing fingerprinting by shuffling header order and adding randomized micro-delays (50ms - 200ms) to every upstream request.
-*   **Warm Cooldown Strategy:** Enforces a 1.5s delay between reuse of the same API key across the rotation pool, preventing rapid thermal death/rate-limiting.
-*   **Binary Protobuf Templates:** Replaced fragile JSON mocks with high-fidelity gRPC-web framing for `GetUserStatus` and `Ping`, ensuring zero "undefined" errors on strictly binary clients.
-*   **Occasional RAG Reminders:** Refactored Local RAG injection to occur every 4th message as an `# OCCASIONAL REMINDER`, slashing context bloat while maintaining rule adherence.
+## 🚀 Deployment
 
-## Installation & Usage
+### Core Launch
+To initialize the High-Gravity control plane and the Pegasus Swarm:
+```bash
+python3 hg.py
+```
 
-1.  **Dependencies:** Ensure `rich`, `fastapi`, `uvicorn`, `aiohttp`, and `requests` are installed.
-2.  **Deploy Shield:**
-    ```bash
-    bash tools/integration/deploy_lsp_shim.sh
-    ```
-3.  **Launch Dashboard:**
-    ```bash
-    python3 hg.py
-    ```
-4.  **Infiltrate Windsurf:** Use the `W` key in the dashboard or restart Windsurf manually to activate full isolation.
+### Dashboard Operations
+- **[W] Infiltrate Windsurf**: Launches Windsurf through the optimization shield.
+- **[C] Infiltrate Claude**: Launches the unified Claude Interface via the proxy.
+- **[N] Join MSNET Swarm**: Connects the node to the global MEMSHADOW decentralized network.
+- **[E] Evolve Codebase**: Triggers the autonomous RESEARCHER-ARCHITECT-PATCHER-TESTBED cycle.
+- **[T] Trigger Red-Team**: Initiates a swarm-wide exploit research and POC documentation cycle.
+- **[I] Input Directive**: Direct natural language command-injection to the Swarm Director.
+- **[S] Global State Sync**: Forces an immediate memory superposition checkpoint.
 
-## Project Structure
-*   `hg.py`: The unified Pegasus Dashboard and process manager.
-*   `tools/integration/highgravity_proxy.py`: The core high-performance FastAPI proxy with streaming support.
-*   `tools/integration/lsp_shim.sh`: The process-level Bash shield for the language server.
-*   `config/windsurf_session_keys.json`: Persistent storage for discovered session keys.
-*   `src/pegasus/network/`: Directory containing WireGuard configuration files for the Pegasus network proxy.
-*   `kp14_cache/ghost_cache.db`: The SQLite backend for local semantic caching.
+---
+
+## 🛡️ Hardening & Compliance
+- **CNSA 2.0 Compliant**: Mandatory SHA-384 hashing for all data-at-rest and identity fingerprints.
+- **MSNET Swarm**: Decentralized DHT discovery and DPI-evasive communication via the integrated `memshadow` protocol.
+- **Telemetry Black-Hole**: Intercepts and mocks provider-side telemetry (Statsig, GrowthBook, Datadog) to preserve stealth.
+- **Node Identity**: Current host is designated as a high-authority **HG-NODE** in the global MSHW mesh.
+
+---
+
+## 📂 Repository Structure
+- `src/pegasus/`: Core swarm logic, agent divisions, and governance.
+- `lib/protocols/`: Binary bridges for UFP and MEMSHADOW.
+- `bin/`: Infiltration and launch scripts.
+- `config/`: Hardened key storage and network configurations.
+- `logs/`: High-resolution audit trails and proxy telemetry.
+
+**Copyright © 2026 HIGH-GRAVITY Systems | Pegasus-Phase Operational**

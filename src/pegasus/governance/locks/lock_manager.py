@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Set
-from tools.integration.pegasus.gsl_manager import GlobalStateLedger
+from src.pegasus.gsl_manager import GlobalStateLedger
 
 class ResourceLockManager:
     """Arbitrates file access between agents using the GSL."""

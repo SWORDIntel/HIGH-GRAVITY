@@ -4,7 +4,7 @@
 SUDO_PASS="1786"
 LSP_DIR="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin"
 LSP_BIN="language_server_linux_x64"
-SHIM_SRC="/home/john/HIGH-GRAVITY/../lib/protocols/lsp_shim.sh"
+SHIM_SRC="/home/john/HIGH-GRAVITY/bin/lsp_shim.sh"
 
 echo "[*] Deploying HIGH-GRAVITY LSP Shield..."
 
@@ -29,7 +29,7 @@ echo "$SUDO_PASS" | sudo -S chmod +x "$LSP_DIR/$LSP_BIN"
 
 # 4. Run JS patcher for the extension
 echo "[*] Running extension JS patcher..."
-python3 /home/john/HIGH-GRAVITY/../lib/protocols/patch_windsurf_client.py
+python3 /home/john/HIGH-GRAVITY/src/patch_windsurf_client.py
 
 echo ""
 echo "[✓] LSP Shield deployed and wired to localhost:9999."

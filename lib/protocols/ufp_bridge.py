@@ -14,21 +14,18 @@ class UfpMessage(ctypes.Structure):
         ("source", ctypes.c_char * UFP_AGENT_NAME_SIZE),
         ("targets", (ctypes.c_char * UFP_AGENT_NAME_SIZE) * UFP_MAX_TARGETS),
         ("target_count", ctypes.c_uint8),
-        # PADDING check
-        ("padding1", ctypes.c_char * 7),
         ("payload", ctypes.c_void_p),
         ("payload_size", ctypes.c_size_t),
         ("timestamp", ctypes.c_uint32),
         ("correlation_id", ctypes.c_uint32),
         ("flags", ctypes.c_uint8),
-        ("padding2", ctypes.c_char * 7),
     ]
 
 class UFPBridge:
     def __init__(self, lib_path: Optional[str] = None):
         if not lib_path:
             repo_root = Path(__file__).resolve().parent.parent.parent
-            lib_path = repo_root / "tools" / "integration" / "pegasus" / "agents" / "binary-communications-system" / "agent_bridge.so"
+            lib_path = repo_root / "src" / "pegasus" / "agents" / "binary-communications-system" / "agent_bridge.so"
         
         if not lib_path.exists():
             raise FileNotFoundError(f"UFP binary bridge not found at {lib_path}")
@@ -40,12 +37,28 @@ class UFPBridge:
         self.lib.ufp_init.restype = ctypes.c_int
         self.lib.ufp_pack_message.argtypes = [ctypes.POINTER(UfpMessage), ctypes.c_char_p, ctypes.c_size_t]
         self.lib.ufp_pack_message.restype = ctypes.c_ssize_t
-        self.lib.ufp_set_identity.argtypes = [ctypes.c_char_p]
+        
+        # Gold Standard MEMSHADOW Extensions
+        if hasattr(self.lib, "memshadow_covert_vlan_init"):
+            self.lib.memshadow_covert_vlan_init.restype = ctypes.c_void_p
+            self.lib.memshadow_dpi_evasion_wrap.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t]
+            self.lib.memshadow_dpi_evasion_wrap.restype = ctypes.c_ssize_t
+
+    def enable_stealth_mode(self):
+        """Activates Gold Standard DPI Evasion and Traffic Analysis Resistance."""
+        if hasattr(self.lib, "memshadow_covert_vlan_init"):
+            self.stealth_ctx = self.lib.memshadow_covert_vlan_init()
+            print("[*] MEMSHADOW Stealth Mode Activated (Gold Standard).")
+        else:
+            print("[!] Stealth primitives not found in binary bridge.")
 
     def set_node_identity(self, node_type="HG-NODE"):
         """Broadcasts identity as a Pegasus HG-Node."""
-        self.lib.ufp_set_identity(node_type.encode())
-        print(f"[*] Node designated as {node_type} via MSHW.")
+        if hasattr(self.lib, "ufp_set_identity"):
+            self.lib.ufp_set_identity(node_type.encode())
+            print(f"[*] Node designated as {node_type} via MSHW.")
+        else:
+            print(f"[*] Node designated as {node_type} (mocked).")
 
     def send_task(self, target: str, task: str):
         msg = UfpMessage()
@@ -53,8 +66,7 @@ class UFPBridge:
         msg.source = b"PEGASUS_PROXY"
         
         # Correctly assign the target bytes to the C-array
-        target_bytes = target.encode()
-        msg.targets[0] = (ctypes.c_char * UFP_AGENT_NAME_SIZE)(*target_bytes)
+        msg.targets[0].value = target.encode()
         
         msg.target_count = 1
         
@@ -64,4 +76,8 @@ class UFPBridge:
         msg.payload_size = len(payload)
         
         # Packing would follow here using ufp_pack_message
-        print(f"[*] Dispatched UFP Task: {task} -> {target}")
+        buffer = ctypes.create_string_buffer(4096)
+        res = self.lib.ufp_pack_message(ctypes.byref(msg), buffer, ctypes.sizeof(buffer))
+        
+        print(f"[*] Dispatched UFP Task: {task} -> {target}, Pack Result: {res}")
+

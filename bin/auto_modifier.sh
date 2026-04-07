@@ -3,7 +3,7 @@
 # Monitors Windsurf installations and ensures patches are active.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PATCHER="$REPO_ROOT/../lib/protocols/patch_windsurf_client.py"
+PATCHER="$REPO_ROOT/src/patch_windsurf_client.py"
 SUDO_PASS="1786"
 
 echo "[*] HIGH-GRAVITY Auto-Modifier starting..."

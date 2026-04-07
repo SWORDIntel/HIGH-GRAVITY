@@ -4,8 +4,8 @@ Windsurf support in this repo is built from:
 
 - [.windsurf/hooks.json](.windsurf/hooks.json)
 - [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py)
-- [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py)
-- [tools/integration/detect_and_wire_windsurf.py](tools/integration/detect_and_wire_windsurf.py)
+- [bin/gemini_session_launcher.py](bin/gemini_session_launcher.py)
+- [src/detect_and_wire_windsurf.py](src/detect_and_wire_windsurf.py)
 
 ## Modern Setup (Recommended)
 
@@ -23,7 +23,7 @@ python3 hg.py
 If you are already inside a Windsurf session and want to connect it to the HIGH-GRAVITY proxy:
 
 ```bash
-python3 tools/integration/detect_and_wire_windsurf.py
+python3 src/detect_and_wire_windsurf.py
 ```
 
 This script:
@@ -37,7 +37,7 @@ This script:
 1. Windsurf sends hook JSON on `stdin` when you run commands or set up a worktree.
 2. [.windsurf/cascade_highgravity_hook.py](.windsurf/cascade_highgravity_hook.py) reads that payload.
 3. The bridge merges env defaults such as `WINDSURF_API_KEY` and `HIGHGRAVITY_PROXY_URL`.
-4. The bridge forwards normalized JSON into [tools/integration/gemini_session_launcher.py](tools/integration/gemini_session_launcher.py).
+4. The bridge forwards normalized JSON into [bin/gemini_session_launcher.py](bin/gemini_session_launcher.py).
 5. The launcher writes a profile under `windsurf_profiles/<profile>/`.
 
 ## Model Autodetection

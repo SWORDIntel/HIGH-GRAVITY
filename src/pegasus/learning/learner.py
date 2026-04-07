@@ -1,7 +1,7 @@
 import time
 import json
 from pathlib import Path
-from tools.integration.pegasus.learning.train import train_step  # Conceptually importing from the clone
+from autoresearch.train import train_step  # Conceptually importing from the clone
 
 class PegasusLearner:
     def __init__(self, gsl):
