@@ -1,0 +1,6 @@
+rich
+fastapi
+uvicorn
+aiohttp
+requests
+pyyaml

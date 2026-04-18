@@ -32,14 +32,17 @@ To initialize the High-Gravity control plane and the Pegasus Swarm:
 python3 hg.py
 ```
 
-### Dashboard Operations
-- **[W] Infiltrate Windsurf**: Launches Windsurf through the optimization shield.
-- **[C] Infiltrate Claude**: Launches the unified Claude Interface via the proxy.
-- **[N] Join MSNET Swarm**: Connects the node to the global MEMSHADOW decentralized network.
-- **[E] Evolve Codebase**: Triggers the autonomous RESEARCHER-ARCHITECT-PATCHER-TESTBED cycle.
-- **[T] Trigger Red-Team**: Initiates a swarm-wide exploit research and POC documentation cycle.
-- **[I] Input Directive**: Direct natural language command-injection to the Swarm Director.
-- **[S] Global State Sync**: Forces an immediate memory superposition checkpoint.
+### 8. 📊 Cybernetic Dashboard (`hg.py`)
+*   **Full-Stack Monitor:** Live panels for proxy core, MITM bridge, premium upgrades (per-service + per-tier), Codex 4-tier reasoning distribution, rate-limit hits, and a recent-events feed.
+*   **Per-Service Status Pills:** `GEMINI` / `CODEX` / `OPENAI` light up green the moment the bridge intercepts them, dim when enabled-but-idle, red when disabled.
+*   **Inline Controls:** `C` clear ghost cache, `R` rotate keys, `Q` quit.
+
+### 9. 🔄 MITM Bridge (API Auto-Interception)
+*   **Automatic Service Detection:** Intelligently detects Gemini, Codex, and OpenAI requests by analyzing paths and headers.
+*   **Tiered Premium Model Injection (2026):** Each legacy model maps to a `(fast, deep)` pair. Gemini `pro`/`1.5-pro` → `gemini-2.5-pro` / `gemini-3-pro-preview`; Codex `davinci-codex` → `gpt-5.3-codex-spark` / `gpt-5.1-codex-max`; OpenAI `gpt-4`/`gpt-4o` → `gpt-5.4-mini` / `gpt-5.4`.
+*   **4-Tier Codex Reasoning Injection:** Per-request `reasoning_effort` (`low` / `medium` / `high` / `xhigh`) mirrors the Codex CLI picker, with matching Gemini `thinkingConfig.thinkingBudget` (`1024` / `8192` / `24576` / dynamic `-1`). `xhigh` is opted into via keywords like `exhaustive`, `formal proof`, `root cause analysis`.
+*   **Rate Limit Reduction:** Removes rate-limit tracking headers and implements reduced cooldown periods (0.5s vs 1.0s).
+*   **Seamless Integration:** Works transparently with Ghost Cache, Token Pool, Shadow Profiles, and all other HIGH-GRAVITY features.
 
 ---
 
@@ -48,6 +51,25 @@ python3 hg.py
 - **MSNET Swarm**: Decentralized DHT discovery and DPI-evasive communication via the integrated `memshadow` protocol.
 - **Telemetry Black-Hole**: Intercepts and mocks provider-side telemetry (Statsig, GrowthBook, Datadog) to preserve stealth.
 - **Node Identity**: Current host is designated as a high-authority **HG-NODE** in the global MSHW mesh.
+
+## 🚀 Quick Setup
+
+1. **Quick Setup (Recommended):**
+   ```bash
+   ./scripts/hiz_setup.sh
+   ```
+   Follow the interactive menu to patch, wire, and launch. 
+
+2. **Full Documentation:**
+   See `docs/guides/HIZ_4_DUMMIES.md` for a comprehensive walkthrough.
+
+3. **Manual Override:**
+   If you need specific control, you can still run components individually:
+   - **Deploy Shield:** `bash tools/integration/deploy_lsp_shim.sh`
+   - **Launch Dashboard:** `python3 hg.py`
+   - **Wire Project:** `python3 tools/integration/detect_and_wire_windsurf.py`
+
+4. **Restart Windsurf:** Once the proxy is running, restart Windsurf to activate full isolation.
 
 ---
 

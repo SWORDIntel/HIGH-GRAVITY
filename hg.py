@@ -1,292 +1,264 @@
 #!/usr/bin/env python3
 """
-HIGH-GRAVITY Unified Launcher & Dashboard
-========================================
-The central hub for managing the optimization proxy, 
-monitoring request traffic, and launching Windsurf.
+HIGH-GRAVITY Cybernetic Dashboard v3.6.0
+Live monitor for the proxy + MITM bridge.
+
+Surfaces:
+  * Proxy core (cache hits, key pool, rotation, exhausted keys)
+  * MITM mode + auto-detected services (Gemini / Codex / OpenAI)
+  * Premium model upgrades (total, per-service, per-tier)
+  * Codex 4-tier reasoning distribution (Low / Medium / High / Extra High)
+  * Rate-limit interceptions
+  * Recent event ring buffer
 """
 
-import os
 import sys
-import json
 import time
-import subprocess
-import signal
-import socket
-import shutil
-import random
-import select
-import tty
-import termios
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, List, Deque
-from collections import deque
 
-import re
-try:
-    from rich.console import Console
-    from rich.layout import Layout
-    from rich.live import Live
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.text import Text
-    from rich.align import Align
-    from rich.spinner import Spinner
-    from rich.progress import Progress, SpinnerColumn, TextColumn
-    from rich.syntax import Syntax
-    from rich.prompt import Prompt
-    RICH_AVAILABLE = True
-except ImportError:
-    print("[!] Rich library not found. Please install with: pip install rich")
-    sys.exit(1)
-
-# --- Constants & Paths ---
-VERSION = "3.4.0-HG"
-PROXY_PORT = 9999
-REPO_ROOT = Path(__file__).resolve().parent
-PROXY_SCRIPT = REPO_ROOT / "src" / "proxy.py"
-LOG_FILE = REPO_ROOT / "logs" / "proxy.log"
+import requests
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 console = Console()
 
-class HighGravityDashboard:
-    def __init__(self):
-        self.proxy_proc = None
-        self.running = True
-        self.last_logs = deque(maxlen=15)
-        self.status_msg = "Dashboard initialized."
-        self.proxy_status = "Stopped"
-        self.proxy_port = PROXY_PORT
-        
-        # Cumulative Metrics
-        self.request_count = 0
-        self.cache_hits = 0
-        self.retry_count = 0
-        self.active_keys_count = 0
-        self.exhausted_keys_count = 0
-        self.tokens_saved = 0
-        self.total_bytes_transmitted = 0
-        
-        self.rotation_mode = "round-robin"
-        self.last_request_time = None
-        self.selected_model = "auto"
-        self.detected_model = "None"
+# Codex CLI tier names + colors so the dashboard mirrors the Codex picker.
+THINKING_TIERS = [
+    ("low",     "Low",        "Fast responses, light reasoning",         "cyan"),
+    ("medium",  "Medium",     "Balanced speed/depth (everyday tasks)",   "green"),
+    ("high",    "High",       "Greater depth (Codex default)",           "yellow"),
+    ("xhigh",   "Extra High", "Non-latency-sensitive deep reasoning",    "magenta"),
+]
 
-        # --- Dynamic Flow System ---
-        self.pulse_width = 60
-        self.pulse_data = deque([0]*self.pulse_width, maxlen=self.pulse_width)
-        self._last_pulse_val = 0
-        self._frame_count = 0
-        self.sync_countdown = 60
 
-    def check_proxy_alive(self) -> bool:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5)
-            return s.connect_ex(('127.0.0.1', self.proxy_port)) == 0
 
-    def start_proxy(self):
-        if self.check_proxy_alive():
-            self.status_msg = "[yellow]Attached to existing proxy process.[/yellow]"
-            return
-        
-        self.status_msg = "Starting Pegasus Proxy Uplink..."
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(REPO_ROOT)
+class CyberDashboard:
+    def __init__(self, proxy_port: int = 9999):
+        self.proxy_port = proxy_port
+        self.telemetry: dict = {}
+        self.status = "Initializing..."
+        self.last_fetch = 0.0
+
+
+    # ---------- transport ------------------------------------------------
+    def fetch_telemetry(self):
         try:
-            self.proxy_proc = subprocess.Popen([sys.executable, str(PROXY_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
-            time.sleep(2)
-            if self.check_proxy_alive():
-                self.status_msg = "[bold green]Uplink Established.[/bold green]"
+            r = requests.get(
+                f"http://127.0.0.1:{self.proxy_port}/hg/telemetry", timeout=1
+            )
+            self.telemetry = r.json()
+            self.status = "[green]Proxy Online[/green]"
+        except Exception:
+            self.status = "[red]Proxy Offline[/red]"
+        self.last_fetch = time.time()
+
+    def send_action(self, action: str):
+        try:
+            requests.post(
+                f"http://127.0.0.1:{self.proxy_port}/hg/manage",
+                json={"action": action},
+                timeout=1,
+            )
+            self.status = f"[green]Action: {action} \u2192 OK[/green]"
+        except Exception:
+            self.status = f"[red]Action: {action} \u2192 failed[/red]"
+
+    # ---------- panels ---------------------------------------------------
+    def _proxy_panel(self) -> Panel:
+        t = self.telemetry
+        tbl = Table(expand=True, show_header=False, box=None, padding=(0, 1))
+        tbl.add_column(style="bold cyan", no_wrap=True)
+        tbl.add_column()
+        tbl.add_row("Status",          str(t.get("status", "?")))
+        tbl.add_row("Proxy port",      str(t.get("proxy_port", "?")))
+        tbl.add_row("Active keys",     str(t.get("active_keys", 0)))
+        tbl.add_row("Exhausted keys",  str(t.get("exhausted_keys", 0)))
+        tbl.add_row("Rotation",        str(t.get("rotation_mode", "?")))
+        tbl.add_row("Cache hits",      str(t.get("cache_hits", 0)))
+        return Panel(tbl, title="Proxy Core", border_style="green")
+
+    def _mitm_panel(self) -> Panel:
+        t = self.telemetry
+        mode = t.get("mitm_mode", "?")
+        auto = "on" if t.get("mitm_auto_detect") else "off"
+        prem = "on" if t.get("mitm_inject_premium") else "off"
+        rl   = "on" if t.get("mitm_reduce_rate_limits") else "off"
+
+        enabled  = t.get("mitm_services_enabled", []) or []
+        detected = set(t.get("mitm_detected_services", []) or [])
+
+        tbl = Table(expand=True, show_header=False, box=None, padding=(0, 1))
+        tbl.add_column(style="bold cyan", no_wrap=True)
+        tbl.add_column()
+        tbl.add_row("Mode",         mode)
+        tbl.add_row("Auto-detect",  auto)
+        tbl.add_row("Inject premium", prem)
+        tbl.add_row("RL reduction", rl)
+
+        # Per-service detection grid (online = detected, idle = enabled, off = disabled)
+        svc_grid = Text()
+        for svc in ("gemini", "codex", "openai"):
+            if svc in detected:
+                svc_grid.append(f" [{svc.upper()}] ", style="bold green on black")
+            elif svc in enabled:
+                svc_grid.append(f" [{svc.upper()}] ", style="dim white")
             else:
-                self.status_msg = "[red]Uplink Failed.[/red]"
-        except Exception as e:
-            self.status_msg = f"[red]Launch Error: {str(e)}[/red]"
+                svc_grid.append(f" [{svc.upper()}] ", style="bold red")
+            svc_grid.append("  ")
+        tbl.add_row("Services", svc_grid)
 
-    def stop_proxy(self):
-        if self.proxy_proc:
-            self.proxy_proc.terminate()
-            self.proxy_proc = None
-        # Also kill any orphaned proxy processes
-        subprocess.run(["pkill", "-f", "src/proxy.py"], stderr=subprocess.DEVNULL)
-        self.status_msg = "[yellow]Uplink Severed.[/yellow]"
+        tbl.add_row("Upgrades",   str(t.get("mitm_upgrades_total", 0)))
+        tbl.add_row("RL hits",    str(t.get("mitm_rate_limit_hits", 0)))
+        return Panel(tbl, title="MITM Bridge", border_style="magenta")
 
-    def launch_windsurf(self):
-        self.status_msg = "Launching [bold cyan]Windsurf[/bold cyan] via shield..."
-        script_path = REPO_ROOT / "bin" / "launch_debug.sh"
-        if script_path.exists():
-            subprocess.Popen(["bash", str(script_path)], start_new_session=True)
-        else:
-            self.status_msg = "[red]Launch script not found.[/red]"
+    def _upgrades_panel(self) -> Panel:
+        by_svc  = self.telemetry.get("mitm_upgrades_by_service", {}) or {}
+        by_tier = self.telemetry.get("mitm_upgrades_by_tier", {}) or {}
 
-    def launch_claude(self):
-        self.status_msg = "Launching [bold cyan]Claude Interface[/bold cyan] via proxy..."
-        script_path = REPO_ROOT / "bin" / "launch_claude_interface.sh"
-        if script_path.exists():
-            subprocess.Popen(["bash", str(script_path)], start_new_session=True)
-        else:
-            self.status_msg = "[red]Interface script not found.[/red]"
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Service", style="cyan")
+        tbl.add_column("Upgrades", justify="right")
+        for svc in ("gemini", "codex", "openai"):
+            tbl.add_row(svc.title(), str(by_svc.get(svc, 0)))
+        tbl.add_row("", "")
+        tbl.add_row("[bold]Tier[/bold]", "[bold]Count[/bold]")
+        tbl.add_row("Fast", str(by_tier.get("fast", 0)))
+        tbl.add_row("Deep", str(by_tier.get("deep", 0)))
+        return Panel(tbl, title="Premium Upgrades", border_style="yellow")
 
-    def handle_input(self, c):
-        if c == 'i':
-            directive = Prompt.ask("\n[bold cyan]PEGASUS-DIRECTIVE[/bold cyan]")
-            if directive:
-                self.status_msg = f"Dispatching to Swarm Director: {directive}"
-                # Issue task to DIRECTOR via UFP Bridge
-                try:
-                    from lib.protocols.ufp_bridge import UFPBridge
-                    bridge = UFPBridge()
-                    bridge.send_task("DIRECTOR", directive)
-                except Exception as e:
-                    self.status_msg = f"[red]Directive Dispatch Failed: {str(e)}[/red]"
-        elif c == 'e':
-            self.status_msg = "Codebase Evolution Loop Dispatched..."
-            try:
-                from src.pegasus.evolution.patcher_loop import PatcherLoop
-                from src.pegasus.subagent_manager import SubAgentManager
-                PatcherLoop(SubAgentManager()).execute_cycle(".")
-            except Exception as e:
-                self.status_msg = f"[red]Evolution Failed: {str(e)}[/red]"
-        elif c == 't':
-            self.status_msg = "Exploit Research & POC Documentation Dispatched..."
-            try:
-                from src.pegasus.evolution.red_team_loop import RedTeamLoop
-                from src.pegasus.subagent_manager import SubAgentManager
-                # Target the current workspace by default
-                RedTeamLoop(SubAgentManager()).execute_red_team(".")
-            except Exception as e:
-                self.status_msg = f"[red]Exploit Research Failed: {str(e)}[/red]"
-        elif c == 's':
-            self.status_msg = "Global State Superposition Sync..."
-            try:
-                from src.pegasus.subagent_manager import SubAgentManager
-                SubAgentManager().checkpoint_swarm()
-            except Exception as e:
-                self.status_msg = f"[red]Sync Failed: {str(e)}[/red]"
+    def _thinking_panel(self) -> Panel:
+        by_lvl = self.telemetry.get("mitm_thinking_by_level", {}) or {}
+        total  = sum(by_lvl.values()) or 1
 
-    def generate_dashboard(self) -> Layout:
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Tier", no_wrap=True)
+        tbl.add_column("Count", justify="right")
+        tbl.add_column("Bar", ratio=2)
+        tbl.add_column("Description")
+
+        for key, label, desc, color in THINKING_TIERS:
+            n = int(by_lvl.get(key, 0))
+            bar_len = int((n / total) * 20)
+            bar = Text("\u2588" * bar_len + "\u2591" * (20 - bar_len), style=color)
+            tbl.add_row(
+                Text(label, style=f"bold {color}"),
+                str(n),
+                bar,
+                Text(desc, style="dim"),
+            )
+        # Always show minimal as well if it ever fires.
+        m = int(by_lvl.get("minimal", 0))
+        if m:
+            tbl.add_row("Minimal", str(m), "", "Reasoning disabled")
+
+        return Panel(tbl, title="Codex Reasoning Distribution", border_style="blue")
+
+    def _events_panel(self) -> Panel:
+        events = self.telemetry.get("mitm_recent_events", []) or []
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Time",  style="dim", no_wrap=True)
+        tbl.add_column("Kind",  no_wrap=True)
+        tbl.add_column("Detail")
+        kind_colors = {
+            "detect":    "cyan",
+            "upgrade":   "yellow",
+            "thinking":  "blue",
+            "ratelimit": "red",
+        }
+        for ev in list(reversed(events))[:14]:  # newest first
+            ts = datetime.fromtimestamp(ev.get("ts", 0)).strftime("%H:%M:%S")
+            kind = ev.get("kind", "?")
+            color = kind_colors.get(kind, "white")
+            tbl.add_row(ts, Text(kind, style=color), ev.get("detail", ""))
+        return Panel(tbl, title="Recent MITM Events", border_style="red")
+
+    def _controls_panel(self) -> Panel:
+        ctrl = Table(expand=True, box=None)
+        ctrl.add_column("Key", style="bold cyan", no_wrap=True)
+        ctrl.add_column("Action")
+        ctrl.add_row("C", "Clear local ghost cache")
+        ctrl.add_row("R", "Force key rotation")
+        ctrl.add_row("Q", "Quit dashboard")
+        return Panel(ctrl, title="Controls", border_style="yellow")
+
+    # ---------- layout ---------------------------------------------------
+    def generate_layout(self) -> Layout:
+        self.fetch_telemetry()
         layout = Layout()
         layout.split_column(
             Layout(name="header", size=3),
-            Layout(name="main", ratio=1),
-            Layout(name="footer", size=3)
-        )
-        layout["main"].split_row(
-            Layout(name="sidebar", size=40),
-            Layout(name="body", ratio=1)
-        )
-        layout["body"].split_column(
-            Layout(name="pulse", size=10),
-            Layout(name="logs", ratio=1)
+            Layout(name="top", size=11),
+            Layout(name="middle", size=12),
+            Layout(name="events"),
+            Layout(name="footer", size=3),
         )
 
-        # Header
-        layout["header"].update(Panel(Align.center(Text("HIGH-GRAVITY Pegasus Swarm Control Plane", style="bold red")), border_style="red"))
+        layout["header"].update(
+            Panel(
+                Text(
+                    "HIGH-GRAVITY  \u2014  PROXY + MITM BRIDGE  MONITOR",
+                    justify="center",
+                    style="bold cyan",
+                ),
+                border_style="cyan",
+            )
+        )
 
-        # Footer
-        is_alive = self.check_proxy_alive()
-        layout["footer"].update(Panel(Text(f"v{VERSION} | PID: {os.getpid()} | RECON: {LOG_FILE} | UPLINK: {'STABLE' if is_alive else 'DOWN'}", justify="center"), border_style="dim"))
+        layout["top"].split_row(
+            Layout(self._proxy_panel(), name="proxy"),
+            Layout(self._mitm_panel(),  name="mitm"),
+            Layout(self._controls_panel(), name="controls"),
+        )
 
-        # Sidebar - Metrics & Operations
-        metrics = Table.grid(expand=True)
-        metrics.add_row(Text("Intercepts:", style="bold"), f"[bold white]{self.request_count}[/bold white]")
-        metrics.add_row(Text("Cache Hits:", style="bold"), f"[bold green]{self.cache_hits}[/bold green]")
-        metrics.add_row(Text("Tokens Saved:", style="bold"), f"[bold cyan]{self.tokens_saved}[/bold cyan]")
-        
-        status_table = Table(title="Pegasus Core Infrastructure", expand=True)
-        status_table.add_column("System", style="bold white")
-        status_table.add_column("Status", style="bold green")
-        status_table.add_row("GSL", "SYNCED")
-        status_table.add_row("Hilbert Index", "MAPPED")
-        status_table.add_row("MSHW Node", "ACTIVE")
-        status_table.add_row("Sync", f"{self.sync_countdown}s")
+        layout["middle"].split_row(
+            Layout(self._upgrades_panel(),  name="upgrades", ratio=1),
+            Layout(self._thinking_panel(),  name="thinking", ratio=2),
+        )
 
-        sidebar = Table.grid(expand=True)
-        sidebar.add_row(Panel(metrics, title="Metrics", border_style="cyan"))
-        sidebar.add_row(Panel(status_table, title="Infrastructure", border_style="magenta"))
-        
-        ops = Table.grid(expand=True)
-        ops.add_row("[red]W[/red] - Windsurf")
-        ops.add_row("[red]C[/red] - Claude")
-        ops.add_row("[blue]N[/blue] - [bold]Join MSNET[/bold]")
-        ops.add_row("[green]E[/green] - Evolve")
-        ops.add_row("[yellow]T[/yellow] - Red-Team")
-        ops.add_row("[cyan]I[/cyan] - Directive")
-        ops.add_row("[red]S[/red] - Sync")
-        ops.add_row("[red]Q[/red] - Quit")
-        sidebar.add_row(Panel(ops, title="Operations", border_style="red"))
-        
-        layout["sidebar"].update(sidebar)
+        layout["events"].update(self._events_panel())
 
-        # Pulse View
-        chars = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
-        pulse_str = ""
-        for val in self.pulse_data:
-            pulse_str += chars[val]
-        layout["pulse"].update(Panel(Align.center(Text(pulse_str, style="bold red")), title="Network Pulse", border_style="dim"))
-
-        # Discourse Feed
-        discourse = Table(title="Live Agent Discourse", expand=True)
-        discourse.add_column("From", style="cyan")
-        discourse.add_column("To", style="magenta")
-        discourse.add_column("Directive", style="white")
-        
-        # Pull from logs
-        try:
-            with open(LOG_FILE, "r") as f:
-                lines = f.readlines()[-10:]
-                for line in lines:
-                    if "UFP_MSG" in line:
-                        discourse.add_row("AGENT", "SWARM", "Executing Binary Directive")
-        except: pass
-        
-        layout["logs"].update(Panel(discourse, title="Discourse Feed", border_style="bold blue"))
-
+        layout["footer"].update(
+            Panel(
+                Text(
+                    f"Status: {self.status}    "
+                    f"Last fetch: {datetime.fromtimestamp(self.last_fetch).strftime('%H:%M:%S')}",
+                    justify="center",
+                ),
+                border_style="dim",
+            )
+        )
         return layout
 
+    # ---------- main loop ------------------------------------------------
     def run(self):
+        import select
+        import termios
+        import tty
+
         fd = sys.stdin.fileno()
-        is_tty = os.isatty(fd)
-        if is_tty: old_settings = termios.tcgetattr(fd)
-        self.start_proxy()
-        
-        last_sync = time.time()
+        old_settings = termios.tcgetattr(fd)
+        tty.setcbreak(fd)
+
         try:
-            if is_tty: tty.setcbreak(fd)
-            with Live(self.generate_dashboard(), refresh_per_second=10, screen=True) as live:
-                while self.running:
-                    elapsed = time.time() - last_sync
-                    self.sync_countdown = max(0, 60 - int(elapsed))
-                    if self.sync_countdown == 0:
-                        self.status_msg = "Global State Sync..."
-                        last_sync = time.time()
-                    
-                    live.update(self.generate_dashboard())
-                    if is_tty:
-                        r, _, _ = select.select([sys.stdin], [], [], 0.05)
-                        if r:
-                            c = sys.stdin.read(1).lower()
-                            if c == 'q': self.running = False
-                            elif c == 'p': self.stop_proxy(); time.sleep(0.5); self.start_proxy()
-                            elif c == 'w': self.launch_windsurf()
-                            elif c == 'c': self.launch_claude()
-                            elif c == 'n': 
-                                self.status_msg = "Joining MSNET Swarm..."
-                                try:
-                                    from src.pegasus.network.mshw_joiner import join_mshw_network
-                                    if join_mshw_network():
-                                        self.status_msg = "[bold blue]Joined MSNET Swarm.[/bold blue]"
-                                    else:
-                                        self.status_msg = "[red]MSNET Join Failed.[/red]"
-                                except Exception as e:
-                                    self.status_msg = f"[red]MSNET Error: {str(e)}[/red]"
-                            elif c == 'i':
-                                self.handle_input('i')
-                            elif c == 'e': self.handle_input('e')
-                            elif c == 't': self.handle_input('t')
-                            elif c == 's': self.handle_input('s')
+            with Live(self.generate_layout(), refresh_per_second=2, screen=True) as live:
+                while True:
+                    live.update(self.generate_layout())
+                    r, _, _ = select.select([sys.stdin], [], [], 0.25)
+                    if r:
+                        c = sys.stdin.read(1).lower()
+                        if c == "q":
+                            break
+                        elif c == "c":
+                            self.send_action("clear_cache")
+                        elif c == "r":
+                            self.send_action("rotate_keys")
         finally:
-            if is_tty: termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
 
 if __name__ == "__main__":
-    HighGravityDashboard().run()
+    CyberDashboard().run()

@@ -1,0 +1,15 @@
+proxy_port: 9999
+log_path: "logs/proxy.log"
+rotation_mode: "round-robin"
+max_log_size_mb: 5
+backup_count: 3
+
+# MITM Bridge Configuration
+mitm_mode: "enabled"
+mitm_auto_detect: true
+mitm_services:
+  - gemini
+  - codex
+  - openai
+mitm_inject_premium: true
+mitm_reduce_rate_limits: true
