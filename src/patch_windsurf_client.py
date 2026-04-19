@@ -5,7 +5,8 @@ import shutil
 from pathlib import Path
 
 # Configuration
-LOG_PATH = Path("/home/john/HIGH-GRAVITY/logs/cascade_midway.log")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LOG_PATH = REPO_ROOT / "logs" / "cascade_midway.log"
 SUDO_PASS = "1786"
 
 def find_extension_files():

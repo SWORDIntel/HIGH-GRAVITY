@@ -44,6 +44,16 @@ class CyberDashboard:
         self.show_aliases = False
         self.show_pegasus = False
         self.pegasus_manager = None
+        
+        # Khoj integration tracking
+        self.khoj_enabled = False
+        self.khoj_healthy = False
+        self.khoj_search_count = 0
+        self.khoj_injection_count = 0
+        self.khoj_indexed_workspaces = 0
+        self.khoj_last_index = "Never"
+        self.last_khoj_fetch = 0.0
+        
         self._init_pegasus()
 
 
@@ -89,6 +99,43 @@ class CyberDashboard:
             self.status = "[green]Swarm checkpointed[/green]"
         except Exception as e:
             self.status = f"[red]Checkpoint error: {str(e)[:80]}[/red]"
+
+    def fetch_khoj_stats(self):
+        """Fetch Khoj statistics from proxy API"""
+        try:
+            resp = requests.get(f"http://127.0.0.1:{self.proxy_port}/hg/khoj/status", timeout=1)
+            if resp.status_code == 200:
+                data = resp.json()
+                self.khoj_enabled = data.get("enabled", False)
+                self.khoj_healthy = data.get("healthy", False)
+                self.khoj_search_count = data.get("search_count", 0)
+                self.khoj_injection_count = data.get("injection_count", 0)
+                
+                # Format last index time
+                last_index = data.get("last_index_time", 0)
+                if last_index > 0:
+                    dt = datetime.fromtimestamp(last_index)
+                    self.khoj_last_index = dt.strftime("%H:%M:%S")
+                
+                # Try to get workspace count
+                try:
+                    import json
+                    from pathlib import Path
+                    storage_json = Path.home() / ".config" / "Windsurf - Next" / "User" / "globalStorage" / "storage.json"
+                    if storage_json.exists():
+                        with open(storage_json) as f:
+                            storage_data = json.load(f)
+                        workspaces = set()
+                        for folder in storage_data.get("backupWorkspaces", {}).get("folders", []):
+                            uri = folder.get("folderUri", "")
+                            if uri.startswith("file://"):
+                                workspaces.add(uri[7:])
+                        self.khoj_indexed_workspaces = len(workspaces) + 5  # +5 for HIGH-GRAVITY dirs
+                except:
+                    self.khoj_indexed_workspaces = 5
+        except:
+            self.khoj_enabled = False
+            self.khoj_healthy = False
 
     def terminate_pegasus_swarm(self):
         """Terminate all Pegasus agents"""
@@ -451,9 +498,37 @@ class CyberDashboard:
         
         return Panel(tbl, title="Pegasus Orchestrator", border_style="magenta")
 
+    def _khoj_panel(self) -> Panel:
+        """Display Khoj semantic search status"""
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Metric", style="bold cyan", no_wrap=True)
+        tbl.add_column("Value")
+        
+        # Status with color coding
+        if self.khoj_healthy:
+            status_text = "[green]HEALTHY[/green]"
+        elif self.khoj_enabled:
+            status_text = "[yellow]STARTING[/yellow]"
+        else:
+            status_text = "[red]OFFLINE[/red]"
+        
+        tbl.add_row("Status", status_text)
+        tbl.add_row("Searches", str(self.khoj_search_count))
+        tbl.add_row("Injections", f"[cyan]{self.khoj_injection_count}[/cyan]")
+        tbl.add_row("Workspaces", f"[magenta]{self.khoj_indexed_workspaces}[/magenta]")
+        tbl.add_row("Last Index", f"[dim]{self.khoj_last_index}[/dim]")
+        
+        return Panel(tbl, title="Khoj Semantic Search", border_style="blue")
+
     # ---------- layout ---------------------------------------------------
     def generate_layout(self) -> Layout:
         self.fetch_telemetry()
+        
+        # Fetch Khoj stats every 2 seconds
+        now = time.time()
+        if now - self.last_khoj_fetch > 2:
+            self.fetch_khoj_stats()
+            self.last_khoj_fetch = now
         layout = Layout()
         layout.split_column(
             Layout(name="header", size=3),
@@ -483,7 +558,10 @@ class CyberDashboard:
         if self.show_aliases:
             layout["middle"].update(self._aliases_panel())
         elif self.show_pegasus:
-            layout["middle"].update(self._pegasus_panel())
+            layout["middle"].split_row(
+                Layout(self._pegasus_panel(), name="pegasus", ratio=1),
+                Layout(self._khoj_panel(), name="khoj", ratio=1),
+            )
         else:
             layout["middle"].split_row(
                 Layout(self._upgrades_panel(),  name="upgrades", ratio=1),
