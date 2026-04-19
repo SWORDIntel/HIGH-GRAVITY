@@ -4,7 +4,9 @@ import logging
 import threading
 import time
 import psutil
+import os
 from pathlib import Path
+from typing import Dict
 from src.pegasus.jit_engine.compiler import JITCompiler
 from src.pegasus.gsl_manager import GlobalStateLedger
 from src.pegasus.memory_sync.superposition import MemorySuperposition
@@ -16,6 +18,7 @@ from src.pegasus.scheduler.hw_aware import HardwareScheduler
 from src.pegasus.network.rotator import NetworkRotator
 from src.pegasus.index.vector_store import PegasusVectorStore
 from src.pegasus.index.indexer import CodebaseIndexer
+from src.pegasus.orchestrator import PegasusOrchestrator
 from lib.protocols.ufp_bridge import UFPBridge
 
 logger = logging.getLogger("Pegasus-Swarm")
@@ -32,6 +35,7 @@ class SubAgentManager:
         self.locks = ResourceLockManager(self.gsl)
         self.scheduler = HardwareScheduler()
         self.network = NetworkRotator(Path("src/pegasus/network"))
+        self.orchestrator = PegasusOrchestrator()
         self.bridge = UFPBridge()
         
         # Initialize Vector Indexer
@@ -76,19 +80,30 @@ class SubAgentManager:
             return "ERROR"
             
         agent_id = f"{role}-{uuid.uuid4().hex[:6]}"
+        
+        # Register with orchestrator and get random API key
+        agent_config = self.orchestrator.register_agent(
+            agent_id=agent_id,
+            role=role,
+            capabilities=spec.get("capabilities", [])
+        )
+        api_key = agent_config["api_key"]
+        
         vpn_config = self.network.get_random_config()
-        logger.info(f"SPAWNING_GEODISTRIBUTED_AGENT: {agent_id} via {vpn_config} (Spec: {spec})")
+        logger.info(f"SPAWNING_GEODISTRIBUTED_AGENT: {agent_id} via {vpn_config} with key {api_key[:20]}...")
 
-        # Pass VPN config to the launch script
-        cmd = ["bash", "bin/launch_claude_interface.sh", "-p", prompt, "--vpn", vpn_config]
+        # Pass VPN config and API key to the launch script
+        cmd = ["bash", "bin/launch_claude_interface.sh", "-p", prompt, "--vpn", vpn_config, "--api-key", api_key]
         proc = subprocess.Popen(
             cmd, 
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
-            start_new_session=True
+            start_new_session=True,
+            env={**os.environ, "GEMINI_API_KEY": api_key}
         )
         self.active_agents[agent_id] = proc
         self.gsl.post_delta(proc.pid, "STATUS", 1)
+        logger.info(f"ORCHESTRATOR: Agent {agent_id} spawned under orchestrator command")
         return agent_id
 
     def checkpoint_swarm(self):
@@ -103,3 +118,18 @@ class SubAgentManager:
             proc.terminate()
         self.active_agents.clear()
         logger.info("SWARM_TERMINATED.")
+
+    def initiate_code_audit(self, target_path: str = ".") -> str:
+        """Initiate end-to-end code audit"""
+        audit_id = self.orchestrator.initiate_e2e_code_audit(target_path)
+        self.orchestrator.auto_distribute_tasks()
+        logger.info(f"E2E_AUDIT: Initiated {audit_id} and distributed tasks")
+        return audit_id
+
+    def get_audit_status(self, audit_id: str) -> dict:
+        """Get audit status"""
+        return self.orchestrator.get_audit_status(audit_id) or {}
+
+    def get_orchestrator_status(self) -> dict:
+        """Get orchestrator swarm status"""
+        return self.orchestrator.get_swarm_status()

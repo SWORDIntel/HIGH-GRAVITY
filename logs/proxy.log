@@ -8565,3 +8565,38 @@
 2026-04-19 03:28:26,709 [INFO] [05bc91f4] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
 2026-04-19 03:29:20,314 [INFO] [76592bdd] CONNECTION ATTEMPT: POST /unleash/client/metrics
 2026-04-19 03:29:20,314 [INFO] [76592bdd] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:29:26,717 [INFO] [7153fd81] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:29:26,717 [INFO] [7153fd81] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:30:20,320 [INFO] [2f422023] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:30:20,320 [INFO] [2f422023] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:30:26,730 [INFO] [8b39ab60] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:30:26,730 [INFO] [8b39ab60] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:31:20,326 [INFO] [1dd4a968] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:31:20,327 [INFO] [1dd4a968] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:31:26,739 [INFO] [ee5e865b] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:31:26,739 [INFO] [ee5e865b] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:32:20,331 [INFO] [92eeac35] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:32:20,423 [INFO] [92eeac35] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:32:26,747 [INFO] [d8abec1b] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:32:26,747 [INFO] [d8abec1b] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:32:58,870 [INFO] [786983e9] CONNECTION ATTEMPT: POST /exa.api_server_pb.ApiServerService/GetChatMessage
+2026-04-19 03:32:58,870 [INFO] ROTATION (windsurf): KEY=sk-ws-01-93LZMl... MODE=round-robin PERSONA=Architect TOTAL_ACTIVE=1
+2026-04-19 03:33:00,076 [INFO] PULSE_METRIC: BYTES=762 STATUS=200 KEY=Bearer sk-ws-01...
+2026-04-19 03:33:08,342 [INFO] [67cf7f95] CONNECTION ATTEMPT: POST /exa.api_server_pb.ApiServerService/GetChatMessage
+2026-04-19 03:33:08,342 [INFO] ROTATION (windsurf): KEY=sk-ws-01-93LZMl... MODE=round-robin PERSONA=Architect TOTAL_ACTIVE=1
+2026-04-19 03:33:09,004 [INFO] PULSE_METRIC: BYTES=762 STATUS=200 KEY=Bearer sk-ws-01...
+2026-04-19 03:33:17,843 [INFO] [2f8b5904] CONNECTION ATTEMPT: POST /exa.api_server_pb.ApiServerService/GetChatMessage
+2026-04-19 03:33:17,843 [INFO] ROTATION (windsurf): KEY=sk-ws-01-93LZMl... MODE=round-robin PERSONA=Architect TOTAL_ACTIVE=1
+2026-04-19 03:33:18,780 [INFO] PULSE_METRIC: BYTES=763 STATUS=200 KEY=Bearer sk-ws-01...
+2026-04-19 03:33:20,427 [INFO] [77d43ed6] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:33:20,428 [INFO] [77d43ed6] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:33:26,761 [INFO] [599948ba] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:33:26,762 [INFO] [599948ba] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:34:20,439 [INFO] [692887d1] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:34:20,439 [INFO] [692887d1] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:34:26,778 [INFO] [d384f54b] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:34:26,778 [INFO] [d384f54b] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:35:20,445 [INFO] [81d8afae] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:35:20,447 [INFO] [81d8afae] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:35:26,794 [INFO] [6625d05f] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:35:26,795 [INFO] [6625d05f] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.

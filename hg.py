@@ -101,6 +101,17 @@ class CyberDashboard:
         except Exception as e:
             self.status = f"[red]Terminate error: {str(e)[:80]}[/red]"
 
+    def initiate_e2e_audit(self):
+        """Initiate end-to-end code audit"""
+        if not self.pegasus_manager:
+            self.status = "[red]Pegasus not initialized[/red]"
+            return
+        try:
+            audit_id = self.pegasus_manager.initiate_code_audit(".")
+            self.status = f"[green]E2E Audit started: {audit_id}[/green]"
+        except Exception as e:
+            self.status = f"[red]Audit error: {str(e)[:80]}[/red]"
+
     # ---------- transport ------------------------------------------------
     def fetch_telemetry(self):
         try:
@@ -382,6 +393,7 @@ class CyberDashboard:
         ctrl.add_row("1", "Spawn Agent")
         ctrl.add_row("2", "Checkpoint Swarm")
         ctrl.add_row("3", "Terminate Swarm")
+        ctrl.add_row("4", "E2E Code Audit")
         ctrl.add_row("X", "Git Push")
         ctrl.add_row("Q", "Quit dashboard")
         return Panel(ctrl, title="Controls", border_style="yellow")
@@ -411,24 +423,33 @@ class CyberDashboard:
         
         if self.pegasus_manager:
             agent_count = len(self.pegasus_manager.active_agents)
-            tbl.add_row("Status", "[green]Active[/green]")
-            tbl.add_row("Active Agents", str(agent_count))
-            tbl.add_row("GSL", "Memory-mapped")
-            tbl.add_row("Superposition", "Enabled")
-            tbl.add_row("Auto-Tasker", "Running")
-            tbl.add_row("Network Rotation", "Active")
             
-            # List active agents
-            if agent_count > 0:
-                agents_str = ", ".join(list(self.pegasus_manager.active_agents.keys())[:3])
-                if agent_count > 3:
-                    agents_str += f" +{agent_count-3} more"
-                tbl.add_row("Agents", agents_str)
+            # Get orchestrator status
+            try:
+                orch_status = self.pegasus_manager.get_orchestrator_status()
+                tbl.add_row("Status", "[green]Active[/green]")
+                tbl.add_row("Active Agents", str(agent_count))
+                tbl.add_row("Registered", str(orch_status.get("total_agents", 0)))
+                tbl.add_row("Available Keys", str(orch_status.get("available_keys", 0)))
+                tbl.add_row("Queued Tasks", str(orch_status.get("queued_tasks", 0)))
+                tbl.add_row("Assigned Tasks", str(orch_status.get("assigned_tasks", 0)))
+                tbl.add_row("Active Audits", str(orch_status.get("active_audits", 0)))
+                tbl.add_row("GSL", "Memory-mapped")
+                tbl.add_row("Auto-Tasker", "Running")
+                
+                # List active agents
+                if agent_count > 0:
+                    agents_str = ", ".join(list(self.pegasus_manager.active_agents.keys())[:3])
+                    if agent_count > 3:
+                        agents_str += f" +{agent_count-3} more"
+                    tbl.add_row("Agents", agents_str)
+            except Exception as e:
+                tbl.add_row("Status", f"[yellow]Error: {str(e)[:30]}[/yellow]")
         else:
             tbl.add_row("Status", "[yellow]Not Initialized[/yellow]")
             tbl.add_row("Active Agents", "0")
         
-        return Panel(tbl, title="Pegasus Swarm", border_style="magenta")
+        return Panel(tbl, title="Pegasus Orchestrator", border_style="magenta")
 
     # ---------- layout ---------------------------------------------------
     def generate_layout(self) -> Layout:
@@ -524,6 +545,8 @@ class CyberDashboard:
                             self.checkpoint_pegasus_swarm()
                         elif c == "3":
                             self.terminate_pegasus_swarm()
+                        elif c == "4":
+                            self.initiate_e2e_audit()
                         elif c == "x":
                             self.git_push()
         finally:
