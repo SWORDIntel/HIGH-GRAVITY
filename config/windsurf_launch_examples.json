@@ -1,0 +1,101 @@
+{
+  "examples": {
+    "basic_proxy": {
+      "description": "Launch Windsurf with HIGH-GRAVITY proxy",
+      "config": {
+        "mode": "windsurf",
+        "provider": "proxy",
+        "proxyUrl": "http://localhost:9999"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.basic_proxy.config' | bin/launch_windsurf_piped.sh"
+    },
+    "with_api_key": {
+      "description": "Launch with specific API key",
+      "config": {
+        "mode": "windsurf",
+        "provider": "proxy",
+        "proxyUrl": "http://localhost:9999",
+        "apiKey": "YOUR_API_KEY_HERE",
+        "model": "gemini-2.0-flash-thinking-exp"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.with_api_key.config' | bin/launch_windsurf_piped.sh"
+    },
+    "with_key_index": {
+      "description": "Launch with key index selection",
+      "config": {
+        "mode": "windsurf",
+        "provider": "proxy",
+        "proxyUrl": "http://localhost:9999",
+        "keyIndex": "1",
+        "windowName": "high-gravity-dev"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.with_key_index.config' | bin/launch_windsurf_piped.sh"
+    },
+    "custom_window": {
+      "description": "Launch with custom window/profile name",
+      "config": {
+        "mode": "windsurf",
+        "provider": "proxy",
+        "proxyUrl": "http://localhost:9999",
+        "windowName": "my-project",
+        "model": "gemini-exp-1206",
+        "dryRun": false
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.custom_window.config' | bin/launch_windsurf_piped.sh"
+    },
+    "dry_run": {
+      "description": "Prepare artifacts without launching (testing)",
+      "config": {
+        "mode": "windsurf",
+        "provider": "proxy",
+        "proxyUrl": "http://localhost:9999",
+        "dryRun": true,
+        "check": true
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.dry_run.config' | bin/launch_windsurf_piped.sh"
+    },
+    "gemini_studio": {
+      "description": "Launch Gemini AI Studio in browser",
+      "config": {
+        "mode": "studio"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.gemini_studio.config' | bin/launch_windsurf_piped.sh"
+    },
+    "gemini_studio_key1": {
+      "description": "Launch Gemini AI Studio with key index 1",
+      "config": {
+        "mode": "studio",
+        "keyIndex": "1"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.gemini_studio_key1.config' | bin/launch_windsurf_piped.sh"
+    },
+    "gemini_chat": {
+      "description": "Launch Gemini Chat in browser",
+      "config": {
+        "mode": "chat"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.gemini_chat.config' | bin/launch_windsurf_piped.sh"
+    },
+    "gemini_chat_key1": {
+      "description": "Launch Gemini Chat with key index 1",
+      "config": {
+        "mode": "chat",
+        "keyIndex": "1"
+      },
+      "usage": "cat config/windsurf_launch_examples.json | jq -r '.examples.gemini_chat_key1.config' | bin/launch_windsurf_piped.sh"
+    }
+  },
+  "quick_commands": {
+    "launch_basic": "echo '{\"mode\":\"windsurf\",\"provider\":\"proxy\",\"proxyUrl\":\"http://localhost:9999\"}' | bin/launch_windsurf_piped.sh",
+    "launch_with_key_1": "echo '{\"mode\":\"windsurf\",\"provider\":\"proxy\",\"proxyUrl\":\"http://localhost:9999\",\"keyIndex\":\"1\"}' | bin/launch_windsurf_piped.sh",
+    "launch_with_key_2": "echo '{\"mode\":\"windsurf\",\"provider\":\"proxy\",\"proxyUrl\":\"http://localhost:9999\",\"keyIndex\":\"2\"}' | bin/launch_windsurf_piped.sh",
+    "dry_run_test": "echo '{\"mode\":\"windsurf\",\"provider\":\"proxy\",\"proxyUrl\":\"http://localhost:9999\",\"dryRun\":true}' | bin/launch_windsurf_piped.sh"
+  },
+  "cli_equivalents": {
+    "note": "These CLI commands are equivalent to the piped JSON configs above",
+    "basic": "bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999",
+    "with_key_index": "bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --key-index 1",
+    "with_window_name": "bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --window-name my-project",
+    "dry_run": "bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --dry-run"
+  }
+}

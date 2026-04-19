@@ -42,6 +42,7 @@ class CyberDashboard:
         self.telemetry: dict = {}
         self.status = "Initializing..."
         self.last_fetch = 0.0
+        self.show_aliases = False
 
 
     # ---------- transport ------------------------------------------------
@@ -66,6 +67,140 @@ class CyberDashboard:
             self.status = f"[green]Action: {action} \u2192 OK[/green]"
         except Exception:
             self.status = f"[red]Action: {action} \u2192 failed[/red]"
+
+    def patch_windsurf(self):
+        """Patch Windsurf client to redirect to HIGH-GRAVITY proxy"""
+        import subprocess
+        from pathlib import Path
+        
+        script = Path(__file__).parent / "src" / "patch_windsurf_client.py"
+        if not script.exists():
+            self.status = "[red]Patch script not found[/red]"
+            return
+        
+        self.status = "[yellow]Patching Windsurf client...[/yellow]"
+        try:
+            result = subprocess.run(
+                ["python3", str(script)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                self.status = "[green]Windsurf patched successfully! Restart Windsurf.[/green]"
+            else:
+                self.status = f"[red]Patch failed: {result.stderr[:100]}[/red]"
+        except Exception as e:
+            self.status = f"[red]Patch error: {str(e)[:100]}[/red]"
+
+    def launch_windsurf(self):
+        """Wire and launch Windsurf with HIGH-GRAVITY proxy (Codex bypass)"""
+        import subprocess
+        from pathlib import Path
+        
+        launcher = Path(__file__).parent / "bin" / "gemini_session_launcher.py"
+        if not launcher.exists():
+            self.status = "[red]Launcher not found[/red]"
+            return
+        
+        self.status = "[yellow]Launching Windsurf via HIGH-GRAVITY...[/yellow]"
+        try:
+            subprocess.Popen(
+                [
+                    "python3", str(launcher),
+                    "--mode", "windsurf",
+                    "--provider", "proxy",
+                    "--proxy-url", f"http://localhost:{self.proxy_port}",
+                    "--dangerously-bypass-approvals-and-sandbox",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self.status = "[green]Windsurf launching... Check for new window.[/green]"
+        except Exception as e:
+            self.status = f"[red]Launch error: {str(e)[:100]}[/red]"
+
+    def launch_gemini_studio(self):
+        """Launch Gemini AI Studio in browser with auto-approve"""
+        import subprocess
+        from pathlib import Path
+        
+        launcher = Path(__file__).parent / "bin" / "gemini_session_launcher.py"
+        if not launcher.exists():
+            self.status = "[red]Launcher not found[/red]"
+            return
+        
+        self.status = "[yellow]Launching Gemini AI Studio...[/yellow]"
+        try:
+            subprocess.Popen(
+                [
+                    "python3", str(launcher),
+                    "--mode", "studio",
+                    "-y",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self.status = "[green]Gemini AI Studio opening in browser...[/green]"
+        except Exception as e:
+            self.status = f"[red]Launch error: {str(e)[:100]}[/red]"
+
+    def launch_gemini_chat(self):
+        """Launch Gemini Chat in browser with auto-approve"""
+        import subprocess
+        from pathlib import Path
+        
+        launcher = Path(__file__).parent / "bin" / "gemini_session_launcher.py"
+        if not launcher.exists():
+            self.status = "[red]Launcher not found[/red]"
+            return
+        
+        self.status = "[yellow]Launching Gemini Chat...[/yellow]"
+        try:
+            subprocess.Popen(
+                [
+                    "python3", str(launcher),
+                    "--mode", "chat",
+                    "-y",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self.status = "[green]Gemini Chat opening in browser...[/green]"
+        except Exception as e:
+            self.status = f"[red]Launch error: {str(e)[:100]}[/red]"
+
+    def toggle_aliases(self):
+        """Toggle alias display panel"""
+        self.show_aliases = not self.show_aliases
+        state = "ON" if self.show_aliases else "OFF"
+        self.status = f"[cyan]Aliases display: {state}[/cyan]"
+
+    def git_push(self):
+        """Push changes to git repository"""
+        import subprocess
+        from pathlib import Path
+        
+        repo_root = Path(__file__).parent
+        self.status = "[yellow]Pushing to git...[/yellow]"
+        try:
+            result = subprocess.run(
+                ["git", "push", "origin", "main"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                self.status = "[green]Git push successful![/green]"
+            else:
+                error_msg = result.stderr[:80] if result.stderr else "Unknown error"
+                self.status = f"[red]Git push failed: {error_msg}[/red]"
+        except Exception as e:
+            self.status = f"[red]Git error: {str(e)[:100]}[/red]"
 
     # ---------- panels ---------------------------------------------------
     def _proxy_panel(self) -> Panel:
@@ -182,8 +317,31 @@ class CyberDashboard:
         ctrl.add_column("Action")
         ctrl.add_row("C", "Clear local ghost cache")
         ctrl.add_row("R", "Force key rotation")
+        ctrl.add_row("P", "Patch Windsurf client")
+        ctrl.add_row("W", "Launch Windsurf")
+        ctrl.add_row("S", "Launch Gemini Studio")
+        ctrl.add_row("G", "Launch Gemini Chat")
+        ctrl.add_row("A", "Toggle Aliases")
+        ctrl.add_row("X", "Git Push")
         ctrl.add_row("Q", "Quit dashboard")
         return Panel(ctrl, title="Controls", border_style="yellow")
+
+    def _aliases_panel(self) -> Panel:
+        """Display shell aliases for quick reference"""
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Alias", style="bold green", no_wrap=True)
+        tbl.add_column("Command")
+        tbl.add_row("hg", "Launch dashboard")
+        tbl.add_row("hg-windsurf", "Windsurf + proxy")
+        tbl.add_row("hg-windsurf-k1", "Windsurf key 1")
+        tbl.add_row("hg-studio", "Gemini Studio")
+        tbl.add_row("hg-studio-k1", "Studio key 1")
+        tbl.add_row("hg-chat", "Gemini Chat")
+        tbl.add_row("hg-chat-k1", "Chat key 1")
+        tbl.add_row("hg-keys", "List keys")
+        tbl.add_row("hg-status", "Proxy status")
+        tbl.add_row("hg-patch", "Patch Windsurf")
+        return Panel(tbl, title="Shell Aliases (source hg_aliases.sh)", border_style="green")
 
     # ---------- layout ---------------------------------------------------
     def generate_layout(self) -> Layout:
@@ -214,10 +372,13 @@ class CyberDashboard:
             Layout(self._controls_panel(), name="controls"),
         )
 
-        layout["middle"].split_row(
-            Layout(self._upgrades_panel(),  name="upgrades", ratio=1),
-            Layout(self._thinking_panel(),  name="thinking", ratio=2),
-        )
+        if self.show_aliases:
+            layout["middle"].update(self._aliases_panel())
+        else:
+            layout["middle"].split_row(
+                Layout(self._upgrades_panel(),  name="upgrades", ratio=1),
+                Layout(self._thinking_panel(),  name="thinking", ratio=2),
+            )
 
         layout["events"].update(self._events_panel())
 
@@ -256,6 +417,18 @@ class CyberDashboard:
                             self.send_action("clear_cache")
                         elif c == "r":
                             self.send_action("rotate_keys")
+                        elif c == "p":
+                            self.patch_windsurf()
+                        elif c == "w":
+                            self.launch_windsurf()
+                        elif c == "s":
+                            self.launch_gemini_studio()
+                        elif c == "g":
+                            self.launch_gemini_chat()
+                        elif c == "a":
+                            self.toggle_aliases()
+                        elif c == "x":
+                            self.git_push()
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
