@@ -1,0 +1,167 @@
+Using CPython 3.10.20
+Creating virtual environment at: .venv
+   Building khoj @ file:///mnt/DSMIL/HIGH-GRAVITY/khoj
+Downloading cryptography (4.2MiB)
+Downloading psycopg2-binary (2.9MiB)
+Downloading pydantic-core (1.9MiB)
+Downloading django (7.9MiB)
+Downloading numpy (17.4MiB)
+Downloading aiohttp (1.6MiB)
+Downloading opencv-python (60.1MiB)
+Downloading lxml (7.5MiB)
+Downloading shapely (2.9MiB)
+Downloading transformers (10.3MiB)
+Downloading langchain-community (2.4MiB)
+Downloading rapidocr-onnxruntime (14.2MiB)
+Downloading tokenizers (2.9MiB)
+Downloading numba (3.6MiB)
+Downloading zstandard (5.3MiB)
+Downloading tiktoken (1.1MiB)
+Downloading nvidia-cudnn-cu12 (634.0MiB)
+Downloading scikit-learn (12.3MiB)
+Downloading hf-xet (4.6MiB)
+Downloading nvidia-cusolver-cu12 (122.0MiB)
+Downloading onnxruntime (15.6MiB)
+Downloading nvidia-cusparse-cu12 (197.8MiB)
+Downloading phonenumbers (2.5MiB)
+Downloading nvidia-cusparselt-cu12 (143.1MiB)
+Downloading pymupdf (18.7MiB)
+Downloading nvidia-nccl-cu12 (179.9MiB)
+Downloading nvidia-nvjitlink-cu12 (20.1MiB)
+Downloading sympy (5.9MiB)
+Downloading networkx (1.6MiB)
+Downloading llvmlite (40.4MiB)
+Downloading nvidia-cufft-cu12 (201.7MiB)
+Downloading triton (241.4MiB)
+Downloading scipy (35.9MiB)
+Downloading nvidia-cuda-nvrtc-cu12 (23.5MiB)
+Downloading nvidia-cuda-cupti-cu12 (13.2MiB)
+Downloading nvidia-cublas-cu12 (346.6MiB)
+Downloading nvidia-curand-cu12 (53.7MiB)
+Downloading pillow (6.7MiB)
+Downloading pygments (1.2MiB)
+Downloading sqlalchemy (3.0MiB)
+Downloading torch (731.2MiB)
+ Downloaded pygments
+ Downloaded tiktoken
+ Downloaded aiohttp
+ Downloaded networkx
+ Downloaded pydantic-core
+ Downloaded langchain-community
+ Downloaded tokenizers
+ Downloaded phonenumbers
+ Downloaded psycopg2-binary
+   Building docx2txt==0.8
+ Downloaded sqlalchemy
+ Downloaded shapely
+   Building openai-whisper==20240930
+ Downloaded numba
+ Downloaded cryptography
+ Downloaded hf-xet
+ Downloaded zstandard
+      Built docx2txt==0.8
+      Built openai-whisper==20240930
+ Downloaded pillow
+ Downloaded sympy
+ Downloaded lxml
+      Built khoj @ file:///mnt/DSMIL/HIGH-GRAVITY/khoj
+ Downloaded nvidia-cuda-cupti-cu12
+ Downloaded scikit-learn
+ Downloaded rapidocr-onnxruntime
+ Downloaded transformers
+ Downloaded numpy
+ Downloaded pymupdf
+ Downloaded nvidia-nvjitlink-cu12
+ Downloaded onnxruntime
+ Downloaded nvidia-cuda-nvrtc-cu12
+ Downloaded llvmlite
+ Downloaded scipy
+ Downloaded nvidia-curand-cu12
+ Downloaded opencv-python
+ Downloaded django
+ Downloaded nvidia-cusolver-cu12
+ Downloaded nvidia-cusparselt-cu12
+ Downloaded nvidia-nccl-cu12
+ Downloaded nvidia-cusparse-cu12
+ Downloaded nvidia-cufft-cu12
+ Downloaded triton
+ Downloaded nvidia-cublas-cu12
+ Downloaded nvidia-cudnn-cu12
+ Downloaded torch
+warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+         If the cache and target directories are on different filesystems, hardlinking may not be supported.
+         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+Installed 169 packages in 1m 39s
+Traceback (most recent call last):
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 278, in ensure_connection
+    self.connect()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 255, in connect
+    self.connection = self.get_new_connection(conn_params)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/postgresql/base.py", line 332, in get_new_connection
+    connection = self.Database.connect(**conn_params)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/bin/khoj", line 4, in <module>
+    from khoj.main import run
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/src/khoj/main.py", line 53, in <module>
+    call_command("migrate", "--noinput")
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/core/management/__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/core/management/base.py", line 459, in execute
+    output = self.handle(*args, **options)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/core/management/base.py", line 107, in wrapper
+    res = handle_func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/core/management/commands/migrate.py", line 118, in handle
+    executor = MigrationExecutor(connection, self.migration_progress_callback)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/migrations/executor.py", line 18, in __init__
+    self.loader = MigrationLoader(self.connection)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/migrations/loader.py", line 58, in __init__
+    self.build_graph()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/migrations/loader.py", line 235, in build_graph
+    self.applied_migrations = recorder.applied_migrations()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/migrations/recorder.py", line 89, in applied_migrations
+    if self.has_table():
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/migrations/recorder.py", line 63, in has_table
+    with self.connection.cursor() as cursor:
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 319, in cursor
+    return self._cursor()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 295, in _cursor
+    self.ensure_connection()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 277, in ensure_connection
+    with self.wrap_database_errors:
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 278, in ensure_connection
+    self.connect()
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/base/base.py", line 255, in connect
+    self.connection = self.get_new_connection(conn_params)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/utils/asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/django/db/backends/postgresql/base.py", line 332, in get_new_connection
+    connection = self.Database.connect(**conn_params)
+  File "/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+django.db.utils.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
