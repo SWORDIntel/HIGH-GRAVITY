@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
 import uvicorn
+import numpy as np
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 import aiohttp

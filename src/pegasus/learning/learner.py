@@ -1,7 +1,11 @@
 import time
 import json
 from pathlib import Path
-from autoresearch.train import train_step  # Conceptually importing from the clone
+try:
+    from autoresearch.train import train_step
+except ImportError:
+    def train_step(flow_data):
+        pass  # No-op if autoresearch not installed
 
 class PegasusLearner:
     def __init__(self, gsl):
