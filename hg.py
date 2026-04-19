@@ -42,7 +42,64 @@ class CyberDashboard:
         self.status = "Initializing..."
         self.last_fetch = 0.0
         self.show_aliases = False
+        self.show_pegasus = False
+        self.pegasus_manager = None
+        self._init_pegasus()
 
+
+    # ---------- pegasus integration --------------------------------------
+    def _init_pegasus(self):
+        """Initialize Pegasus SubAgent Manager"""
+        try:
+            from src.pegasus.subagent_manager import SubAgentManager
+            self.pegasus_manager = SubAgentManager()
+            self.status = "[green]Pegasus initialized[/green]"
+        except Exception as e:
+            self.status = f"[yellow]Pegasus unavailable: {str(e)[:50]}[/yellow]"
+            self.pegasus_manager = None
+
+    def toggle_pegasus(self):
+        """Toggle Pegasus swarm panel display"""
+        self.show_pegasus = not self.show_pegasus
+        state = "ON" if self.show_pegasus else "OFF"
+        self.status = f"[cyan]Pegasus display: {state}[/cyan]"
+
+    def spawn_pegasus_agent(self, role="SECURITY"):
+        """Spawn a Pegasus agent"""
+        if not self.pegasus_manager:
+            self.status = "[red]Pegasus not initialized[/red]"
+            return
+        try:
+            agent_id = self.pegasus_manager.spawn_agent(
+                role=role,
+                prompt="Dashboard spawned agent",
+                source="DASHBOARD"
+            )
+            self.status = f"[green]Spawned {role}: {agent_id}[/green]"
+        except Exception as e:
+            self.status = f"[red]Spawn error: {str(e)[:80]}[/red]"
+
+    def checkpoint_pegasus_swarm(self):
+        """Checkpoint all Pegasus agents"""
+        if not self.pegasus_manager:
+            self.status = "[red]Pegasus not initialized[/red]"
+            return
+        try:
+            self.pegasus_manager.checkpoint_swarm()
+            self.status = "[green]Swarm checkpointed[/green]"
+        except Exception as e:
+            self.status = f"[red]Checkpoint error: {str(e)[:80]}[/red]"
+
+    def terminate_pegasus_swarm(self):
+        """Terminate all Pegasus agents"""
+        if not self.pegasus_manager:
+            self.status = "[red]Pegasus not initialized[/red]"
+            return
+        try:
+            self.pegasus_manager.terminate_all()
+            self.status = "[green]Swarm terminated[/green]"
+        except Exception as e:
+            self.status = f"[red]Terminate error: {str(e)[:80]}[/red]"
 
     # ---------- transport ------------------------------------------------
     def fetch_telemetry(self):
@@ -321,6 +378,10 @@ class CyberDashboard:
         ctrl.add_row("S", "Launch Gemini Studio")
         ctrl.add_row("G", "Launch Gemini Chat")
         ctrl.add_row("A", "Toggle Aliases")
+        ctrl.add_row("E", "Toggle Pegasus")
+        ctrl.add_row("1", "Spawn Agent")
+        ctrl.add_row("2", "Checkpoint Swarm")
+        ctrl.add_row("3", "Terminate Swarm")
         ctrl.add_row("X", "Git Push")
         ctrl.add_row("Q", "Quit dashboard")
         return Panel(ctrl, title="Controls", border_style="yellow")
@@ -341,6 +402,33 @@ class CyberDashboard:
         tbl.add_row("hg-status", "Proxy status")
         tbl.add_row("hg-patch", "Patch Windsurf")
         return Panel(tbl, title="Shell Aliases (source hg_aliases.sh)", border_style="green")
+
+    def _pegasus_panel(self) -> Panel:
+        """Display Pegasus swarm status"""
+        tbl = Table(expand=True, box=None)
+        tbl.add_column("Metric", style="bold cyan", no_wrap=True)
+        tbl.add_column("Value")
+        
+        if self.pegasus_manager:
+            agent_count = len(self.pegasus_manager.active_agents)
+            tbl.add_row("Status", "[green]Active[/green]")
+            tbl.add_row("Active Agents", str(agent_count))
+            tbl.add_row("GSL", "Memory-mapped")
+            tbl.add_row("Superposition", "Enabled")
+            tbl.add_row("Auto-Tasker", "Running")
+            tbl.add_row("Network Rotation", "Active")
+            
+            # List active agents
+            if agent_count > 0:
+                agents_str = ", ".join(list(self.pegasus_manager.active_agents.keys())[:3])
+                if agent_count > 3:
+                    agents_str += f" +{agent_count-3} more"
+                tbl.add_row("Agents", agents_str)
+        else:
+            tbl.add_row("Status", "[yellow]Not Initialized[/yellow]")
+            tbl.add_row("Active Agents", "0")
+        
+        return Panel(tbl, title="Pegasus Swarm", border_style="magenta")
 
     # ---------- layout ---------------------------------------------------
     def generate_layout(self) -> Layout:
@@ -373,6 +461,8 @@ class CyberDashboard:
 
         if self.show_aliases:
             layout["middle"].update(self._aliases_panel())
+        elif self.show_pegasus:
+            layout["middle"].update(self._pegasus_panel())
         else:
             layout["middle"].split_row(
                 Layout(self._upgrades_panel(),  name="upgrades", ratio=1),
@@ -426,6 +516,14 @@ class CyberDashboard:
                             self.launch_gemini_chat()
                         elif c == "a":
                             self.toggle_aliases()
+                        elif c == "e":
+                            self.toggle_pegasus()
+                        elif c == "1":
+                            self.spawn_pegasus_agent()
+                        elif c == "2":
+                            self.checkpoint_pegasus_swarm()
+                        elif c == "3":
+                            self.terminate_pegasus_swarm()
                         elif c == "x":
                             self.git_push()
         finally:

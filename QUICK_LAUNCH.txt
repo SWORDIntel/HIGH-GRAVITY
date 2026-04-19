@@ -10,6 +10,10 @@
 │   S - Launch Gemini AI Studio (-y auto-approve)                            │
 │   G - Launch Gemini Chat (-y auto-approve)                                 │
 │   A - Toggle Aliases display                                               │
+│   E - Toggle Pegasus Swarm panel                                           │
+│   1 - Spawn Pegasus Agent                                                  │
+│   2 - Checkpoint Swarm                                                     │
+│   3 - Terminate Swarm                                                      │
 │   X - Git Push to origin/main                                              │
 │   C - Clear cache                                                          │
 │   R - Rotate keys                                                          │
