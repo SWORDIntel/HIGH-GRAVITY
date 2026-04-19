@@ -8,7 +8,7 @@ from pathlib import Path
 # Paths
 # The installer will rename the real binary to .real
 REAL_LS = Path(__file__).resolve().parent / "language_server_linux_x64.real"
-LOG_DIR = Path("/home/john/HIGH-GRAVITY/logs/lsp")
+LOG_DIR = Path("/mnt/DSMIL/HIGH-GRAVITY/logs/lsp")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 def force_proxy_args(args):

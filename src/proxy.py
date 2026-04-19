@@ -150,6 +150,18 @@ class HilbertCache:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("INSERT OR REPLACE INTO intelligence (hash, payload, timestamp) VALUES (?, ?, ?)",
                             (artifact_hash, payload, time.time()))
+    
+    def _persistence_loop(self):
+        """Background thread to periodically sync cache to disk"""
+        while True:
+            time.sleep(300)  # Sync every 5 minutes
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    for h, payload in list(self.hash_to_payload.items()):
+                        conn.execute("INSERT OR REPLACE INTO intelligence (hash, payload, timestamp) VALUES (?, ?, ?)",
+                                   (h, payload, time.time()))
+            except Exception as e:
+                logger.debug(f"Persistence sync error: {e}")
 
 ghost_cache = HilbertCache()
 
