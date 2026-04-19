@@ -25,7 +25,6 @@ from rich.table import Table
 from rich.text import Text
 
 console = Console()
-
 # Codex CLI tier names + colors so the dashboard mirrors the Codex picker.
 THINKING_TIERS = [
     ("low",     "Low",        "Fast responses, light reasoning",         "cyan"),

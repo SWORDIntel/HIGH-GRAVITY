@@ -8524,3 +8524,22 @@
 2026-04-19 03:01:05,712 [INFO] [de6d5a74] UNLEASH_SHIELD: Absorbed unleash/client/metrics
 2026-04-19 03:01:06,523 [INFO] [a29b741b] CONNECTION ATTEMPT: GET /unleash/client/features
 2026-04-19 03:01:06,523 [INFO] [a29b741b] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:02:05,721 [INFO] [30a2398b] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:02:05,722 [INFO] [30a2398b] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:02:06,535 [INFO] [f39931d3] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:02:06,536 [INFO] [f39931d3] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:20:30,714 [INFO] NEW_SESSION_KEY_DISCOVERED: KEY=sk-ws-01-93LZMl...
+2026-04-19 03:20:31,021 [INFO] MITM_BRIDGE: Initialized - Mode=enabled AutoDetect=True
+2026-04-19 03:20:31,078 [INFO] HG_PROXY_ONLINE: High-Gravity Gateway is listening.
+2026-04-19 03:21:20,033 [INFO] [356900f4] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:21:20,033 [INFO] [356900f4] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:21:26,441 [INFO] [c5d7ba49] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:21:26,443 [INFO] [c5d7ba49] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:22:20,196 [INFO] [7486be92] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:22:20,196 [INFO] [7486be92] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:22:26,638 [INFO] [5a7830a6] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:22:26,639 [INFO] [5a7830a6] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:23:20,213 [INFO] [c9aeff9a] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:23:20,216 [INFO] [c9aeff9a] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:23:26,647 [INFO] [de4a06c7] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:23:26,647 [INFO] [de4a06c7] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
