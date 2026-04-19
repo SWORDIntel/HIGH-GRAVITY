@@ -23,15 +23,24 @@ class UfpMessage(ctypes.Structure):
 
 class UFPBridge:
     def __init__(self, lib_path: Optional[str] = None):
+        self.lib = None
+        self.mock_mode = False
+        
         if not lib_path:
             repo_root = Path(__file__).resolve().parent.parent.parent
             lib_path = repo_root / "src" / "pegasus" / "agents" / "binary-communications-system" / "agent_bridge.so"
         
-        if not lib_path.exists():
-            raise FileNotFoundError(f"UFP binary bridge not found at {lib_path}")
+        if not Path(lib_path).exists():
+            print(f"[!] UFP binary bridge not found at {lib_path}, using mock mode")
+            self.mock_mode = True
+            return
             
-        self.lib = ctypes.CDLL(str(lib_path))
-        self._setup_api()
+        try:
+            self.lib = ctypes.CDLL(str(lib_path))
+            self._setup_api()
+        except Exception as e:
+            print(f"[!] Failed to load UFP bridge: {e}, using mock mode")
+            self.mock_mode = True
         
     def _setup_api(self):
         self.lib.ufp_init.restype = ctypes.c_int
@@ -46,6 +55,9 @@ class UFPBridge:
 
     def enable_stealth_mode(self):
         """Activates Gold Standard DPI Evasion and Traffic Analysis Resistance."""
+        if self.mock_mode:
+            print("[*] MEMSHADOW Stealth Mode (mocked).")
+            return
         if hasattr(self.lib, "memshadow_covert_vlan_init"):
             self.stealth_ctx = self.lib.memshadow_covert_vlan_init()
             print("[*] MEMSHADOW Stealth Mode Activated (Gold Standard).")
@@ -54,6 +66,9 @@ class UFPBridge:
 
     def set_node_identity(self, node_type="HG-NODE"):
         """Broadcasts identity as a Pegasus HG-Node."""
+        if self.mock_mode:
+            print(f"[*] Node designated as {node_type} (mocked).")
+            return
         if hasattr(self.lib, "ufp_set_identity"):
             self.lib.ufp_set_identity(node_type.encode())
             print(f"[*] Node designated as {node_type} via MSHW.")
@@ -61,6 +76,10 @@ class UFPBridge:
             print(f"[*] Node designated as {node_type} (mocked).")
 
     def send_task(self, target: str, task: str):
+        if self.mock_mode:
+            print(f"[*] Dispatched UFP Task (mocked): {task} -> {target}")
+            return
+            
         msg = UfpMessage()
         msg.msg_type = 0x08 # UFP_MSG_TASK
         msg.source = b"PEGASUS_PROXY"

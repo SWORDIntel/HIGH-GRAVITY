@@ -38,14 +38,23 @@ class SubAgentManager:
         self.orchestrator = PegasusOrchestrator()
         self.bridge = UFPBridge()
         
-        # Initialize Vector Indexer
+        # Initialize Vector Indexer (async to avoid blocking)
         self.vector_store = PegasusVectorStore()
         self.indexer = CodebaseIndexer(self.vector_store)
-        self.indexer.index_project(".")
+        threading.Thread(target=self._index_project_async, daemon=True).start()
         
         # Start Proactive Auto-Tasker
         threading.Thread(target=self._auto_tasker_loop, daemon=True).start()
-        logger.info("PEGASUS_INDEXER: Codebase indexed. Auto-Tasker Active.")
+        logger.info("PEGASUS: Orchestrator active. Indexing in background.")
+
+    def _index_project_async(self):
+        """Index project in background"""
+        try:
+            logger.info("PEGASUS_INDEXER: Starting background indexing...")
+            self.indexer.index_project(".")
+            logger.info("PEGASUS_INDEXER: Indexing complete.")
+        except Exception as e:
+            logger.warning(f"PEGASUS_INDEXER: Indexing failed: {e}")
 
     def _auto_tasker_loop(self):
         """Periodically scans for idle agents and assigns background maintenance tasks."""

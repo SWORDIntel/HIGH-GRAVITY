@@ -1,6 +1,8 @@
 import numpy as np
 import hashlib
+import time
 from pathlib import Path
+from typing import Optional
 from src.qihse_wrapper import QIHSE
 
 class PegasusVectorStore:
@@ -21,6 +23,10 @@ class PegasusVectorStore:
             "timestamp": time.time(),
             "type": "code_artifact"
         }
+    
+    def add_file(self, file_path: str, content: str):
+        """Alias for add_artifact for compatibility"""
+        self.add_artifact(content, file_path)
         
     def query_context(self, query: str) -> Optional[dict]:
         """Performs Hilbert-space expanded search for query context."""

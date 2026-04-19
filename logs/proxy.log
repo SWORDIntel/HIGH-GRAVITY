@@ -8600,3 +8600,98 @@
 2026-04-19 03:35:20,447 [INFO] [81d8afae] UNLEASH_SHIELD: Absorbed unleash/client/metrics
 2026-04-19 03:35:26,794 [INFO] [6625d05f] CONNECTION ATTEMPT: GET /unleash/client/features
 2026-04-19 03:35:26,795 [INFO] [6625d05f] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:36:20,452 [INFO] [c944291a] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:36:20,452 [INFO] [c944291a] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:36:26,801 [INFO] [5aa37a4a] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:36:26,801 [INFO] [5aa37a4a] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:37:20,456 [INFO] [ff717b4d] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:37:20,456 [INFO] [ff717b4d] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:37:26,809 [INFO] [44aceca8] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:37:26,809 [INFO] [44aceca8] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:38:20,459 [INFO] [b0639b03] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:38:20,459 [INFO] [b0639b03] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:38:26,820 [INFO] [71e5ba38] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:38:26,820 [INFO] [71e5ba38] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:39:20,464 [INFO] [fd41f492] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:39:20,464 [INFO] [fd41f492] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:39:26,827 [INFO] [a1b9c70d] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:39:26,828 [INFO] [a1b9c70d] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:40:20,468 [INFO] [b122331f] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:40:20,468 [INFO] [b122331f] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:40:26,835 [INFO] [42e888e9] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:40:26,835 [INFO] [42e888e9] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:41:20,474 [INFO] [5c00be61] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:41:20,474 [INFO] [5c00be61] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:41:26,843 [INFO] [0cb7f5b0] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:41:26,843 [INFO] [0cb7f5b0] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:42:20,481 [INFO] [44042a91] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:42:20,482 [INFO] [44042a91] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:42:26,854 [INFO] [6f15f713] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:42:26,854 [INFO] [6f15f713] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:43:20,494 [INFO] [20b66941] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:43:20,494 [INFO] [20b66941] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:43:26,861 [INFO] [29dcbd23] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:43:26,861 [INFO] [29dcbd23] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:44:20,500 [INFO] [ec3002a1] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:44:20,500 [INFO] [ec3002a1] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:44:26,869 [INFO] [0fbacc79] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:44:26,869 [INFO] [0fbacc79] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:45:20,507 [INFO] [b3adfea4] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:45:20,508 [INFO] [b3adfea4] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:45:26,875 [INFO] [d0b9d55e] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:45:26,876 [INFO] [d0b9d55e] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:46:20,513 [INFO] [613ed807] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:46:20,513 [INFO] [613ed807] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:46:26,881 [INFO] [29a8aa7c] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:46:26,882 [INFO] [29a8aa7c] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:47:20,520 [INFO] [cbd6f29f] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:47:20,521 [INFO] [cbd6f29f] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:47:26,889 [INFO] [de7db728] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:47:26,890 [INFO] [de7db728] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:48:20,526 [INFO] [af461d0a] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:48:20,526 [INFO] [af461d0a] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:48:26,897 [INFO] [1a6a047c] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:48:26,897 [INFO] [1a6a047c] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:52:01,606 [INFO] NEW_SESSION_KEY_DISCOVERED: KEY=sk-ws-01-93LZMl...
+2026-04-19 03:52:01,614 [INFO] MITM_BRIDGE: Initialized - Mode=enabled AutoDetect=True
+2026-04-19 03:52:01,697 [INFO] HG_PROXY_ONLINE: High-Gravity Gateway is listening.
+2026-04-19 03:52:09,503 [INFO] [efba16a1] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:52:09,505 [INFO] [efba16a1] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:52:15,804 [INFO] [9b1859cb] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:52:15,804 [INFO] [9b1859cb] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:52:40,175 [INFO] [71632672] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:52:40,175 [INFO] [71632672] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:52:47,262 [INFO] [d44a67c2] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:52:47,262 [INFO] [d44a67c2] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:53:09,619 [INFO] [3f7c9e5f] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:53:09,619 [INFO] [3f7c9e5f] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:53:15,846 [INFO] [c14e0970] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:53:15,847 [INFO] [c14e0970] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:53:40,200 [INFO] [cf186979] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:53:40,203 [INFO] [cf186979] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:53:47,319 [INFO] [e7cf2580] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:53:47,319 [INFO] [e7cf2580] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:54:09,628 [INFO] [8008b181] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:54:09,991 [INFO] [8008b181] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:54:15,864 [INFO] [b0d82ec6] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:54:15,865 [INFO] [b0d82ec6] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:54:40,221 [INFO] [444689ae] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:54:40,244 [INFO] [444689ae] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:54:47,355 [INFO] [85a0ff91] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:54:47,355 [INFO] [85a0ff91] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:55:10,166 [INFO] [c01708f9] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:55:10,175 [INFO] [c01708f9] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:55:15,882 [INFO] [305ce397] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:55:15,901 [INFO] [305ce397] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:55:40,305 [INFO] [af68c9f1] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:55:40,307 [INFO] [af68c9f1] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:55:47,385 [INFO] [2f4044e7] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:55:47,387 [INFO] [2f4044e7] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:56:10,192 [INFO] [22923ef3] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:56:10,193 [INFO] [22923ef3] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:56:15,949 [INFO] [e15ae098] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:56:15,957 [INFO] [e15ae098] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
+2026-04-19 03:56:40,335 [INFO] [bc6d11d2] CONNECTION ATTEMPT: POST /unleash/client/metrics
+2026-04-19 03:56:40,345 [INFO] [bc6d11d2] UNLEASH_SHIELD: Absorbed unleash/client/metrics
+2026-04-19 03:56:47,419 [INFO] [2b71cd1b] CONNECTION ATTEMPT: GET /unleash/client/features
+2026-04-19 03:56:47,422 [INFO] [2b71cd1b] UNLEASH_SHIELD: Served logically consistent ENTERPRISE profile.
