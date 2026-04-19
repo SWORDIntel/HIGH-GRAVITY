@@ -25,6 +25,7 @@ from src.qihse_wrapper import QIHSE
 from src.pegasus.subagent_manager import SubAgentManager
 from src.pegasus.telemetry_shuffler import TelemetryShuffler
 from src.pegasus.learning.learner import PegasusLearner
+from src.pegasus.khoj_integration import PegasusKhojBridge
 
 # --- Configuration ---
 PROXY_PORT = int(os.environ.get("HG_PROXY_PORT", 9999))
@@ -288,6 +289,7 @@ swarm = SubAgentManager()
 shuffler = TelemetryShuffler()
 learner = PegasusLearner(swarm.gsl)
 trigger_engine = ProactiveTriggerEngine(REPO_ROOT / "src" / "pegasus" / "agents")
+khoj_bridge = PegasusKhojBridge(REPO_ROOT)
 
 @app.post("/hg/search")
 async def hg_search(request: Request):
@@ -319,6 +321,28 @@ async def hg_search(request: Request):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/hg/khoj/status")
+async def hg_khoj_status():
+    """Get Khoj integration status"""
+    stats = khoj_bridge.get_stats()
+    health = await khoj_bridge.health_check()
+    return {
+        **stats,
+        "healthy": health,
+        "token_configured": bool(khoj_bridge.token),
+        "timeout_seconds": khoj_bridge.timeout_s,
+        "top_k": khoj_bridge.default_n,
+    }
+
+@app.post("/hg/khoj/reindex")
+async def hg_khoj_reindex():
+    """Trigger Khoj workspace re-indexing"""
+    success = await khoj_bridge.trigger_reindex()
+    return {
+        "status": "ok" if success else "failed",
+        "message": "Re-indexing triggered" if success else "Re-indexing failed or skipped"
+    }
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def proxy_request(path: str, request: Request):
     request_id = secrets.token_hex(4)
@@ -329,6 +353,11 @@ async def proxy_request(path: str, request: Request):
         except: pass
 
     if is_json and "messages" in raw_body_json:
+        # Khoj Context Injection
+        khoj_result = await khoj_bridge.inject_context(raw_body_json["messages"])
+        if khoj_result.get("status") == "ok":
+            logger.info(f"[{request_id}] KHOJ_CONTEXT_INJECTED: {khoj_result.get('injected', 0)} snippets")
+        
         # Proactive Agent Detection
         full_text = " ".join([m.get("content", "") for m in raw_body_json["messages"] if isinstance(m.get("content"), str)])
         proactive_agents = trigger_engine.analyze_intent(full_text)
