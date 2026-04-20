@@ -295,10 +295,10 @@ main() {
         echo -e "${YELLOW}    Press Ctrl+C now to cancel${NC}"
         sleep 3
         echo ""
-        exec python3 hg.py
+        exec python3 hg_simple.py
     else
         echo -e "${GREEN}[✓] All services started in background${NC}"
-        echo -e "${CYAN}[*] Run 'python3 hg.py' to start dashboard${NC}"
+        echo -e "${CYAN}[*] Run 'python3 hg_simple.py' to start dashboard${NC}"
     fi
 }
 
