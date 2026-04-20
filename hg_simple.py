@@ -7,8 +7,11 @@ import sys
 import time
 import requests
 from datetime import datetime
+from pathlib import Path
 
 PROXY_URL = "http://127.0.0.1:9999"
+REPO_ROOT = Path(__file__).resolve().parent
+LOG_DIR = REPO_ROOT / "logs"
 
 def clear_screen():
     print("\033[2J\033[H", end="")
@@ -64,15 +67,20 @@ def display_status():
     # MITM status
     print("🎯 MITM STATUS")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    mitm_log = LOG_DIR / "cascade_midway.log"
     try:
-        with open("logs/cascade_midway.log", "r") as f:
-            lines = f.readlines()
-            events = len([l for l in lines if "PROTOCOL EVENT" in l])
-            print(f"  Events captured: {events}")
-            if lines:
-                print(f"  Last event: {lines[-1][:60]}...")
-    except:
-        print(f"  Events captured: 0")
+        if mitm_log.exists():
+            with open(mitm_log, "r") as f:
+                lines = f.readlines()
+                events = len([l for l in lines if "PROTOCOL EVENT" in l])
+                print(f"  Events captured: {events}")
+                if lines:
+                    last_line = lines[-1].strip()[:60]
+                    print(f"  Last: {last_line}...")
+        else:
+            print(f"  Log not found: {mitm_log}")
+    except Exception as e:
+        print(f"  Error reading log: {e}")
     print()
     
     # Controls
@@ -95,11 +103,20 @@ def view_log(logfile):
     print(f"║  {logfile:^58}  ║")
     print(f"╚════════════════════════════════════════════════════════════╝")
     print()
+    log_path = LOG_DIR / logfile
     try:
-        with open(f"logs/{logfile}", "r") as f:
-            lines = f.readlines()
-            for line in lines[-50:]:
-                print(line.rstrip())
+        if log_path.exists():
+            with open(log_path, "r") as f:
+                lines = f.readlines()
+                if lines:
+                    print(f"Showing last 50 lines of {len(lines)} total:")
+                    print("─" * 60)
+                    for line in lines[-50:]:
+                        print(line.rstrip())
+                else:
+                    print("(Log file is empty)")
+        else:
+            print(f"Log file not found: {log_path}")
     except Exception as e:
         print(f"Error reading log: {e}")
     print()
