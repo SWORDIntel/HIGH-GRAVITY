@@ -1,1 +1,635 @@
 [sudo] password for john: 
+  ┌─────────────────────────────────────────────┐
+  │    CASCADE TRAFFIC SNIFFER                   │
+  │    Transparent HTTPS pass-through logger     │
+  └─────────────────────────────────────────────┘
+
+  [*] Installing /etc/hosts redirects...
+  [+] Redirected 7 domains to 127.0.0.1
+  [*] Installing iptables REDIRECT rules...
+  [+] Redirected 2 IPs via iptables NAT
+  [*] Logging to: logs/cascade_sniff.log
+  [*] JSONL to:   logs/cascade_sniff.jsonl
+  [*] Listening on 0.0.0.0:443 (TLS)
+  [*] Press Ctrl+C to stop and restore /etc/hosts + iptables
+
+  Waiting for Windsurf traffic...
+
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0001][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0002][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0003][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0004][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0005][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0006][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0007][0m GET    unleash.codeium.com/api/client/features  → 502 60005ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0008][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0009][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0010][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0011][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0012][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0013][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0014][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0015][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0016][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0017][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0018][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0019][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0020][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0021][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0022][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0023][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0024][0m GET    unleash.codeium.com/api/client/features  → 502 60014ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0025][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0026][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0027][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0028][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0029][0m GET    unleash.codeium.com/api/client/features  → 502 60025ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0030][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0031][0m GET    unleash.codeium.com/api/client/features  → 502 60020ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0032][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0033][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0034][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0035][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0036][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0037][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0038][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0039][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0040][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0041][0m GET    unleash.codeium.com/api/client/features  → 502 60022ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0042][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0043][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0044][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0045][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0046][0m GET    unleash.codeium.com/api/client/features  → 502 60020ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0047][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0048][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0049][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0050][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0051][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0052][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0053][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0054][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0055][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0056][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0057][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0058][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0059][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0060][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0061][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0062][0m GET    unleash.codeium.com/api/client/features  → 502 60014ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0063][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0064][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0065][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0066][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0067][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0068][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0069][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0070][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0071][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0072][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0073][0m GET    unleash.codeium.com/api/client/features  → 502 60016ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0074][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0075][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0076][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0077][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0078][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0079][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0080][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0081][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0082][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0083][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0084][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0085][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0086][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0087][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0088][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0089][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0090][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0091][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0092][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0093][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0094][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0095][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0096][0m GET    unleash.codeium.com/api/client/features  → 502 60007ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0097][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0098][0m GET    unleash.codeium.com/api/client/features  → 502 60006ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0099][0m GET    unleash.codeium.com/api/client/features  → 502 60008ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0100][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0101][0m GET    unleash.codeium.com/api/client/features  → 502 119474ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0102][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0103][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0104][0m GET    unleash.codeium.com/api/client/features  → 502 60014ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0105][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0106][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0107][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0108][0m GET    unleash.codeium.com/api/client/features  → 502 60020ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0109][0m GET    unleash.codeium.com/api/client/features  → 502 60020ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0110][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0111][0m GET    unleash.codeium.com/api/client/features  → 502 60056ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0112][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0113][0m GET    unleash.codeium.com/api/client/features  → 502 60056ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0114][0m GET    unleash.codeium.com/api/client/features  → 502 60036ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0115][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0116][0m GET    unleash.codeium.com/api/client/features  → 502 60021ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0117][0m GET    unleash.codeium.com/api/client/features  → 502 60016ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0118][0m GET    unleash.codeium.com/api/client/features  → 502 60014ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0119][0m GET    unleash.codeium.com/api/client/features  → 502 60034ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0120][0m GET    unleash.codeium.com/api/client/features  → 502 60014ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0121][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0122][0m GET    unleash.codeium.com/api/client/features  → 502 60009ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0123][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0124][0m GET    unleash.codeium.com/api/client/features  → 502 60010ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0125][0m GET    unleash.codeium.com/api/client/features  → 502 60011ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0126][0m GET    unleash.codeium.com/api/client/features  → 502 60012ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0127][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0128][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0129][0m GET    unleash.codeium.com/api/client/features  → 502 60017ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0130][0m GET    unleash.codeium.com/api/client/features  → 502 60015ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0131][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0132][0m GET    unleash.codeium.com/api/client/features  → 502 60013ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0133][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0134][0m GET    unleash.codeium.com/api/client/features  → 502 60016ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0135][0m GET    unleash.codeium.com/api/client/features  → 502 60020ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0136][0m GET    unleash.codeium.com/api/client/features  → 502 60019ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0137][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0138][0m GET    unleash.codeium.com/api/client/features  → 502 60021ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0139][0m GET    unleash.codeium.com/api/client/features  → 502 60018ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0140][0m GET    unleash.codeium.com/api/client/features  → 502 60024ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0141][0m GET    unleash.codeium.com/api/client/features  → 502 60021ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0142][0m GET    unleash.codeium.com/api/client/features  → 502 60022ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0143][0m GET    unleash.codeium.com/api/client/features  → 502 60021ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0144][0m GET    unleash.codeium.com/api/client/features  → 502 60024ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0145][0m GET    unleash.codeium.com/api/client/features  → 502 60022ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0146][0m GET    unleash.codeium.com/api/client/features  → 502 60026ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0147][0m GET    unleash.codeium.com/api/client/features  → 502 60028ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0148][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0149][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0150][0m GET    unleash.codeium.com/api/client/features  → 502 60031ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0151][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0152][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0153][0m GET    unleash.codeium.com/api/client/features  → 502 60028ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0154][0m GET    unleash.codeium.com/api/client/features  → 502 60024ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0155][0m GET    unleash.codeium.com/api/client/features  → 502 60029ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0156][0m GET    unleash.codeium.com/api/client/features  → 502 60029ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0157][0m GET    unleash.codeium.com/api/client/features  → 502 60029ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0158][0m GET    unleash.codeium.com/api/client/features  → 502 60028ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0159][0m GET    unleash.codeium.com/api/client/features  → 502 60023ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0160][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0161][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0162][0m GET    unleash.codeium.com/api/client/features  → 502 60032ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0163][0m GET    unleash.codeium.com/api/client/features  → 502 60027ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0164][0m GET    unleash.codeium.com/api/client/features  → 502 60029ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0165][0m GET    unleash.codeium.com/api/client/features  → 502 60035ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0166][0m GET    unleash.codeium.com/api/client/features  → 502 60034ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0167][0m GET    unleash.codeium.com/api/client/features  → 502 60029ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0168][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0169][0m GET    unleash.codeium.com/api/client/features  → 502 60032ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0170][0m GET    unleash.codeium.com/api/client/features  → 502 60035ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0171][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0172][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0173][0m GET    unleash.codeium.com/api/client/features  → 502 60037ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0174][0m GET    unleash.codeium.com/api/client/features  → 502 60038ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0175][0m GET    unleash.codeium.com/api/client/features  → 502 60036ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0176][0m GET    unleash.codeium.com/api/client/features  → 502 60040ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0177][0m GET    unleash.codeium.com/api/client/features  → 502 60036ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0178][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0179][0m GET    unleash.codeium.com/api/client/features  → 502 60034ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0180][0m GET    unleash.codeium.com/api/client/features  → 502 60035ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0181][0m GET    unleash.codeium.com/api/client/features  → 502 60031ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0182][0m GET    unleash.codeium.com/api/client/features  → 502 60040ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0183][0m GET    unleash.codeium.com/api/client/features  → 502 60037ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0184][0m GET    unleash.codeium.com/api/client/features  → 502 60033ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0185][0m GET    unleash.codeium.com/api/client/features  → 502 60030ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0186][0m GET    unleash.codeium.com/api/client/features  → 502 60031ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0187][0m GET    unleash.codeium.com/api/client/features  → 502 60032ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0188][0m GET    unleash.codeium.com/api/client/features  → 502 60035ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0189][0m GET    unleash.codeium.com/api/client/features  → 502 60037ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0190][0m GET    unleash.codeium.com/api/client/features  → 502 60036ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0191][0m GET    unleash.codeium.com/api/client/features  → 502 60037ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0192][0m GET    unleash.codeium.com/api/client/features  → 502 60042ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0193][0m GET    unleash.codeium.com/api/client/features  → 502 60040ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0194][0m GET    unleash.codeium.com/api/client/features  → 502 60037ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0195][0m GET    unleash.codeium.com/api/client/features  → 502 60038ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0196][0m GET    unleash.codeium.com/api/client/features  → 502 60040ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0197][0m GET    unleash.codeium.com/api/client/features  → 502 60036ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0198][0m GET    unleash.codeium.com/api/client/features  → 502 60035ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0199][0m GET    unleash.codeium.com/api/client/features  → 502 60031ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0200][0m GET    unleash.codeium.com/api/client/features  → 502 60043ms  body=0
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0201][0m GET    unleash.codeium.com/api/client/features  → 502 118981ms  body=0
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0202][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59106ms  body=30
+  [31m[0203][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59371ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0204][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59119ms  body=30
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: 
+  [31m[0205][0m GET    unleash.codeium.com/api/client/features  → 502 109096ms  body=0
+  [31m[0206][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59952ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0207][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59117ms  body=30
+  [31m[0208][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59382ms  body=30
+  [31m[ERR][0m POST unleash.codeium.com/api/client/register: 
+  [31m[0209][0m POST   unleash.codeium.com/api/client/register  → 502 109108ms  body=0
+  [31m[0210][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 106568ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0211][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59117ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0212][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59117ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt: All connection attempts failed
+  [31m[0213][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59106ms  body=30
+  [31m[0214][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59388ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: 
+  [31m[0215][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 106879ms  body=0
+  [31m[0216][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59961ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0217][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59112ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0218][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59106ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/CheckChatCapacity: All connection attempts failed
+  [31m[0219][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/CheckChatCapaci  → 502 59111ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0220][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59100ms  body=30
+  [31m[0221][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59409ms  body=30
+  [31m[0222][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59398ms  body=30
+  [31m[0223][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59386ms  body=30
+  [31m[0224][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59967ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkflowTemplates: 
+  [31m[0225][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkf  → 502 106900ms  body=0
+  [31m[0226][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 105360ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0227][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59094ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping: 
+  [31m[0228][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping  → 502 106878ms  body=0
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0229][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59103ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt: All connection attempts failed
+  [31m[0230][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59081ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0231][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59078ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0232][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59071ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0233][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59062ms  body=30
+  [31m[0234][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59399ms  body=30
+  [31m[0235][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59390ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: 
+  [31m[0236][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 106892ms  body=0
+  [31m[0237][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/CheckChatCapaci  → 502 59390ms  body=30
+  [31m[0238][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59375ms  body=30
+  [31m[0239][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59950ms  body=30
+  [31m[0240][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59924ms  body=30
+  [31m[0241][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59868ms  body=30
+  [31m[0242][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 104912ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetModelStatuses: All connection attempts failed
+  [31m[0243][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetModelStatuse  → 502 59081ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0244][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59071ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0245][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59070ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0246][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59060ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0247][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59059ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0248][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59056ms  body=30
+  [31m[0249][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59390ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0250][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59060ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0251][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59052ms  body=30
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: All connection attempts failed
+  [31m[0252][0m GET    unleash.codeium.com/api/client/features  → 502 59051ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0253][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59046ms  body=30
+  [31m[0254][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59389ms  body=30
+  [31m[0255][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59389ms  body=30
+  [31m[0256][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59372ms  body=30
+  [31m[0257][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59366ms  body=30
+  [31m[0258][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59365ms  body=30
+  [31m[0259][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59852ms  body=30
+  [31m[0260][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59829ms  body=30
+  [31m[0261][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/CheckChatCapaci  → 502 59797ms  body=30
+  [31m[0262][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59779ms  body=30
+  [31m[0263][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 103674ms  body=30
+  [31m[0264][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 101414ms  body=30
+  [31m[0265][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 101004ms  body=30
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: All connection attempts failed
+  [31m[0266][0m GET    unleash.codeium.com/api/client/features  → 502 59038ms  body=30
+  [31m[ERR][0m POST unleash.codeium.com/api/client/register: All connection attempts failed
+  [31m[0267][0m POST   unleash.codeium.com/api/client/register  → 502 59035ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0268][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59029ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkflowTemplates: All connection attempts failed
+  [31m[0269][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkf  → 502 59025ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping: All connection attempts failed
+  [31m[0270][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping  → 502 59032ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0271][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 59030ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0272][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 58689ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0273][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55338ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0274][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55331ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0275][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55328ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0276][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55297ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0277][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55278ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0278][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55260ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0279][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 55252ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0280][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 53687ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0281][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52299ms  body=30
+  [31m[0282][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetModelStatuse  → 502 59375ms  body=30
+  [31m[0283][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59362ms  body=30
+  [31m[0284][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59361ms  body=30
+  [31m[0285][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59348ms  body=30
+  [31m[0286][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59345ms  body=30
+  [31m[0287][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59344ms  body=30
+  [31m[0288][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59796ms  body=30
+  [31m[0289][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59339ms  body=30
+  [31m[0290][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59328ms  body=30
+  [31m[0291][0m GET    unleash.codeium.com/api/client/features  → 502 59327ms  body=30
+  [31m[0292][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59770ms  body=30
+  [31m[0293][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 59746ms  body=30
+  [31m[0294][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59741ms  body=30
+  [31m[0295][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59728ms  body=30
+  [31m[0296][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59713ms  body=30
+  [31m[0297][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 101019ms  body=30
+  [31m[0298][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 98707ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0299][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52311ms  body=30
+  [31m[0300][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/CheckChatCapaci  → 502 97467ms  body=30
+  [31m[0301][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 93714ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0302][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52312ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0303][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52305ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0304][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52253ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/RecordAnalyticsEvent: All connection attempts failed
+  [31m[0305][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 52246ms  body=30
+  [31m[ERR][0m GET unleash.codeium.com/api/client/features: All connection attempts failed
+  [31m[0306][0m GET    unleash.codeium.com/api/client/features  → 502 49293ms  body=30
+  [31m[ERR][0m POST unleash.codeium.com/api/client/metrics: All connection attempts failed
+  [31m[0307][0m POST   unleash.codeium.com/api/client/metrics  → 502 49276ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt: All connection attempts failed
+  [31m[0308][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 49046ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0309][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 48711ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0310][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 46694ms  body=30
+  [31m[ERR][0m POST server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus: All connection attempts failed
+  [31m[0311][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 43711ms  body=30
+  [31m[0312][0m GET    unleash.codeium.com/api/client/features  → 502 59329ms  body=30
+  [31m[0313][0m POST   unleash.codeium.com/api/client/register  → 502 59320ms  body=30
+  [31m[0314][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59319ms  body=30
+  [31m[0315][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkf  → 502 59318ms  body=30
+  [31m[0316][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping  → 502 59312ms  body=30
+  [31m[0317][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 59308ms  body=30
+  [31m[0318][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetModelStatuse  → 502 59719ms  body=30
+  [31m[0319][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59706ms  body=30
+  [31m[0320][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59696ms  body=30
+  [31m[0321][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59690ms  body=30
+  [31m[0322][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59678ms  body=30
+  [31m[0323][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59667ms  body=30
+  [31m[0324][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 93481ms  body=30
+  [31m[0325][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59661ms  body=30
+  [31m[0326][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59645ms  body=30
+  [31m[0327][0m GET    unleash.codeium.com/api/client/features  → 502 59641ms  body=30
+  [31m[0328][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 91729ms  body=30
+  [31m[0329][0m POST   server.self-serve.windsurf.com/exa.auth_pb.AuthService/GetUserJwt  → 502 91069ms  body=30
+  [31m[0330][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 88735ms  body=30
+  [31m[0331][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 86412ms  body=30
+  [31m[0332][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 83736ms  body=30
+  [31m[0333][0m POST   unleash.codeium.com/api/client/register  → 502 59618ms  body=30
+  [31m[0334][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 59601ms  body=30
+  [31m[0335][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkf  → 502 59591ms  body=30
+  [31m[0336][0m GET    unleash.codeium.com/api/client/features  → 502 59639ms  body=30
+  [31m[0337][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping  → 502 59583ms  body=30
+  [31m[0338][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 59578ms  body=30
+  [31m[0339][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetModelStatuse  → 502 81086ms  body=30
+  [31m[0340][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 78745ms  body=30
+  [31m[0341][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 77413ms  body=30
+  [31m[0342][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 76734ms  body=30
+  [31m[0343][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 73745ms  body=30
+  [31m[0344][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 68746ms  body=30
+  [31m[0345][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 63745ms  body=30
+  [31m[0346][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 61734ms  body=30
+  [31m[0347][0m GET    unleash.codeium.com/api/client/features  → 502 60224ms  body=30
+  [31m[0348][0m POST   unleash.codeium.com/api/client/register  → 502 60205ms  body=30
+  [31m[0349][0m POST   server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUs  → 502 60193ms  body=30
+  [31m[0350][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/GetDefaultWorkf  → 502 60181ms  body=30
+  [31m[0351][0m GET    unleash.codeium.com/api/client/features  → 502 60217ms  body=30
+  [31m[0352][0m POST   server.self-serve.windsurf.com/exa.api_server_pb.ApiServerService/Ping  → 502 60169ms  body=30
+  [31m[0353][0m POST   server.self-serve.windsurf.com/exa.product_analytics_pb.ProductAnalyticsService/R  → 502 60165ms  body=30
+
+  [*] Cleaning up...
+  [+] Removed 7 domain redirects
+  [+] Removed iptables NAT rules
+  [*] Done. Logs in logs/cascade_sniff.*

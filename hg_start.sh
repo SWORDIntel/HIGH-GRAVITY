@@ -24,9 +24,9 @@ ITEMS=(
     "Open Dashboard         Rich TUI monitor"
     "Verify status          services + patches"
     "Tidy project root      archive stale files"
-    "Start sniffer          capture Cascade traffic"
-    "Stop sniffer           restore hosts"
-    "Clean /etc/hosts       remove HG redirects"
+    "Start sniffer          passive tcpdump (no modify)"
+    "Stop sniffer           save pcap + restore"
+    "Clean hosts+iptables   remove HG redirects"
     "Full setup             patch > start > verify"
     "Quit"
 )
@@ -293,38 +293,68 @@ do_hosts_clean() {
 
 do_sniff_start() {
     printf "${CLR}"
-    echo -e "${BOLD}${C}  Starting Cascade sniffer...${NC}\n"
+    echo -e "${BOLD}${C}  Starting passive sniffer (tcpdump)...${NC}\n"
 
-    # Kill old sniffer
-    pkill -f "sniff_cascade.py" 2>/dev/null || true
+    # Kill old sniffers
+    pkill -f "sniff_passive.py\|sniff_cascade.py" 2>/dev/null || true
     sleep 1
 
-    # Start sniffer in background
-    echo "$SUDO_PASS" | sudo -S -E PYTHONPATH=. python3 tools/sniff_cascade.py > logs/sniffer.log 2>&1 &
+    # Start passive sniffer in background
+    echo "$SUDO_PASS" | sudo -S python3 tools/sniff_passive.py > logs/sniff_passive.log 2>&1 &
     sleep 2
 
-    if pgrep -f "sniff_cascade.py" >/dev/null 2>&1; then
-        echo -e "  ${G}[+] Sniffer running on port 443${NC}"
-        echo -e "  ${D}Logs: logs/cascade_sniff.log + .jsonl${NC}"
+    if pgrep -f "sniff_passive.py" >/dev/null 2>&1; then
+        echo -e "  ${G}[+] Passive sniffer running${NC}"
+        echo -e "  ${D}Capture:  logs/cascade_passive.pcap${NC}"
+        echo -e "  ${D}Log:      logs/cascade_passive.log${NC}"
+        echo -e "\n  ${Y}Does NOT modify traffic. Windsurf continues normally.${NC}"
+        echo -e "  ${Y}Analyze later with: sudo tcpdump -r logs/cascade_passive.pcap -nn -A${NC}"
     else
         echo -e "  ${R}[-] Sniffer failed to start${NC}"
-        echo -e "  ${D}Check logs/sniffer.log${NC}"
+        echo -e "  ${D}Check logs/sniff_passive.log${NC}"
     fi
     pause
 }
 
 do_sniff_stop() {
     printf "${CLR}"
-    echo -e "${BOLD}${C}  Stopping Cascade sniffer...${NC}\n"
+    echo -e "${BOLD}${C}  Stopping sniffer...${NC}\n"
 
-    pkill -f "sniff_cascade.py" 2>/dev/null || true
+    # Kill all sniffers
+    pkill -f "sniff_passive.py\|sniff_cascade.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill tcpdump 2>/dev/null || true
     sleep 1
 
-    # Clean hosts
-    do_hosts_clean
+    # Clean hosts + iptables (in case MITM sniffer was used before)
+    do_hosts_clean_silent
 
-    echo -e "  ${G}[+] Sniffer stopped, hosts restored${NC}"
+    echo -e "  ${G}[+] Sniffer stopped${NC}"
+
+    if [ -f "logs/cascade_passive.pcap" ]; then
+        local size=$(du -h logs/cascade_passive.pcap | cut -f1)
+        echo -e "  ${G}[+] Capture saved: logs/cascade_passive.pcap ($size)${NC}"
+        echo -e "\n  ${Y}Analyze:${NC}"
+        echo -e "    ${D}sudo tcpdump -r logs/cascade_passive.pcap -nn -A${NC}"
+        echo -e "    ${D}wireshark logs/cascade_passive.pcap${NC}"
+    fi
     pause
+}
+
+do_hosts_clean_silent() {
+    local hosts="/etc/hosts"
+    local temp=$(mktemp)
+    while IFS= read -r line; do
+        if [[ "$line" != *HG-SNIFF* && "$line" != *HG-PATCH* ]]; then
+            echo "$line" >> "$temp"
+        fi
+    done < "$hosts"
+    echo "$SUDO_PASS" | sudo -S cp "$temp" "$hosts"
+    rm "$temp"
+
+    # Remove iptables NAT rules
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -D OUTPUT -j HG-SNIFF 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -F HG-SNIFF 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -X HG-SNIFF 2>/dev/null || true
 }
 
 # ─── main TUI loop ──────────────────────────────────────────────────
