@@ -8,16 +8,6 @@ echo "║     Windsurf Language Server Binary Patcher              ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check if Windsurf is running
-if pgrep -f "windsurf" > /dev/null; then
-    echo "❌ Windsurf is running! Please close it first:"
-    echo "   pkill -f windsurf"
-    echo ""
-    exit 1
-fi
-
-echo "✓ Windsurf is not running"
-echo ""
 
 # Run the patcher
 python3 src/patch_language_server_binary.py

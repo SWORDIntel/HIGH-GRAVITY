@@ -28,3 +28,5 @@
 2026-04-20 16:15:11.174 BST [7197] LOG:  checkpoint starting: end-of-recovery immediate wait
 2026-04-20 16:15:11.348 BST [7197] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.050 s, total=0.213 s; sync files=2, longest=0.030 s, average=0.025 s; distance=0 kB, estimate=0 kB; lsn=0/1B2E690, redo lsn=0/1B2E690
 2026-04-20 16:15:11.388 BST [7191] LOG:  database system is ready to accept connections
+2026-04-20 16:50:12.048 BST [7197] LOG:  checkpoint starting: time
+2026-04-20 16:50:12.642 BST [7197] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.503 s, sync=0.047 s, total=0.594 s; sync files=6, longest=0.020 s, average=0.008 s; distance=1 kB, estimate=1 kB; lsn=0/1B2EB38, redo lsn=0/1B2EB00
