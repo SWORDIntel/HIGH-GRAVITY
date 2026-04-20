@@ -7277,18 +7277,17 @@
 2026-04-20 17:01:00,071 [INFO] [b6cd4447] CONNECTION: GET /unleash/client/features
 2026-04-20 17:01:59,290 [INFO] [f33a544e] CONNECTION: POST /unleash/client/metrics
 2026-04-20 17:02:00,082 [INFO] [8b999ef1] CONNECTION: GET /unleash/client/features
-[8b1208af] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:03,804 [INFO] [8b1208af] TELEMETRY_BLACKHOLED: /hg/telemetry
-2026-04-20 16:50:04,098 [INFO] [c90a8aa4] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:04,098 [INFO] [c90a8aa4] TELEMETRY_BLACKHOLED: /hg/telemetry
-2026-04-20 16:50:04,384 [INFO] [2c10feb9] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:04,384 [INFO] [2c10feb9] TELEMETRY_BLACKHOLED: /hg/telemetry
-2026-04-20 16:50:04,657 [INFO] [d6a46218] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:04,658 [INFO] [d6a46218] TELEMETRY_BLACKHOLED: /hg/telemetry
-2026-04-20 16:50:04,938 [INFO] [026e0c7f] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:04,938 [INFO] [026e0c7f] TELEMETRY_BLACKHOLED: /hg/telemetry
-2026-04-20 16:50:05,227 [INFO] [9b0ac8e5] CONNECTION: GET /hg/telemetry
-2026-04-20 16:50:05,227 [INFO] [9b0ac8e5] TELEMETRY_BLACKHOLED: /hg/telemetry
+2026-04-20 17:02:59,295 [INFO] [e52fa8d2] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:03:00,091 [INFO] [05a798e1] CONNECTION: GET /unleash/client/features
+2026-04-20 17:03:59,302 [INFO] [5bf4ddae] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:04:00,097 [INFO] [3ecaa29f] CONNECTION: GET /unleash/client/features
+2026-04-20 17:04:59,307 [INFO] [2380bd7f] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:05:00,105 [INFO] [eff42d34] CONNECTION: GET /unleash/client/features
+2026-04-20 17:05:59,327 [INFO] [86774cd1] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:06:00,117 [INFO] [a7870e65] CONNECTION: GET /unleash/client/features
+2026-04-20 17:06:59,332 [INFO] [128c13c7] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:07:00,126 [INFO] [d4061242] CONNECTION: GET /unleash/client/features
+5] TELEMETRY_BLACKHOLED: /hg/telemetry
 2026-04-20 16:50:05,514 [INFO] [dcffd63a] CONNECTION: GET /hg/telemetry
 2026-04-20 16:50:05,514 [INFO] [dcffd63a] TELEMETRY_BLACKHOLED: /hg/telemetry
 2026-04-20 16:50:05,787 [INFO] [ba4497e8] CONNECTION: GET /hg/telemetry
@@ -7797,3 +7796,13 @@
 2026-04-20 17:01:00,071 [INFO] [b6cd4447] CONNECTION: GET /unleash/client/features
 2026-04-20 17:01:59,290 [INFO] [f33a544e] CONNECTION: POST /unleash/client/metrics
 2026-04-20 17:02:00,082 [INFO] [8b999ef1] CONNECTION: GET /unleash/client/features
+2026-04-20 17:02:59,295 [INFO] [e52fa8d2] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:03:00,091 [INFO] [05a798e1] CONNECTION: GET /unleash/client/features
+2026-04-20 17:03:59,302 [INFO] [5bf4ddae] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:04:00,097 [INFO] [3ecaa29f] CONNECTION: GET /unleash/client/features
+2026-04-20 17:04:59,307 [INFO] [2380bd7f] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:05:00,105 [INFO] [eff42d34] CONNECTION: GET /unleash/client/features
+2026-04-20 17:05:59,327 [INFO] [86774cd1] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:06:00,117 [INFO] [a7870e65] CONNECTION: GET /unleash/client/features
+2026-04-20 17:06:59,332 [INFO] [128c13c7] CONNECTION: POST /unleash/client/metrics
+2026-04-20 17:07:00,126 [INFO] [d4061242] CONNECTION: GET /unleash/client/features

@@ -1,11 +1,11 @@
 #!/bin/bash
-# HIGH-GRAVITY Universal Bootstrap
-# Starts all services: Proxy, Khoj, Dashboard
-
-set -e
+# HIGH-GRAVITY Bootstrap v2.0
+# Interactive menu for all operations
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+SUDO_PASS="1786"
 
 # Colors
 RED='\033[0;31m'
@@ -13,294 +13,283 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+BOLD='\033[1m'
+NC='\033[0m'
 
-echo -e "${CYAN}"
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║                                                            ║"
-echo "║            HIGH-GRAVITY BOOTSTRAP v1.0                     ║"
-echo "║         Universal Startup for All Services                 ║"
-echo "║                                                            ║"
-echo "╚════════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# Check if already running
-check_running() {
-    local service=$1
-    local port=$2
-    if lsof -i:$port >/dev/null 2>&1; then
-        echo -e "${YELLOW}[!] $service already running on port $port${NC}"
-        return 0
-    fi
-    return 1
+banner() {
+    echo -e "${CYAN}"
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║          HIGH-GRAVITY BOOTSTRAP v2.0                      ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
 }
 
-# Setup HTTPS certificates
-setup_https() {
-    echo -e "${BLUE}[*] Checking HTTPS certificates...${NC}"
-    
-    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
-        echo -e "${GREEN}[✓] Certificates found${NC}"
-        return 0
-    fi
-    
-    echo -e "${YELLOW}[*] Generating HTTPS certificates...${NC}"
-    python3 add_https_to_proxy.py >/dev/null 2>&1
-    
-    if [ -f "certs/proxy.crt" ]; then
-        echo -e "${GREEN}[✓] Certificates generated${NC}"
+# ─── helpers ──────────────────────────────────────────────────────────
+check_port() { lsof -i:$1 >/dev/null 2>&1; }
+
+status_line() {
+    local name="$1" check="$2"
+    if eval "$check"; then
+        echo -e "  ${name}: ${GREEN}✓ RUNNING${NC}"
     else
-        echo -e "${YELLOW}[!] Certificate generation failed (HTTPS disabled)${NC}"
+        echo -e "  ${name}: ${RED}✗ OFFLINE${NC}"
     fi
 }
 
-# Kill existing processes
-cleanup() {
-    echo -e "${BLUE}[*] Cleaning up existing processes...${NC}"
-    pkill -f "hg.py" 2>/dev/null || true
+# ─── core functions ───────────────────────────────────────────────────
+do_cleanup() {
+    echo -e "${BLUE}[*] Cleaning up...${NC}"
+    pkill -f "hg.py\|hg_simple.py" 2>/dev/null || true
     pkill -f "src/proxy.py" 2>/dev/null || true
-    pkill -f "tools/integration/highgravity_proxy.py" 2>/dev/null || true
     pkill -f "khoj.*--port.*42110" 2>/dev/null || true
     sleep 2
-    echo -e "${GREEN}[✓] Cleanup complete${NC}"
+    echo -e "${GREEN}[✓] All processes killed${NC}"
 }
 
-# Start Proxy
-start_proxy() {
-    echo -e "${BLUE}[*] Starting HIGH-GRAVITY Proxy...${NC}"
-    
-    if check_running "Proxy" 9999; then
-        return 0
-    fi
-    
-    mkdir -p logs
-    
-    # Check if HTTPS certs exist
-    HTTPS_ENABLED=false
+do_patch() {
+    echo ""
+    echo -e "${BOLD}Applying all patches...${NC}"
+    echo ""
+
+    # Extension patches
+    echo -e "${BLUE}[1/2] Extension patches${NC}"
+    python3 src/patch_windsurf_client.py --force
+    echo ""
+
+    # Binary patches
+    echo -e "${BLUE}[2/2] Binary patches${NC}"
+    python3 src/patch_language_server_binary.py
+    echo ""
+
+    echo -e "${GREEN}[✓] All patches applied${NC}"
+    echo -e "${YELLOW}[!] Restart Windsurf for changes to take effect${NC}"
+}
+
+do_undo() {
+    echo ""
+    echo -e "${BOLD}Undoing all patches...${NC}"
+    echo ""
+
+    # Extension undo
+    echo -e "${BLUE}[1/2] Restoring extension.js${NC}"
+    python3 src/patch_windsurf_client.py --undo
+    echo ""
+
+    # Binary undo
+    echo -e "${BLUE}[2/2] Restoring language server binary${NC}"
+    python3 src/patch_language_server_binary.py --restore
+    echo ""
+
+    echo -e "${GREEN}[✓] All patches undone${NC}"
+    echo -e "${YELLOW}[!] Restart Windsurf for changes to take effect${NC}"
+}
+
+do_start() {
+    echo ""
+    echo -e "${BOLD}Starting all services...${NC}"
+    echo ""
+
+    # Cleanup first
+    do_cleanup
+
+    # Setup certs
+    echo -e "${BLUE}[*] Checking HTTPS certificates...${NC}"
     if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
-        HTTPS_ENABLED=true
-        echo -e "${GREEN}[*] HTTPS enabled (port 443)${NC}"
+        echo -e "${GREEN}[✓] Certificates found${NC}"
+    else
+        echo -e "${YELLOW}[*] Generating certificates...${NC}"
+        python3 add_https_to_proxy.py >/dev/null 2>&1
     fi
-    
-    # Start HTTP proxy (port 9999)
+
+    mkdir -p logs
+
+    # HTTP proxy
+    echo -e "${BLUE}[*] Starting HTTP proxy (port 9999)...${NC}"
     PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
-    HTTP_PID=$!
-    
-    # Start HTTPS proxy (port 443) if certs exist
-    if [ "$HTTPS_ENABLED" = true ]; then
-        echo "1786" | sudo -S -E PYTHONPATH=. python3 src/proxy.py --https > logs/proxy_https.log 2>&1 &
-        HTTPS_PID=$!
+
+    # HTTPS proxy
+    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
+        echo -e "${BLUE}[*] Starting HTTPS proxy (port 443)...${NC}"
+        echo "$SUDO_PASS" | sudo -S -E PYTHONPATH=. python3 src/proxy.py --https > logs/proxy_https.log 2>&1 &
     fi
-    
-    # Wait for HTTP proxy to be ready
+
+    # Wait for HTTP
     for i in {1..10}; do
-        if lsof -i:9999 >/dev/null 2>&1; then
-            if [ "$HTTPS_ENABLED" = true ]; then
-                # Wait a bit more for HTTPS
-                sleep 2
-                if lsof -i:443 >/dev/null 2>&1; then
-                    echo -e "${GREEN}[✓] Proxy started (HTTP PID: $HTTP_PID, HTTPS PID: $HTTPS_PID)${NC}"
-                    echo -e "${GREEN}    HTTP: 9999, HTTPS: 443${NC}"
-                else
-                    echo -e "${GREEN}[✓] HTTP Proxy started (PID: $HTTP_PID, Port: 9999)${NC}"
-                    echo -e "${YELLOW}[!] HTTPS failed to start (check logs/proxy_https.log)${NC}"
-                fi
-            else
-                echo -e "${GREEN}[✓] Proxy started (PID: $HTTP_PID, Port: 9999)${NC}"
-            fi
-            return 0
-        fi
+        check_port 9999 && break
         sleep 1
     done
-    
-    echo -e "${RED}[✗] Proxy failed to start${NC}"
-    return 1
-}
 
-# Start Khoj
-start_khoj() {
-    echo -e "${BLUE}[*] Starting Khoj Semantic Search...${NC}"
-    
-    if check_running "Khoj" 42110; then
-        return 0
-    fi
-    
-    if [ ! -d "khoj" ]; then
-        echo -e "${YELLOW}[!] Khoj not found. Skipping...${NC}"
-        echo -e "${YELLOW}    To enable: git clone https://github.com/khoj-ai/khoj.git${NC}"
-        return 0
-    fi
-    
-    bash bin/khoj_launcher.sh >/dev/null 2>&1 &
-    
-    # Wait for Khoj to be ready
-    echo -e "${BLUE}[*] Waiting for Khoj to initialize...${NC}"
-    for i in {1..30}; do
-        if curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1; then
-            echo -e "${GREEN}[✓] Khoj started (Port: 42110)${NC}"
-            return 0
-        fi
-        sleep 1
-    done
-    
-    echo -e "${YELLOW}[!] Khoj startup timeout (may still be initializing)${NC}"
-    return 0
-}
-
-# Start Dashboard
-start_dashboard() {
-    echo -e "${BLUE}[*] Starting hg.py Dashboard...${NC}"
-    
-    if pgrep -f "hg.py" >/dev/null 2>&1; then
-        echo -e "${YELLOW}[!] Dashboard already running${NC}"
-        return 0
-    fi
-    
-    # Start in background, will take over terminal
-    python3 hg.py &
-    DASHBOARD_PID=$!
-    sleep 2
-    
-    if ps -p $DASHBOARD_PID >/dev/null 2>&1; then
-        echo -e "${GREEN}[✓] Dashboard started (PID: $DASHBOARD_PID)${NC}"
-        return 0
-    else
-        echo -e "${RED}[✗] Dashboard failed to start${NC}"
-        return 1
-    fi
-}
-
-# Verify services
-verify_services() {
-    echo ""
-    echo -e "${CYAN}[*] Service Status:${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # Proxy
-    if lsof -i:9999 >/dev/null 2>&1; then
-        if lsof -i:443 >/dev/null 2>&1; then
-            echo -e "  Proxy:     ${GREEN}✓ RUNNING${NC} (HTTP: 9999, HTTPS: 443)"
-        else
-            echo -e "  Proxy:     ${GREEN}✓ RUNNING${NC} (HTTP: 9999)"
-        fi
-    else
-        echo -e "  Proxy:     ${RED}✗ OFFLINE${NC}"
-    fi
-    
     # Khoj
-    if curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1; then
-        echo -e "  Khoj:      ${GREEN}✓ RUNNING${NC} (http://127.0.0.1:42110)"
+    echo -e "${BLUE}[*] Starting Khoj...${NC}"
+    if [ -d "khoj" ]; then
+        bash bin/khoj_launcher.sh >/dev/null 2>&1 &
+        for i in {1..20}; do
+            curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1 && break
+            sleep 1
+        done
     else
-        echo -e "  Khoj:      ${YELLOW}○ OFFLINE${NC} (optional)"
+        echo -e "${YELLOW}    Khoj directory not found, skipping${NC}"
     fi
-    
-    # Dashboard
-    if pgrep -f "hg.py" >/dev/null 2>&1; then
-        echo -e "  Dashboard: ${GREEN}✓ RUNNING${NC}"
+
+    echo ""
+    do_verify
+}
+
+do_verify() {
+    echo -e "${BOLD}Service Status:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    status_line "Proxy HTTP  (9999)" "check_port 9999"
+    status_line "Proxy HTTPS (443) " "check_port 443"
+    status_line "Khoj        (42110)" "curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1"
+    status_line "Dashboard         " "pgrep -f 'hg_simple.py\|hg.py' >/dev/null 2>&1"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    echo ""
+    echo -e "${BOLD}Patch Status:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Extension
+    EXT="/usr/share/windsurf-next/resources/app/extensions/windsurf/dist/extension.js"
+    if [ -f "$EXT" ] && grep -q "getApiServerUrlFromContext=A=>{return" "$EXT" 2>/dev/null; then
+        echo -e "  Extension:  ${GREEN}✓ PATCHED${NC} (root cause fix applied)"
+    elif [ -f "$EXT" ] && grep -q "shield.windsurf.com" "$EXT" 2>/dev/null; then
+        echo -e "  Extension:  ${YELLOW}~ PARTIAL${NC} (missing root cause fix)"
     else
-        echo -e "  Dashboard: ${RED}✗ OFFLINE${NC}"
+        echo -e "  Extension:  ${RED}✗ UNPATCHED${NC}"
     fi
-    
+
+    # Binary
+    BIN="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64"
+    if [ -f "$BIN" ] && strings "$BIN" 2>/dev/null | grep -q "http://127.0.0.1:9999"; then
+        echo -e "  Binary:     ${GREEN}✓ PATCHED${NC}"
+    else
+        echo -e "  Binary:     ${RED}✗ UNPATCHED${NC}"
+    fi
+
+    # Windsurf
+    if pgrep -f "windsurf" >/dev/null 2>&1; then
+        API_URL=$(ps aux | grep language_server_linux | grep -v grep | head -1 | grep -oP "\-\-api_server_url \S+" | awk '{print $2}')
+        if [ -z "$API_URL" ]; then
+            echo -e "  Windsurf:   ${YELLOW}~ RUNNING (no language server)${NC}"
+        elif echo "$API_URL" | grep -q "shield.windsurf.com\|127.0.0.1"; then
+            echo -e "  Windsurf:   ${GREEN}✓ RUNNING (→ proxy: $API_URL)${NC}"
+        else
+            echo -e "  Windsurf:   ${RED}! RUNNING (→ EXTERNAL: $API_URL)${NC}"
+            echo -e "             ${YELLOW}  Restart Windsurf to pick up patches${NC}"
+        fi
+    else
+        echo -e "  Windsurf:   ${RED}○ NOT RUNNING${NC}"
+    fi
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-# Show usage info
-show_info() {
-    echo ""
-    echo -e "${CYAN}[*] Quick Reference:${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "  ${BLUE}Dashboard Controls:${NC}"
-    echo "    P - Toggle Pegasus panel"
-    echo "    E - Toggle Pegasus + Khoj panels"
-    echo "    A - Toggle Aliases"
-    echo "    Q - Quit dashboard"
-    echo ""
-    echo -e "  ${BLUE}Logs:${NC}"
-    echo "    Proxy:  tail -f logs/proxy.log"
-    echo "    Khoj:   tail -f logs/khoj.log"
-    echo "    MITM:   tail -f logs/cascade_midway.log"
-    echo ""
-    echo -e "  ${BLUE}Endpoints:${NC}"
-    echo "    Proxy Status:  curl http://127.0.0.1:9999/hg/telemetry"
-    echo "    Khoj Status:   curl http://127.0.0.1:9999/hg/khoj/status"
-    echo "    Khoj Reindex:  curl -X POST http://127.0.0.1:9999/hg/khoj/reindex"
-    echo ""
-    echo -e "  ${BLUE}Stop All:${NC}"
-    echo "    bash hg_stop.sh"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
+do_dashboard() {
+    echo -e "${BLUE}[*] Launching dashboard...${NC}"
+    exec python3 hg_simple.py
 }
 
-# Main execution
-main() {
-    # Parse arguments
-    CLEAN=false
-    NO_DASHBOARD=false
-    NO_KHOJ=false
-    
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --clean)
-                CLEAN=true
-                shift
-                ;;
-            --no-dashboard)
-                NO_DASHBOARD=true
-                shift
-                ;;
-            --no-khoj)
-                NO_KHOJ=true
-                shift
-                ;;
-            --help|-h)
-                echo "Usage: $0 [OPTIONS]"
-                echo ""
-                echo "Options:"
-                echo "  --clean         Kill existing processes before starting"
-                echo "  --no-dashboard  Start proxy/khoj only (no dashboard)"
-                echo "  --no-khoj       Skip Khoj startup"
-                echo "  --help, -h      Show this help message"
-                exit 0
-                ;;
-            *)
-                echo "Unknown option: $1"
-                echo "Use --help for usage information"
-                exit 1
-                ;;
-        esac
+do_tidy() {
+    echo -e "${BOLD}Cleaning project root...${NC}"
+    echo ""
+
+    mkdir -p archive/old_scripts
+
+    STALE_FILES=(
+        "setup_network_redirect.sh"
+        "start_https_proxy.sh"
+        "launch_debug.sh"
+        "STATUS.md"
+        "HTTPS_PROXY_COMPLETE.md"
+        "WINDSURF_MITM_FIX.md"
+        "WINDSURF_FIX_SUMMARY.md"
+        "PATCHER_V2_GUIDE.md"
+        "complete_setup.sh"
+    )
+
+    MOVED=0
+    for f in "${STALE_FILES[@]}"; do
+        if [ -f "$f" ]; then
+            mv "$f" archive/old_scripts/
+            echo -e "  ${GREEN}→${NC} $f → archive/old_scripts/"
+            ((MOVED++))
+        fi
     done
-    
-    # Cleanup if requested
-    if [ "$CLEAN" = true ]; then
-        cleanup
-    fi
-    
-    # Setup HTTPS
-    setup_https
-    
-    # Start services
-    start_proxy || exit 1
-    
-    if [ "$NO_KHOJ" = false ]; then
-        start_khoj
-    fi
-    
-    # Verify
-    verify_services
-    show_info
-    
-    # Start dashboard (foreground)
-    if [ "$NO_DASHBOARD" = false ]; then
-        echo -e "${CYAN}[*] Launching dashboard in 3 seconds...${NC}"
-        echo -e "${YELLOW}    Press Ctrl+C now to cancel${NC}"
-        sleep 3
-        echo ""
-        exec python3 hg_simple.py
+
+    if [ "$MOVED" -eq 0 ]; then
+        echo -e "  ${GREEN}✓ Root already clean${NC}"
     else
-        echo -e "${GREEN}[✓] All services started in background${NC}"
-        echo -e "${CYAN}[*] Run 'python3 hg_simple.py' to start dashboard${NC}"
+        echo -e "\n  ${GREEN}✓ Moved $MOVED file(s) to archive/${NC}"
     fi
 }
 
-# Run
+# ─── interactive menu ─────────────────────────────────────────────────
+menu() {
+    banner
+    echo -e "${BOLD}  [1]${NC}  Patch Windsurf       (extension + binary)"
+    echo -e "${BOLD}  [2]${NC}  Undo patches         (restore originals)"
+    echo -e "${BOLD}  [3]${NC}  Start everything      (clean + proxy + khoj + verify)"
+    echo -e "${BOLD}  [4]${NC}  Dashboard             (launch hg_simple.py)"
+    echo -e "${BOLD}  [5]${NC}  Verify status         (services + patches)"
+    echo -e "${BOLD}  [6]${NC}  Tidy project root     (archive stale files)"
+    echo -e "${BOLD}  [7]${NC}  Full setup            (patch → start → verify)"
+    echo -e "${BOLD}  [q]${NC}  Quit"
+    echo ""
+    echo -n "Choice: "
+}
+
+# ─── CLI or interactive ──────────────────────────────────────────────
+main() {
+    case "${1:-}" in
+        --patch)    banner; do_patch ;;
+        --undo)     banner; do_undo ;;
+        --start)    banner; do_start ;;
+        --dashboard) banner; do_dashboard ;;
+        --verify)   banner; do_verify ;;
+        --tidy)     banner; do_tidy ;;
+        --full)     banner; do_patch; echo ""; do_start ;;
+        --help|-h)
+            banner
+            echo "Usage: $0 [OPTION]"
+            echo ""
+            echo "Options (non-interactive):"
+            echo "  --patch       Apply all patches"
+            echo "  --undo        Undo all patches"
+            echo "  --start       Clean + start all services"
+            echo "  --dashboard   Launch dashboard"
+            echo "  --verify      Show status of services + patches"
+            echo "  --tidy        Archive stale files from root"
+            echo "  --full        Patch + start + verify"
+            echo "  --help        Show this help"
+            echo ""
+            echo "Run without arguments for interactive menu."
+            ;;
+        "")
+            # Interactive mode
+            while true; do
+                menu
+                read -r choice
+                echo ""
+                case "$choice" in
+                    1) do_patch ;;
+                    2) do_undo ;;
+                    3) do_start ;;
+                    4) do_dashboard ;;
+                    5) do_verify ;;
+                    6) do_tidy ;;
+                    7) do_patch; echo ""; do_start ;;
+                    q|Q) echo "Bye."; exit 0 ;;
+                    *) echo -e "${RED}Invalid choice${NC}" ;;
+                esac
+                echo ""
+                echo -e "${CYAN}Press ENTER to return to menu...${NC}"
+                read -r
+            done
+            ;;
+        *)
+            echo "Unknown option: $1 (use --help)"
+            exit 1
+            ;;
+    esac
+}
+
 main "$@"

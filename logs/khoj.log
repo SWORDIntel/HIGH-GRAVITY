@@ -1035,3 +1035,7 @@ NOTICE:  extension "vector" already exists, skipping
                            "GET /api/health HTTP/1.1" 200                       
 [15:51:13.724718] INFO     uvicorn.access: 127.0.0.1:42800 -     h11_impl.py:480
                            "GET /api/health HTTP/1.1" 200                       
+[16:06:09.592509] INFO     uvicorn.access: 127.0.0.1:35218 -     h11_impl.py:480
+                           "GET /api/health HTTP/1.1" 200                       
+[16:06:42.590985] INFO     uvicorn.access: 127.0.0.1:41476 -     h11_impl.py:480
+                           "GET /api/health HTTP/1.1" 200                       
