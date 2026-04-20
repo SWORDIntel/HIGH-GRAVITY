@@ -2,12 +2,20 @@
 import os
 import sys
 import shutil
+import argparse
 from pathlib import Path
 
 # Configuration
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = REPO_ROOT / "logs" / "cascade_midway.log"
 SUDO_PASS = "1786"
+
+# Color codes
+GREEN = '\033[0;32m'
+YELLOW = '\033[1;33m'
+RED = '\033[0;31m'
+BLUE = '\033[0;34m'
+NC = '\033[0m'  # No Color
 
 def find_extension_files():
     """Locates all Windsurf extension entry points (Stable, Next, Insiders, etc)."""
@@ -28,7 +36,7 @@ def find_extension_files():
                 found.append(ext_file)
     return found
 
-def patch_file(ext_path: Path):
+def patch_file(ext_path: Path, force=False, verify_only=False):
     print(f"[*] Patching: {ext_path}")
     
     backup_path = ext_path.with_suffix(".js.original")
@@ -43,9 +51,17 @@ def patch_file(ext_path: Path):
         content = f.read()
 
     # Check if already patched
-    if "globalThis.HG_OPT" in content:
-        print(f"    - Already patched. Checking for updates...")
-        # We can still proceed if we want to update the optimization logic
+    already_patched = "globalThis.HG_OPT" in content
+    if already_patched and not force:
+        print(f"    {YELLOW}- Already patched. Use --force to re-patch.{NC}")
+        if verify_only:
+            return verify_patches(content)
+        return True
+    elif already_patched and force:
+        print(f"    {YELLOW}! Force mode: Re-applying patches...{NC}")
+    
+    if verify_only:
+        return verify_patches(content)
     
     modified = False
 
@@ -195,24 +211,96 @@ globalThis.HG_OPT = (items, config) => {{
         # Write back with sudo
         os.system(f"echo {SUDO_PASS} | sudo -S cp {temp_patch} {ext_path}")
         os.system(f"rm {temp_patch}")
-        print(f"    [✓] Successfully updated {ext_path.parent.parent.parent.parent.parent.name}")
+        print(f"    {GREEN}[✓] Successfully updated {ext_path.parent.parent.parent.parent.parent.name}{NC}")
+        return True
     else:
         print(f"    - No changes needed.")
+        return False
+
+def verify_patches(content):
+    """Verify all patches are present"""
+    checks = [
+        ('INFERENCE_API_SERVER_URL', 'INFERENCE_API_SERVER_URL,"http://shield.windsurf.com:9999"'),
+        ('DEFAULT_API_SERVER_URL', 'DEFAULT_API_SERVER_URL="http://shield.windsurf.com:9999"'),
+        ('DEFAULT_REGISTER_API_SERVER_URL', 'DEFAULT_REGISTER_API_SERVER_URL="http://shield.windsurf.com:9999"'),
+        ('Unleash', 'url:"http://shield.windsurf.com:9999/unleash/"'),
+        ('HG_OPT function', 'globalThis.HG_OPT'),
+    ]
+    
+    all_pass = True
+    for name, pattern in checks:
+        if pattern in content:
+            print(f"    {GREEN}✓{NC} {name}")
+        else:
+            print(f"    {RED}✗{NC} {name}")
+            all_pass = False
+    
+    # Count proxy references
+    proxy_count = content.count('shield.windsurf.com:9999')
+    print(f"\n    {BLUE}Total proxy references: {proxy_count}{NC}")
+    
+    return all_pass
 
 def main():
+    parser = argparse.ArgumentParser(
+        description='Patch Windsurf to redirect API calls through HIGH-GRAVITY proxy',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  %(prog)s                    # Normal patching
+  %(prog)s --force            # Force re-patch even if already patched
+  %(prog)s --verify           # Verify patches without modifying
+  %(prog)s --list             # List Windsurf installations
+'''
+    )
+    parser.add_argument('--force', '-f', action='store_true',
+                       help='Force re-patch even if already patched')
+    parser.add_argument('--verify', '-v', action='store_true',
+                       help='Verify patches without modifying files')
+    parser.add_argument('--list', '-l', action='store_true',
+                       help='List Windsurf installations and exit')
+    parser.add_argument('--quiet', '-q', action='store_true',
+                       help='Minimal output')
+    
+    args = parser.parse_args()
+    
+    if not args.quiet:
+        print(f"{BLUE}╔════════════════════════════════════════════════════════════╗{NC}")
+        print(f"{BLUE}║     Windsurf HIGH-GRAVITY Patcher v2.0                     ║{NC}")
+        print(f"{BLUE}╚════════════════════════════════════════════════════════════╝{NC}")
+        print()
+    
     extensions = find_extension_files()
     if not extensions:
-        print("[!] No Windsurf installations found.")
-        return
+        print(f"{RED}[!] No Windsurf installations found.{NC}")
+        return 1
 
-    print(f"[*] Found {len(extensions)} Windsurf installation(s).")
+    if not args.quiet:
+        print(f"[*] Found {len(extensions)} Windsurf installation(s).")
+    
+    if args.list:
+        for ext in extensions:
+            print(f"  - {ext}")
+        return 0
+    
+    success_count = 0
     for ext in extensions:
         try:
-            patch_file(ext)
+            if patch_file(ext, force=args.force, verify_only=args.verify):
+                success_count += 1
         except Exception as e:
-            print(f"[!] Error patching {ext}: {e}")
-
-    print("\n[✓] All patches applied. Please restart any running Windsurf instances.")
+            print(f"{RED}[!] Error patching {ext}: {e}{NC}")
+    
+    if not args.quiet:
+        print()
+        if args.verify:
+            print(f"{GREEN}[✓] Verification complete: {success_count}/{len(extensions)} passed{NC}")
+        else:
+            print(f"{GREEN}[✓] Patching complete: {success_count}/{len(extensions)} successful{NC}")
+            if success_count > 0:
+                print(f"\n{YELLOW}[!] Please restart Windsurf for changes to take effect{NC}")
+    
+    return 0 if success_count == len(extensions) else 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
