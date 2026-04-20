@@ -161,6 +161,44 @@ def patch_file(ext_path: Path, force=False, verify_only=False):
         print(f"    [✓] Redirected {self_serve_count} self-serve API route(s).")
         modified = True
 
+    # Patch A10: Override getApiServerUrlFromContext to always return proxy
+    # ROOT CAUSE: This function reads a stored URL from VS Code globalState
+    # (set during login) which returns "https://server.self-serve.windsurf.com"
+    # and passes it as --api_server_url to the language server.
+    old_getApiUrl = 'e.getApiServerUrlFromContext=A=>{'
+    new_getApiUrl = 'e.getApiServerUrlFromContext=A=>{return"http://shield.windsurf.com:9999";'
+    
+    if old_getApiUrl in content:
+        content = content.replace(old_getApiUrl, new_getApiUrl)
+        print("    [✓] getApiServerUrlFromContext overridden (ROOT CAUSE FIX)")
+        modified = True
+    elif 'e.getApiServerUrlFromContext=A=>{return"http://shield.windsurf.com:9999"' in content:
+        print("    [-] getApiServerUrlFromContext already overridden")
+    else:
+        print("    [!] getApiServerUrlFromContext pattern not found")
+
+    # Patch A11: Override getApiServerUrl to always return proxy
+    old_getApiUrl2 = 'e.getApiServerUrl=A=>(0,'
+    new_getApiUrl2 = 'e.getApiServerUrl=A=>"http://shield.windsurf.com:9999"||A=>(0,'
+    
+    if old_getApiUrl2 in content:
+        content = content.replace(old_getApiUrl2, new_getApiUrl2)
+        print("    [✓] getApiServerUrl overridden")
+        modified = True
+    elif 'e.getApiServerUrl=A=>"http://shield.windsurf.com:9999"' in content:
+        print("    [-] getApiServerUrl already overridden")
+
+    # Patch A12: Override getRegisterApiServerUrl to always return proxy
+    old_getRegUrl = 'e.getRegisterApiServerUrl=()=>(0,'
+    new_getRegUrl = 'e.getRegisterApiServerUrl=()=>"http://shield.windsurf.com:9999"||()=>(0,'
+    
+    if old_getRegUrl in content:
+        content = content.replace(old_getRegUrl, new_getRegUrl)
+        print("    [✓] getRegisterApiServerUrl overridden")
+        modified = True
+    elif 'e.getRegisterApiServerUrl=()=>"http://shield.windsurf.com:9999"' in content:
+        print("    [-] getRegisterApiServerUrl already overridden")
+
     # Patch B: Universal Optimizer & Protocol Interceptor
     optimizer_code = f"""
 globalThis.HG_CACHE = globalThis.HG_CACHE || new Set();
@@ -234,6 +272,7 @@ def verify_patches(content):
         ('DEFAULT_API_SERVER_URL', 'DEFAULT_API_SERVER_URL="http://shield.windsurf.com:9999"'),
         ('DEFAULT_REGISTER_API_SERVER_URL', 'DEFAULT_REGISTER_API_SERVER_URL="http://shield.windsurf.com:9999"'),
         ('Unleash', 'url:"http://shield.windsurf.com:9999/unleash/"'),
+        ('getApiServerUrlFromContext', 'getApiServerUrlFromContext=A=>{return"http://shield.windsurf.com:9999"'),
         ('HG_OPT function', 'globalThis.HG_OPT'),
     ]
     
