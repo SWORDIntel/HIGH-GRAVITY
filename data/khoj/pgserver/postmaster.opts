@@ -1,1 +1,1 @@
-/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/pgserver/pginstall/bin/postgres "-D" "/mnt/DSMIL/HIGH-GRAVITY/data/khoj/pgserver" "-h" "" "-k" "/mnt/DSMIL/HIGH-GRAVITY/data/khoj/pgserver"
+/mnt/DSMIL/HIGH-GRAVITY/khoj/.venv/lib/python3.10/site-packages/pgserver/pginstall/bin/postgres "-D" "/mnt/sdh5/HIGH-GRAVITY/data/khoj/pgserver" "-h" "" "-k" "/mnt/sdh5/HIGH-GRAVITY/data/khoj/pgserver"

@@ -150,6 +150,16 @@ def patch_file(ext_path: Path, force=False, verify_only=False):
         content = content.replace(old_fed_route, new_fed_route)
         print(f"    [✓] Redirected {fed_count} Fed API route(s).")
         modified = True
+    
+    # Patch A9: Self-serve API route (used by language server)
+    old_self_serve = '"https://server.self-serve.windsurf.com"'
+    new_self_serve = '"http://shield.windsurf.com:9999"'
+    
+    self_serve_count = content.count(old_self_serve)
+    if self_serve_count > 0:
+        content = content.replace(old_self_serve, new_self_serve)
+        print(f"    [✓] Redirected {self_serve_count} self-serve API route(s).")
+        modified = True
 
     # Patch B: Universal Optimizer & Protocol Interceptor
     optimizer_code = f"""

@@ -18,3 +18,13 @@
 2026-04-20 04:05:32.348 BST [251821] LOG:  database system is ready to accept connections
 2026-04-20 04:10:32.360 BST [251822] LOG:  checkpoint starting: time
 2026-04-20 04:10:33.073 BST [251822] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.603 s, sync=0.060 s, total=0.714 s; sync files=8, longest=0.018 s, average=0.008 s; distance=3 kB, estimate=3 kB; lsn=0/1B2E5E0, redo lsn=0/1B2E5A8
+2026-04-20 16:15:10.747 BST [7191] LOG:  starting PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit
+2026-04-20 16:15:10.786 BST [7191] LOG:  listening on Unix socket "/mnt/sdh5/HIGH-GRAVITY/data/khoj/pgserver/.s.PGSQL.5432"
+2026-04-20 16:15:10.876 BST [7199] LOG:  database system was interrupted; last known up at 2026-04-20 04:10:33 BST
+2026-04-20 16:15:11.009 BST [7199] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-04-20 16:15:11.044 BST [7199] LOG:  redo starts at 0/1B2E5A8
+2026-04-20 16:15:11.044 BST [7199] LOG:  invalid record length at 0/1B2E690: expected at least 24, got 0
+2026-04-20 16:15:11.044 BST [7199] LOG:  redo done at 0/1B2E658 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-04-20 16:15:11.174 BST [7197] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-04-20 16:15:11.348 BST [7197] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.050 s, total=0.213 s; sync files=2, longest=0.030 s, average=0.025 s; distance=0 kB, estimate=0 kB; lsn=0/1B2E690, redo lsn=0/1B2E690
+2026-04-20 16:15:11.388 BST [7191] LOG:  database system is ready to accept connections

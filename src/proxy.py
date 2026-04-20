@@ -474,4 +474,43 @@ async def proxy_request(path: str, request: Request):
     raise HTTPException(503, "Max retries")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT, log_level="error")
+    import multiprocessing
+    import ssl
+    from pathlib import Path
+    
+    # Certificate paths
+    REPO_ROOT = Path(__file__).resolve().parent.parent
+    CERT_FILE = REPO_ROOT / "certs" / "proxy.crt"
+    KEY_FILE = REPO_ROOT / "certs" / "proxy.key"
+    
+    def run_http():
+        """Run HTTP proxy on port 9999"""
+        uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="error")
+    
+    def run_https():
+        """Run HTTPS proxy on port 443"""
+        if CERT_FILE.exists() and KEY_FILE.exists():
+            uvicorn.run(
+                app,
+                host="0.0.0.0",
+                port=443,
+                ssl_keyfile=str(KEY_FILE),
+                ssl_certfile=str(CERT_FILE),
+                log_level="error"
+            )
+        else:
+            logger.warning("HTTPS certificates not found, skipping HTTPS proxy")
+    
+    # Run both HTTP and HTTPS in parallel
+    http_process = multiprocessing.Process(target=run_http)
+    https_process = multiprocessing.Process(target=run_https)
+    
+    http_process.start()
+    https_process.start()
+    
+    try:
+        http_process.join()
+        https_process.join()
+    except KeyboardInterrupt:
+        http_process.terminate()
+        https_process.terminate()

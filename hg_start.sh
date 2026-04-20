@@ -35,6 +35,25 @@ check_running() {
     return 1
 }
 
+# Setup HTTPS certificates
+setup_https() {
+    echo -e "${BLUE}[*] Checking HTTPS certificates...${NC}"
+    
+    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
+        echo -e "${GREEN}[✓] Certificates found${NC}"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}[*] Generating HTTPS certificates...${NC}"
+    python3 add_https_to_proxy.py >/dev/null 2>&1
+    
+    if [ -f "certs/proxy.crt" ]; then
+        echo -e "${GREEN}[✓] Certificates generated${NC}"
+    else
+        echo -e "${YELLOW}[!] Certificate generation failed (HTTPS disabled)${NC}"
+    fi
+}
+
 # Kill existing processes
 cleanup() {
     echo -e "${BLUE}[*] Cleaning up existing processes...${NC}"
@@ -55,13 +74,32 @@ start_proxy() {
     fi
     
     mkdir -p logs
-    PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
-    PROXY_PID=$!
+    
+    # Check if HTTPS certs exist
+    HTTPS_ENABLED=false
+    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
+        HTTPS_ENABLED=true
+        echo -e "${GREEN}[*] HTTPS enabled (port 443)${NC}"
+    fi
+    
+    # Start proxy (needs sudo for port 443)
+    if [ "$HTTPS_ENABLED" = true ]; then
+        # Use sudo with -E to preserve environment
+        echo "1786" | sudo -S -E PYTHONPATH=. python3 src/proxy.py > logs/proxy.log 2>&1 &
+        PROXY_PID=$!
+    else
+        PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
+        PROXY_PID=$!
+    fi
     
     # Wait for proxy to be ready
     for i in {1..10}; do
         if lsof -i:9999 >/dev/null 2>&1; then
-            echo -e "${GREEN}[✓] Proxy started (PID: $PROXY_PID, Port: 9999)${NC}"
+            if [ "$HTTPS_ENABLED" = true ] && lsof -i:443 >/dev/null 2>&1; then
+                echo -e "${GREEN}[✓] Proxy started (PID: $PROXY_PID, HTTP: 9999, HTTPS: 443)${NC}"
+            else
+                echo -e "${GREEN}[✓] Proxy started (PID: $PROXY_PID, HTTP: 9999)${NC}"
+            fi
             return 0
         fi
         sleep 1
@@ -132,7 +170,11 @@ verify_services() {
     
     # Proxy
     if lsof -i:9999 >/dev/null 2>&1; then
-        echo -e "  Proxy:     ${GREEN}✓ RUNNING${NC} (http://127.0.0.1:9999)"
+        if lsof -i:443 >/dev/null 2>&1; then
+            echo -e "  Proxy:     ${GREEN}✓ RUNNING${NC} (HTTP: 9999, HTTPS: 443)"
+        else
+            echo -e "  Proxy:     ${GREEN}✓ RUNNING${NC} (HTTP: 9999)"
+        fi
     else
         echo -e "  Proxy:     ${RED}✗ OFFLINE${NC}"
     fi
@@ -224,6 +266,9 @@ main() {
     if [ "$CLEAN" = true ]; then
         cleanup
     fi
+    
+    # Setup HTTPS
+    setup_https
     
     # Start services
     start_proxy || exit 1
