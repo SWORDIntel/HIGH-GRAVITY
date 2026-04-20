@@ -36,6 +36,24 @@ def find_extension_files():
                 found.append(ext_file)
     return found
 
+def undo_patches(ext_path: Path):
+    """Restore extension.js from backup"""
+    print(f"[*] Undoing patches: {ext_path}")
+    backup_path = ext_path.with_suffix(".js.original")
+    if not backup_path.exists():
+        print(f"    {RED}[!] No backup found at {backup_path}{NC}")
+        return False
+    os.system(f"echo {SUDO_PASS} | sudo -S cp {backup_path} {ext_path}")
+    # Verify restore
+    with open(ext_path, "r") as f:
+        content = f.read()
+    if 'shield.windsurf.com' not in content:
+        print(f"    {GREEN}[✓] Restored to original (unpatched){NC}")
+        return True
+    else:
+        print(f"    {RED}[!] Restore failed{NC}")
+        return False
+
 def patch_file(ext_path: Path, force=False, verify_only=False):
     print(f"[*] Patching: {ext_path}")
     
@@ -299,6 +317,7 @@ Examples:
   %(prog)s                    # Normal patching
   %(prog)s --force            # Force re-patch even if already patched
   %(prog)s --verify           # Verify patches without modifying
+  %(prog)s --undo             # Restore original (undo all patches)
   %(prog)s --list             # List Windsurf installations
 '''
     )
@@ -310,6 +329,8 @@ Examples:
                        help='List Windsurf installations and exit')
     parser.add_argument('--quiet', '-q', action='store_true',
                        help='Minimal output')
+    parser.add_argument('--undo', '-u', action='store_true',
+                       help='Undo all patches (restore from backup)')
     
     args = parser.parse_args()
     
@@ -331,6 +352,21 @@ Examples:
         for ext in extensions:
             print(f"  - {ext}")
         return 0
+    
+    if args.undo:
+        success_count = 0
+        for ext in extensions:
+            try:
+                if undo_patches(ext):
+                    success_count += 1
+            except Exception as e:
+                print(f"{RED}[!] Error undoing {ext}: {e}{NC}")
+        if not args.quiet:
+            print()
+            print(f"{GREEN}[✓] Undo complete: {success_count}/{len(extensions)} restored{NC}")
+            if success_count > 0:
+                print(f"\n{YELLOW}[!] Please restart Windsurf for changes to take effect{NC}")
+        return 0 if success_count == len(extensions) else 1
     
     success_count = 0
     for ext in extensions:
