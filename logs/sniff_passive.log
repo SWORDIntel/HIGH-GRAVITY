@@ -1,1 +1,17 @@
 [sudo] password for john: 
+  ┌─────────────────────────────────────────────┐
+  │    PASSIVE WINDSURF TRAFFIC SNIFFER         │
+  │    tcpdump-based, no traffic modification   │
+  └─────────────────────────────────────────────┘
+
+  [*] Capturing to: /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_passive.pcap
+  [*] Logging to: /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_passive.log
+  [*] Target IPs: 34.49.14.144, 192.34.20.166, 35.223.238.178
+  [*] Press Ctrl+C to stop
+
+  68256 packets captured
+  68256 packets received by filter
+  0 packets dropped by kernel
+
+  [*] Capture saved to /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_passive.pcap
+  [*] Analyze with: tcpdump -r /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_passive.pcap -nn -A

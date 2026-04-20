@@ -27,6 +27,10 @@ ITEMS=(
     "Start sniffer          passive tcpdump (no modify)"
     "Stop sniffer           save pcap + restore"
     "Clean hosts+iptables   remove HG redirects"
+    "Patch TLS keylog       install LD_PRELOAD wrapper"
+    "Capture TLS keys       run bpftrace uprobe collector"
+    "Undo TLS keylog        restore original binary"
+    "Verify TLS keylog      check wrapper + key file"
     "Full setup             patch > start > verify"
     "Quit"
 )
@@ -357,6 +361,53 @@ do_hosts_clean_silent() {
     echo "$SUDO_PASS" | sudo -S iptables -t nat -X HG-SNIFF 2>/dev/null || true
 }
 
+do_keylog_patch() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Installing TLS keylog wrapper...${NC}\n"
+    # 1. Compile the preload .so
+    echo -e "  ${D}Compiling keylog_preload.so...${NC}"
+    if ! gcc -shared -fPIC -O0 -o tools/keylog_preload.so \
+             tools/keylog_preload.c -ldl 2>&1 | sed 's/^/    /'; then
+        echo -e "  ${R}Compile failed.${NC}"; pause; return
+    fi
+    # 2. Install wrapper (kills LS, backs up binary, writes shell wrapper)
+    echo -e "  ${D}Installing wrapper...${NC}"
+    echo "$SUDO_PASS" | sudo -S bash tools/install_keylog_wrapper.sh
+    echo -e "\n  ${Y}>>> Reload the Windsurf window now (Ctrl+Shift+P -> Reload Window)${NC}"
+    echo -e "  ${D}Then run 'Capture TLS keys' from this menu.${NC}"
+    pause
+}
+
+do_keylog_capture() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Capturing TLS session keys...${NC}\n"
+    echo "$SUDO_PASS" | sudo -S python3 tools/run_keylog.py
+    pause
+}
+
+do_keylog_undo() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Removing TLS keylog wrapper...${NC}\n"
+    echo "$SUDO_PASS" | sudo -S bash tools/install_keylog_wrapper.sh --undo
+    echo -e "\n  ${Y}Reload Windsurf window to restore normal operation.${NC}"
+    pause
+}
+
+do_keylog_verify() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  TLS keylog status...${NC}\n"
+    bash tools/install_keylog_wrapper.sh --verify
+    if [ -f "/tmp/hg_tls.keys" ]; then
+        local lines
+        lines=$(wc -l < /tmp/hg_tls.keys)
+        echo -e "\n  ${G}Key file: /tmp/hg_tls.keys ($lines lines)${NC}"
+        grep -v '^#' /tmp/hg_tls.keys | tail -3
+    else
+        echo -e "\n  ${Y}No key file yet (/tmp/hg_tls.keys)${NC}"
+    fi
+    pause
+}
+
 # ─── main TUI loop ──────────────────────────────────────────────────
 main() {
     printf "${HIDE}"
@@ -378,8 +429,12 @@ main() {
                     6) do_sniff_start ;;
                     7) do_sniff_stop ;;
                     8) do_hosts_clean ;;
-                    9) do_patch; do_start ;;
-                    10) break ;;
+                    9) do_keylog_patch ;;
+                    10) do_keylog_capture ;;
+                    11) do_keylog_undo ;;
+                    12) do_keylog_verify ;;
+                    13) do_patch; do_start ;;
+                    14) break ;;
                 esac
                 ;;
             NUM1) SEL=0; do_patch ;;
@@ -391,7 +446,7 @@ main() {
             NUM7) SEL=6; do_sniff_start ;;
             NUM8) SEL=7; do_sniff_stop ;;
             NUM9) SEL=8; do_hosts_clean ;;
-            NUM0) SEL=9; do_patch; do_start ;;
+            NUM0) SEL=12; do_patch; do_start ;;
             QUIT|ESC) break ;;
         esac
     done

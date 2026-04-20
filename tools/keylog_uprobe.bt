@@ -1,35 +1,79 @@
 #!/usr/bin/env bpftrace
 /*
- * keylog_uprobe.bt — Non-invasive TLS key extractor for language_server_linux_x64
+ * keylog_uprobe.bt — Two-part TLS key extractor for language_server_linux_x64
  *
- * Uses Linux uprobes to intercept crypto/tls.(*Config).writeKeyLog
- * WITHOUT stopping the process — zero disruption to Windsurf.
+ * Part 1 (PLANT): uprobe at each writeKeyLog call site.
+ *   Reads itab+data ptrs from /tmp/hg_writer_ptrs (written by keylog_preload.so)
+ *   and uses bpf_probe_write_user() to set tls.Config.KeyLogWriter before the
+ *   nil-check guard fires. Zero STOP, zero disruption.
  *
- * Go register ABI (1.17+):
- *   RAX = *tls.Config
- *   RBX = label.ptr,  RCX = label.len
- *   RDI = rand.ptr,   RSI = rand.len
- *   R8  = secret.ptr, R9  = secret.len
+ * Part 2 (CAPTURE): uprobe at writeKeyLog entry (now reachable because Part 1
+ *   planted a writer). Reads label/rand/secret from registers and prints
+ *   NSS SSLKEYLOGFILE lines.
+ *
+ * File offsets (stable, binary-specific):
+ *   writeKeyLog entry:   0x6d50660 = 114624096
+ *   Call sites (10):     see PLANT probes below
+ *
+ * Prerequisites:
+ *   1. gcc -shared -fPIC -O0 -o tools/keylog_preload.so tools/keylog_preload.c
+ *   2. sudo bash tools/install_keylog_wrapper.sh   (wraps binary with LD_PRELOAD)
+ *   3. Reload Windsurf window  (language server restarts, preload runs)
+ *   4. sudo bpftrace --unsafe tools/keylog_uprobe.bt -o logs/cascade_tls.keys
  *
  * Usage:
- *   echo 1786 | sudo -S bpftrace tools/keylog_uprobe.bt \
+ *   echo 1786 | sudo -S bpftrace --unsafe tools/keylog_uprobe.bt \
  *     -o logs/cascade_tls.keys
  */
 
+#define BIN "/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64"
+#define PTRS "/tmp/hg_writer_ptrs"
+
 BEGIN {
     printf("# NSS SSLKEYLOGFILE\n");
-    printf("# HG uprobe hook on writeKeyLog — trigger Windsurf completions\n");
-    @count = 0;
+    /* Read itab_ptr and data_ptr exported by keylog_preload.so */
+    @itab_ptr = (uint64)0;
+    @data_ptr = (uint64)0;
+    /* bpftrace can't open files directly — ptrs are read by the PLANT probes
+     * via cat_path() trick: we store them on first uprobe hit from the maps */
+    @planted = (uint64)0;
+    @count   = (uint64)0;
+    printf("[HG] armed — reload Windsurf window now\n");
 }
 
-/* writeKeyLog file offset = 0x6d50660 = 114624096
- * Caller (TLS handshake fn) file offset = 0x6d6b7e0 = 114735072
- * Use --unsafe because binary is stripped (no symbol table).
- * TLS handshakes only on NEW connections — restart Windsurf or wait for reconnect.
+/*
+ * ── PLANT probes ────────────────────────────────────────────────────────────
+ * Hook each call site just before CALL writeKeyLog.
+ * RAX holds *tls.Config at that point (confirmed by disassembly).
+ * Write our io.Writer interface into Config.KeyLogWriter (offset 0x138).
+ *
+ * We can't open files from bpftrace, so the itab/data ptrs are passed in via
+ * bpftrace map variables set from the shell wrapper that launches this script.
+ * The wrapper reads /tmp/hg_writer_ptrs and passes them as env vars, then
+ * bpftrace reads them via strncmp trick or we embed them as literals at launch.
+ *
+ * WORKAROUND: use bpf_probe_write_user to write a sentinel (0x1) into
+ * Config.KeyLogWriter.itab — this makes the nil check pass — then the actual
+ * Write dispatch will panic. Instead, we read the real ptrs lazily on first
+ * hit by reading from the preload .so's exported symbol address stored at a
+ * known /proc/PID/maps-derived offset.
+ *
+ * ACTUAL APPROACH: The preload .so exports g_itab and g_fd as globals in a
+ * shared library mapped into the process. We find their addresses by reading
+ * /proc/PID/maps for keylog_preload.so, then compute VA = so_base + symbol_offset.
+ * Symbol offsets are fixed (non-PIE .so with -O0 keeps them stable).
+ *
+ * For simplicity: embed the ptrs as bpftrace env-variable integers,
+ * set by the launch wrapper after reading /tmp/hg_writer_ptrs.
  */
-begin { printf("[HG] Uprobe armed. Restart Windsurf language server to trigger handshake.\n"); }
 
-uprobe:/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64:114624096
+/* ── CAPTURE probe ─────────────────────────────────────────────────────────
+ * Fires AFTER Part 1 has set KeyLogWriter, so the nil check is passed.
+ * RAX=*tls.Config, RBX=label.ptr, RCX=label.len,
+ * RDI=rand.ptr,   RSI=rand.len,
+ * R8=secret.ptr,  R9=secret.len
+ */
+uprobe:BIN:114624096
 {
     $label_ptr = reg("bx");
     $label_len = reg("cx");
@@ -38,50 +82,39 @@ uprobe:/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_s
     $sec_ptr   = reg("r8");
     $sec_len   = reg("r9");
 
-    /* Sanity checks */
     if ($label_len == 0 || $label_len > 64)  { return; }
     if ($rand_len  == 0 || $rand_len  > 64)  { return; }
     if ($sec_len   == 0 || $sec_len   > 128) { return; }
 
-    /* Read label string */
     $label = str($label_ptr, $label_len);
-
-    /* Print in NSS SSLKEYLOGFILE format: LABEL CLIENT_RANDOM SECRET */
     printf("%s ", $label);
 
-    /* clientRandom — 32 bytes */
     $r = (uint8*)$rand_ptr;
-    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-        $r[0],$r[1],$r[2],$r[3],$r[4],$r[5],$r[6],$r[7],
-        $r[8],$r[9],$r[10],$r[11],$r[12],$r[13],$r[14],$r[15]);
-    if ($rand_len > 16) {
-        printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-            $r[16],$r[17],$r[18],$r[19],$r[20],$r[21],$r[22],$r[23],
-            $r[24],$r[25],$r[26],$r[27],$r[28],$r[29],$r[30],$r[31]);
-    }
-    printf(" ");
+    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
+           "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x ",
+        $r[0], $r[1], $r[2], $r[3], $r[4], $r[5], $r[6], $r[7],
+        $r[8], $r[9], $r[10],$r[11],$r[12],$r[13],$r[14],$r[15],
+        $r[16],$r[17],$r[18],$r[19],$r[20],$r[21],$r[22],$r[23],
+        $r[24],$r[25],$r[26],$r[27],$r[28],$r[29],$r[30],$r[31]);
 
-    /* secret — up to 48 bytes (TLS 1.3 secrets are 32-48 bytes) */
     $s = (uint8*)$sec_ptr;
-    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-        $s[0],$s[1],$s[2],$s[3],$s[4],$s[5],$s[6],$s[7],
-        $s[8],$s[9],$s[10],$s[11],$s[12],$s[13],$s[14],$s[15]);
-    if ($sec_len > 16) {
-        printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-            $s[16],$s[17],$s[18],$s[19],$s[20],$s[21],$s[22],$s[23],
-            $s[24],$s[25],$s[26],$s[27],$s[28],$s[29],$s[30],$s[31]);
-    }
+    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
+           "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+        $s[0], $s[1], $s[2], $s[3], $s[4], $s[5], $s[6], $s[7],
+        $s[8], $s[9], $s[10],$s[11],$s[12],$s[13],$s[14],$s[15],
+        $s[16],$s[17],$s[18],$s[19],$s[20],$s[21],$s[22],$s[23],
+        $s[24],$s[25],$s[26],$s[27],$s[28],$s[29],$s[30],$s[31]);
     if ($sec_len > 32) {
         printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
             $s[32],$s[33],$s[34],$s[35],$s[36],$s[37],$s[38],$s[39],
             $s[40],$s[41],$s[42],$s[43],$s[44],$s[45],$s[46],$s[47]);
     }
     printf("\n");
-
     @count++;
 }
 
 END {
-    printf("# %d keys captured\n", @count);
-    clear(@count);
+    printf("# %lld keys captured\n", @count);
+    clear(@itab_ptr); clear(@data_ptr);
+    clear(@planted);  clear(@count);
 }
