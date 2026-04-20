@@ -24,6 +24,9 @@ ITEMS=(
     "Open Dashboard         Rich TUI monitor"
     "Verify status          services + patches"
     "Tidy project root      archive stale files"
+    "Start sniffer          capture Cascade traffic"
+    "Stop sniffer           restore hosts"
+    "Clean /etc/hosts       remove HG redirects"
     "Full setup             patch > start > verify"
     "Quit"
 )
@@ -246,6 +249,76 @@ do_tidy() {
     pause
 }
 
+do_hosts_clean() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Cleaning /etc/hosts...${NC}\n"
+
+    local hosts="/etc/hosts"
+    local removed=0
+
+    if [ ! -w "$hosts" ]; then
+        echo -e "  ${R}Need sudo to modify /etc/hosts${NC}"
+        pause
+        return
+    fi
+
+    # Remove HG-SNIFF and HG-PATCH markers
+    local temp=$(mktemp)
+    while IFS= read -r line; do
+        if [[ "$line" != *HG-SNIFF* && "$line" != *HG-PATCH* ]]; then
+            echo "$line" >> "$temp"
+        else
+            removed=$((removed+1))
+        fi
+    done < "$hosts"
+
+    if [ "$removed" -gt 0 ]; then
+        echo "$SUDO_PASS" | sudo -S cp "$temp" "$hosts"
+        echo -e "  ${G}Removed $removed host entries${NC}"
+    else
+        echo -e "  ${G}No HG entries found${NC}"
+    fi
+
+    rm "$temp"
+    pause
+}
+
+do_sniff_start() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Starting Cascade sniffer...${NC}\n"
+
+    # Kill old sniffer
+    pkill -f "sniff_cascade.py" 2>/dev/null || true
+    sleep 1
+
+    # Start sniffer in background
+    echo "$SUDO_PASS" | sudo -S -E PYTHONPATH=. python3 tools/sniff_cascade.py > logs/sniffer.log 2>&1 &
+    sleep 2
+
+    if pgrep -f "sniff_cascade.py" >/dev/null 2>&1; then
+        echo -e "  ${G}[+] Sniffer running on port 443${NC}"
+        echo -e "  ${D}Logs: logs/cascade_sniff.log + .jsonl${NC}"
+    else
+        echo -e "  ${R}[-] Sniffer failed to start${NC}"
+        echo -e "  ${D}Check logs/sniffer.log${NC}"
+    fi
+    pause
+}
+
+do_sniff_stop() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Stopping Cascade sniffer...${NC}\n"
+
+    pkill -f "sniff_cascade.py" 2>/dev/null || true
+    sleep 1
+
+    # Clean hosts
+    do_hosts_clean
+
+    echo -e "  ${G}[+] Sniffer stopped, hosts restored${NC}"
+    pause
+}
+
 # ─── main TUI loop ──────────────────────────────────────────────────
 main() {
     printf "${HIDE}"
@@ -264,8 +337,11 @@ main() {
                     3) do_dashboard ;;
                     4) do_verify ;;
                     5) do_tidy ;;
-                    6) do_patch; do_start ;;
-                    7) break ;;
+                    6) do_sniff_start ;;
+                    7) do_sniff_stop ;;
+                    8) do_hosts_clean ;;
+                    9) do_patch; do_start ;;
+                    10) break ;;
                 esac
                 ;;
             NUM1) SEL=0; do_patch ;;
@@ -274,7 +350,10 @@ main() {
             NUM4) SEL=3; do_dashboard ;;
             NUM5) SEL=4; do_verify ;;
             NUM6) SEL=5; do_tidy ;;
-            NUM7) SEL=6; do_patch; do_start ;;
+            NUM7) SEL=6; do_sniff_start ;;
+            NUM8) SEL=7; do_sniff_stop ;;
+            NUM9) SEL=8; do_hosts_clean ;;
+            NUM0) SEL=9; do_patch; do_start ;;
             QUIT|ESC) break ;;
         esac
     done
