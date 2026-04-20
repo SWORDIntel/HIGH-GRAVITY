@@ -87,6 +87,53 @@ def patch_file(ext_path: Path):
         modified = True
     elif "http://shield.windsurf.com:9999/unleash/" in content:
         print("    [-] Unleash redirection already present.")
+    
+    # Patch A4: Hardcoded INFERENCE_API_SERVER_URL in config map
+    old_inference_config = 'INFERENCE_API_SERVER_URL,"https://inference.codeium.com"'
+    new_inference_config = 'INFERENCE_API_SERVER_URL,"http://shield.windsurf.com:9999"'
+    
+    if old_inference_config in content:
+        content = content.replace(old_inference_config, new_inference_config)
+        print("    [✓] Hardcoded INFERENCE_API_SERVER_URL redirected.")
+        modified = True
+    
+    # Patch A5: Hardcoded DEFAULT_API_SERVER_URL
+    old_api_default = 'DEFAULT_API_SERVER_URL="https://server.codeium.com"'
+    new_api_default = 'DEFAULT_API_SERVER_URL="http://shield.windsurf.com:9999"'
+    
+    if old_api_default in content:
+        content = content.replace(old_api_default, new_api_default)
+        print("    [✓] Hardcoded DEFAULT_API_SERVER_URL redirected.")
+        modified = True
+    
+    # Patch A6: Hardcoded DEFAULT_REGISTER_API_SERVER_URL
+    old_register = 'DEFAULT_REGISTER_API_SERVER_URL="https://register.windsurf.com"'
+    new_register = 'DEFAULT_REGISTER_API_SERVER_URL="http://shield.windsurf.com:9999"'
+    
+    if old_register in content:
+        content = content.replace(old_register, new_register)
+        print("    [✓] Hardcoded DEFAULT_REGISTER_API_SERVER_URL redirected.")
+        modified = True
+    
+    # Patch A7: EU API routes
+    old_eu_route = '"https://eu.windsurf.com/_route/api_server"'
+    new_eu_route = '"http://shield.windsurf.com:9999"'
+    
+    eu_count = content.count(old_eu_route)
+    if eu_count > 0:
+        content = content.replace(old_eu_route, new_eu_route)
+        print(f"    [✓] Redirected {eu_count} EU API route(s).")
+        modified = True
+    
+    # Patch A8: Fed API routes
+    old_fed_route = '"https://windsurf.fedstart.com/_route/api_server"'
+    new_fed_route = '"http://shield.windsurf.com:9999"'
+    
+    fed_count = content.count(old_fed_route)
+    if fed_count > 0:
+        content = content.replace(old_fed_route, new_fed_route)
+        print(f"    [✓] Redirected {fed_count} Fed API route(s).")
+        modified = True
 
     # Patch B: Universal Optimizer & Protocol Interceptor
     optimizer_code = f"""
