@@ -1,295 +1,283 @@
 #!/bin/bash
-# HIGH-GRAVITY Bootstrap v2.0
-# Interactive menu for all operations
+# HIGH-GRAVITY Bootstrap v3.0 — ANSI TUI
+# Pure bash, no whiptail/dialog dependency
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 SUDO_PASS="1786"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# ─── ANSI codes ──────────────────────────────────────────────────────
+ESC=$'\033'
+G="${ESC}[32m"; R="${ESC}[31m"; Y="${ESC}[33m"; B="${ESC}[34m"
+C="${ESC}[36m"; M="${ESC}[35m"; W="${ESC}[97m"; D="${ESC}[2m"
+BG="${ESC}[44m"; BOLD="${ESC}[1m"; INV="${ESC}[7m"; NC="${ESC}[0m"
+HIDE="${ESC}[?25l"; SHOW="${ESC}[?25h"; CLR="${ESC}[2J${ESC}[H"
 
-banner() {
-    echo -e "${CYAN}"
-    echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║          HIGH-GRAVITY BOOTSTRAP v2.0                      ║"
-    echo "╚════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-}
-
-# ─── helpers ──────────────────────────────────────────────────────────
 check_port() { lsof -i:$1 >/dev/null 2>&1; }
 
-status_line() {
-    local name="$1" check="$2"
-    if eval "$check"; then
-        echo -e "  ${name}: ${GREEN}✓ RUNNING${NC}"
+# ─── draw menu ───────────────────────────────────────────────────────
+ITEMS=(
+    "Patch Windsurf         extension + binary"
+    "Undo patches           restore originals"
+    "Start everything       proxy + khoj + verify"
+    "Open Dashboard         Rich TUI monitor"
+    "Verify status          services + patches"
+    "Tidy project root      archive stale files"
+    "Full setup             patch > start > verify"
+    "Quit"
+)
+SEL=0
+
+draw_menu() {
+    printf "${CLR}"
+    printf "${C}${BOLD}"
+    printf "  ╔══════════════════════════════════════════════════════╗\n"
+    printf "  ║           HIGH-GRAVITY  BOOTSTRAP  v3.0             ║\n"
+    printf "  ╚══════════════════════════════════════════════════════╝\n"
+    printf "${NC}\n"
+
+    # Quick status bar
+    local p_s k_s w_s
+    check_port 9999 && p_s="${G}ON${NC}" || p_s="${R}OFF${NC}"
+    curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1 && k_s="${G}ON${NC}" || k_s="${D}OFF${NC}"
+    pgrep -f "windsurf" >/dev/null 2>&1 && w_s="${G}ON${NC}" || w_s="${D}OFF${NC}"
+    printf "  ${D}Proxy:${NC} $p_s  ${D}Khoj:${NC} $k_s  ${D}Windsurf:${NC} $w_s\n\n"
+
+    local i=0
+    for item in "${ITEMS[@]}"; do
+        local label="${item%%  *}"
+        local desc="${item#*  }"
+        if [ $i -eq $SEL ]; then
+            printf "  ${INV}${C} > %-24s ${D}%s ${NC}\n" "$label" "$desc"
+        else
+            printf "    ${W}%-24s ${D}%s${NC}\n" "$label" "$desc"
+        fi
+        i=$((i+1))
+    done
+
+    printf "\n  ${D}Arrow keys to move, Enter to select, q to quit${NC}\n"
+}
+
+read_key() {
+    local key
+    IFS= read -rsn1 key
+    if [[ "$key" == "$ESC" ]]; then
+        read -rsn2 -t 0.1 key
+        case "$key" in
+            '[A') echo "UP" ;;
+            '[B') echo "DOWN" ;;
+            *)    echo "ESC" ;;
+        esac
+    elif [[ "$key" == "" ]]; then
+        echo "ENTER"
+    elif [[ "$key" == "q" || "$key" == "Q" ]]; then
+        echo "QUIT"
+    elif [[ "$key" =~ [1-8] ]]; then
+        echo "NUM$key"
     else
-        echo -e "  ${name}: ${RED}✗ OFFLINE${NC}"
+        echo "OTHER"
     fi
 }
 
-# ─── core functions ───────────────────────────────────────────────────
-do_cleanup() {
-    echo -e "${BLUE}[*] Cleaning up...${NC}"
-    pkill -f "hg.py\|hg_simple.py" 2>/dev/null || true
-    pkill -f "src/proxy.py" 2>/dev/null || true
-    pkill -f "khoj.*--port.*42110" 2>/dev/null || true
-    sleep 2
-    echo -e "${GREEN}[✓] All processes killed${NC}"
+# ─── pause helper ────────────────────────────────────────────────────
+pause() {
+    echo ""
+    echo -e "  ${D}Press any key to return...${NC}"
+    read -rsn1
 }
 
+# ─── core operations ─────────────────────────────────────────────────
 do_patch() {
-    echo ""
-    echo -e "${BOLD}Applying all patches...${NC}"
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Applying all patches...${NC}\n"
+
+    echo -e "${B}  [1/2] Extension patches${NC}"
+    python3 src/patch_windsurf_client.py --force 2>&1 | sed 's/^/  /'
     echo ""
 
-    # Extension patches
-    echo -e "${BLUE}[1/2] Extension patches${NC}"
-    python3 src/patch_windsurf_client.py --force
+    echo -e "${B}  [2/2] Binary patches${NC}"
+    python3 src/patch_language_server_binary.py 2>&1 | sed 's/^/  /'
     echo ""
 
-    # Binary patches
-    echo -e "${BLUE}[2/2] Binary patches${NC}"
-    python3 src/patch_language_server_binary.py
-    echo ""
-
-    echo -e "${GREEN}[✓] All patches applied${NC}"
-    echo -e "${YELLOW}[!] Restart Windsurf for changes to take effect${NC}"
+    echo -e "${G}  Done. Restart Windsurf to apply.${NC}"
+    pause
 }
 
 do_undo() {
-    echo ""
-    echo -e "${BOLD}Undoing all patches...${NC}"
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Undoing all patches...${NC}\n"
+
+    echo -e "${B}  [1/2] Restoring extension.js${NC}"
+    python3 src/patch_windsurf_client.py --undo 2>&1 | sed 's/^/  /'
     echo ""
 
-    # Extension undo
-    echo -e "${BLUE}[1/2] Restoring extension.js${NC}"
-    python3 src/patch_windsurf_client.py --undo
+    echo -e "${B}  [2/2] Restoring language server binary${NC}"
+    python3 src/patch_language_server_binary.py --restore 2>&1 | sed 's/^/  /'
     echo ""
 
-    # Binary undo
-    echo -e "${BLUE}[2/2] Restoring language server binary${NC}"
-    python3 src/patch_language_server_binary.py --restore
-    echo ""
-
-    echo -e "${GREEN}[✓] All patches undone${NC}"
-    echo -e "${YELLOW}[!] Restart Windsurf for changes to take effect${NC}"
+    echo -e "${G}  Done. Restart Windsurf to apply.${NC}"
+    pause
 }
 
 do_start() {
-    echo ""
-    echo -e "${BOLD}Starting all services...${NC}"
-    echo ""
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Starting all services...${NC}\n"
 
-    # Cleanup first
-    do_cleanup
-
-    # Setup certs
-    echo -e "${BLUE}[*] Checking HTTPS certificates...${NC}"
-    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
-        echo -e "${GREEN}[✓] Certificates found${NC}"
-    else
-        echo -e "${YELLOW}[*] Generating certificates...${NC}"
-        python3 add_https_to_proxy.py >/dev/null 2>&1
-    fi
+    echo -e "${B}  [*] Killing old processes${NC}"
+    pkill -f "hg_dashboard.py\|hg_simple.py\|hg.py" 2>/dev/null || true
+    pkill -f "src/proxy.py" 2>/dev/null || true
+    pkill -f "khoj.*--port.*42110" 2>/dev/null || true
+    sleep 1
+    echo -e "${G}  [+] Cleaned${NC}"
 
     mkdir -p logs
 
-    # HTTP proxy
-    echo -e "${BLUE}[*] Starting HTTP proxy (port 9999)...${NC}"
+    echo -e "${B}  [*] Starting HTTP proxy (9999)${NC}"
     PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
 
-    # HTTPS proxy
     if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
-        echo -e "${BLUE}[*] Starting HTTPS proxy (port 443)...${NC}"
+        echo -e "${B}  [*] Starting HTTPS proxy (443)${NC}"
         echo "$SUDO_PASS" | sudo -S -E PYTHONPATH=. python3 src/proxy.py --https > logs/proxy_https.log 2>&1 &
     fi
 
-    # Wait for HTTP
-    for i in {1..10}; do
-        check_port 9999 && break
-        sleep 1
-    done
+    echo -e "${B}  [*] Waiting for proxy...${NC}"
+    for i in {1..10}; do check_port 9999 && break; sleep 1; done
+    check_port 9999 && echo -e "${G}  [+] Proxy online${NC}" || echo -e "${R}  [-] Proxy failed${NC}"
 
-    # Khoj
-    echo -e "${BLUE}[*] Starting Khoj...${NC}"
     if [ -d "khoj" ]; then
+        echo -e "${B}  [*] Starting Khoj${NC}"
         bash bin/khoj_launcher.sh >/dev/null 2>&1 &
-        for i in {1..20}; do
+        for i in {1..15}; do
             curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1 && break
             sleep 1
         done
+        curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1 \
+            && echo -e "${G}  [+] Khoj online${NC}" \
+            || echo -e "${Y}  [~] Khoj still starting${NC}"
     else
-        echo -e "${YELLOW}    Khoj directory not found, skipping${NC}"
+        echo -e "${D}  [~] Khoj not installed, skipping${NC}"
     fi
 
     echo ""
-    do_verify
+    do_verify_inline
+    pause
 }
 
-do_verify() {
-    echo -e "${BOLD}Service Status:${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    status_line "Proxy HTTP  (9999)" "check_port 9999"
-    status_line "Proxy HTTPS (443) " "check_port 443"
-    status_line "Khoj        (42110)" "curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1"
-    status_line "Dashboard         " "pgrep -f 'hg_simple.py\|hg.py' >/dev/null 2>&1"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+do_verify_inline() {
+    echo -e "${BOLD}${C}  Status:${NC}"
+    echo -e "  ────────────────────────────────────────"
+
+    # Services
+    check_port 9999 && echo -e "  Proxy HTTP  (9999)  ${G}RUNNING${NC}" || echo -e "  Proxy HTTP  (9999)  ${R}OFFLINE${NC}"
+    check_port 443  && echo -e "  Proxy HTTPS (443)   ${G}RUNNING${NC}" || echo -e "  Proxy HTTPS (443)   ${D}OFFLINE${NC}"
+    curl -s http://127.0.0.1:42110/api/health >/dev/null 2>&1 \
+        && echo -e "  Khoj        (42110) ${G}RUNNING${NC}" \
+        || echo -e "  Khoj        (42110) ${D}OFFLINE${NC}"
 
     echo ""
-    echo -e "${BOLD}Patch Status:${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     # Extension
     EXT="/usr/share/windsurf-next/resources/app/extensions/windsurf/dist/extension.js"
-    if [ -f "$EXT" ] && grep -q "getApiServerUrlFromContext=A=>{return" "$EXT" 2>/dev/null; then
-        echo -e "  Extension:  ${GREEN}✓ PATCHED${NC} (root cause fix applied)"
+    if [ -f "$EXT" ] && grep -q 'getApiServerUrlFromContext=A=>{return' "$EXT" 2>/dev/null; then
+        echo -e "  Extension   ${G}PATCHED${NC} (root cause fix)"
     elif [ -f "$EXT" ] && grep -q "shield.windsurf.com" "$EXT" 2>/dev/null; then
-        echo -e "  Extension:  ${YELLOW}~ PARTIAL${NC} (missing root cause fix)"
+        echo -e "  Extension   ${Y}PARTIAL${NC}"
     else
-        echo -e "  Extension:  ${RED}✗ UNPATCHED${NC}"
+        echo -e "  Extension   ${R}UNPATCHED${NC}"
     fi
 
     # Binary
     BIN="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64"
     if [ -f "$BIN" ] && strings "$BIN" 2>/dev/null | grep -q "http://127.0.0.1:9999"; then
-        echo -e "  Binary:     ${GREEN}✓ PATCHED${NC}"
+        echo -e "  Binary      ${G}PATCHED${NC}"
     else
-        echo -e "  Binary:     ${RED}✗ UNPATCHED${NC}"
+        echo -e "  Binary      ${R}UNPATCHED${NC}"
     fi
 
     # Windsurf
     if pgrep -f "windsurf" >/dev/null 2>&1; then
         API_URL=$(ps aux | grep language_server_linux | grep -v grep | head -1 | grep -oP "\-\-api_server_url \S+" | awk '{print $2}')
         if [ -z "$API_URL" ]; then
-            echo -e "  Windsurf:   ${YELLOW}~ RUNNING (no language server)${NC}"
+            echo -e "  Windsurf    ${Y}running (no lang server)${NC}"
         elif echo "$API_URL" | grep -q "shield.windsurf.com\|127.0.0.1"; then
-            echo -e "  Windsurf:   ${GREEN}✓ RUNNING (→ proxy: $API_URL)${NC}"
+            echo -e "  Windsurf    ${G}PROXY${NC} $API_URL"
         else
-            echo -e "  Windsurf:   ${RED}! RUNNING (→ EXTERNAL: $API_URL)${NC}"
-            echo -e "             ${YELLOW}  Restart Windsurf to pick up patches${NC}"
+            echo -e "  Windsurf    ${R}EXTERNAL${NC} $API_URL"
+            echo -e "              ${Y}^ Restart Windsurf to pick up patches${NC}"
         fi
     else
-        echo -e "  Windsurf:   ${RED}○ NOT RUNNING${NC}"
+        echo -e "  Windsurf    ${D}not running${NC}"
     fi
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "  ────────────────────────────────────────"
+}
+
+do_verify() {
+    printf "${CLR}"
+    do_verify_inline
+    pause
 }
 
 do_dashboard() {
-    echo -e "${BLUE}[*] Launching dashboard...${NC}"
-    exec python3 hg_simple.py
+    printf "${SHOW}"
+    exec python3 hg_dashboard.py
 }
 
 do_tidy() {
-    echo -e "${BOLD}Cleaning project root...${NC}"
-    echo ""
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Cleaning project root...${NC}\n"
 
     mkdir -p archive/old_scripts
+    local moved=0
 
-    STALE_FILES=(
-        "setup_network_redirect.sh"
-        "start_https_proxy.sh"
-        "launch_debug.sh"
-        "STATUS.md"
-        "HTTPS_PROXY_COMPLETE.md"
-        "WINDSURF_MITM_FIX.md"
-        "WINDSURF_FIX_SUMMARY.md"
-        "PATCHER_V2_GUIDE.md"
-        "complete_setup.sh"
-    )
-
-    MOVED=0
-    for f in "${STALE_FILES[@]}"; do
+    for f in setup_network_redirect.sh start_https_proxy.sh launch_debug.sh \
+             STATUS.md HTTPS_PROXY_COMPLETE.md WINDSURF_MITM_FIX.md \
+             WINDSURF_FIX_SUMMARY.md PATCHER_V2_GUIDE.md complete_setup.sh; do
         if [ -f "$f" ]; then
             mv "$f" archive/old_scripts/
-            echo -e "  ${GREEN}→${NC} $f → archive/old_scripts/"
-            ((MOVED++))
+            echo -e "  ${G}>${NC} $f"
+            moved=$((moved+1))
         fi
     done
 
-    if [ "$MOVED" -eq 0 ]; then
-        echo -e "  ${GREEN}✓ Root already clean${NC}"
-    else
-        echo -e "\n  ${GREEN}✓ Moved $MOVED file(s) to archive/${NC}"
-    fi
+    [ "$moved" -eq 0 ] \
+        && echo -e "  ${G}Root already clean.${NC}" \
+        || echo -e "\n  ${G}Moved $moved file(s) to archive/${NC}"
+    pause
 }
 
-# ─── interactive menu ─────────────────────────────────────────────────
-menu() {
-    banner
-    echo -e "${BOLD}  [1]${NC}  Patch Windsurf       (extension + binary)"
-    echo -e "${BOLD}  [2]${NC}  Undo patches         (restore originals)"
-    echo -e "${BOLD}  [3]${NC}  Start everything      (clean + proxy + khoj + verify)"
-    echo -e "${BOLD}  [4]${NC}  Dashboard             (launch hg_simple.py)"
-    echo -e "${BOLD}  [5]${NC}  Verify status         (services + patches)"
-    echo -e "${BOLD}  [6]${NC}  Tidy project root     (archive stale files)"
-    echo -e "${BOLD}  [7]${NC}  Full setup            (patch → start → verify)"
-    echo -e "${BOLD}  [q]${NC}  Quit"
-    echo ""
-    echo -n "Choice: "
-}
-
-# ─── CLI or interactive ──────────────────────────────────────────────
+# ─── main TUI loop ──────────────────────────────────────────────────
 main() {
-    case "${1:-}" in
-        --patch)    banner; do_patch ;;
-        --undo)     banner; do_undo ;;
-        --start)    banner; do_start ;;
-        --dashboard) banner; do_dashboard ;;
-        --verify)   banner; do_verify ;;
-        --tidy)     banner; do_tidy ;;
-        --full)     banner; do_patch; echo ""; do_start ;;
-        --help|-h)
-            banner
-            echo "Usage: $0 [OPTION]"
-            echo ""
-            echo "Options (non-interactive):"
-            echo "  --patch       Apply all patches"
-            echo "  --undo        Undo all patches"
-            echo "  --start       Clean + start all services"
-            echo "  --dashboard   Launch dashboard"
-            echo "  --verify      Show status of services + patches"
-            echo "  --tidy        Archive stale files from root"
-            echo "  --full        Patch + start + verify"
-            echo "  --help        Show this help"
-            echo ""
-            echo "Run without arguments for interactive menu."
-            ;;
-        "")
-            # Interactive mode
-            while true; do
-                menu
-                read -r choice
-                echo ""
-                case "$choice" in
-                    1) do_patch ;;
-                    2) do_undo ;;
-                    3) do_start ;;
-                    4) do_dashboard ;;
-                    5) do_verify ;;
-                    6) do_tidy ;;
-                    7) do_patch; echo ""; do_start ;;
-                    q|Q) echo "Bye."; exit 0 ;;
-                    *) echo -e "${RED}Invalid choice${NC}" ;;
+    printf "${HIDE}"
+    trap "printf '${SHOW}${CLR}'; exit 0" EXIT INT TERM
+
+    while true; do
+        draw_menu
+        case "$(read_key)" in
+            UP)    SEL=$(( (SEL - 1 + ${#ITEMS[@]}) % ${#ITEMS[@]} )) ;;
+            DOWN)  SEL=$(( (SEL + 1) % ${#ITEMS[@]} )) ;;
+            ENTER)
+                case $SEL in
+                    0) do_patch ;;
+                    1) do_undo ;;
+                    2) do_start ;;
+                    3) do_dashboard ;;
+                    4) do_verify ;;
+                    5) do_tidy ;;
+                    6) do_patch; do_start ;;
+                    7) break ;;
                 esac
-                echo ""
-                echo -e "${CYAN}Press ENTER to return to menu...${NC}"
-                read -r
-            done
-            ;;
-        *)
-            echo "Unknown option: $1 (use --help)"
-            exit 1
-            ;;
-    esac
+                ;;
+            NUM1) SEL=0; do_patch ;;
+            NUM2) SEL=1; do_undo ;;
+            NUM3) SEL=2; do_start ;;
+            NUM4) SEL=3; do_dashboard ;;
+            NUM5) SEL=4; do_verify ;;
+            NUM6) SEL=5; do_tidy ;;
+            NUM7) SEL=6; do_patch; do_start ;;
+            QUIT|ESC) break ;;
+        esac
+    done
 }
 
-main "$@"
+main
