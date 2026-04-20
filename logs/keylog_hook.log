@@ -1,0 +1,41 @@
+[sudo] password for john: 
+  ┌─────────────────────────────────────────────┐
+  │    TLS KEYLOG EXTRACTOR (GDB hook)           │
+  └─────────────────────────────────────────────┘
+
+  PID:            40868
+  Text load addr: 0x5621e2486000
+  writeKeyLog:    0x5621e26fd660
+  Key file:       /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_tls.keys
+
+  [*] Attaching GDB... (process pauses for ~1s, then continues)
+  [*] Trigger a Windsurf completion to generate keys
+  [*] Ctrl+C to stop
+
+  [New LWP 44683]
+  [New LWP 44682]
+  [New LWP 44174]
+  [New LWP 41843]
+  [New LWP 41501]
+  [New LWP 40930]
+  [New LWP 40879]
+  [New LWP 40878]
+  [New LWP 40877]
+  [New LWP 40876]
+  [New LWP 40875]
+  [New LWP 40874]
+  [New LWP 40873]
+  [New LWP 40872]
+  [New LWP 40871]
+  [Thread debugging using libthread_db enabled]
+  Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+  0x00005621e251e6c3 in ?? ()
+  Breakpoint 1 at 0x5621e26fd660
+  [HG-KEYLOG] Hooked writeKeyLog at 0x5621e26fd660
+  [HG-KEYLOG] Keys -> /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_tls.keys
+  [Detaching after vfork from child process 44805]
+  [Detaching after vfork from child process 44860]
+  [Detaching after vfork from child process 44901]
+  [Detaching after vfork from child process 44966]
+
+  [+] 0 session keys captured -> /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_tls.keys

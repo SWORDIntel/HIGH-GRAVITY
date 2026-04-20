@@ -1,0 +1,87 @@
+#!/usr/bin/env bpftrace
+/*
+ * keylog_uprobe.bt — Non-invasive TLS key extractor for language_server_linux_x64
+ *
+ * Uses Linux uprobes to intercept crypto/tls.(*Config).writeKeyLog
+ * WITHOUT stopping the process — zero disruption to Windsurf.
+ *
+ * Go register ABI (1.17+):
+ *   RAX = *tls.Config
+ *   RBX = label.ptr,  RCX = label.len
+ *   RDI = rand.ptr,   RSI = rand.len
+ *   R8  = secret.ptr, R9  = secret.len
+ *
+ * Usage:
+ *   echo 1786 | sudo -S bpftrace tools/keylog_uprobe.bt \
+ *     -o logs/cascade_tls.keys
+ */
+
+BEGIN {
+    printf("# NSS SSLKEYLOGFILE\n");
+    printf("# HG uprobe hook on writeKeyLog — trigger Windsurf completions\n");
+    @count = 0;
+}
+
+/* writeKeyLog file offset = 0x6d50660 = 114624096
+ * Caller (TLS handshake fn) file offset = 0x6d6b7e0 = 114735072
+ * Use --unsafe because binary is stripped (no symbol table).
+ * TLS handshakes only on NEW connections — restart Windsurf or wait for reconnect.
+ */
+begin { printf("[HG] Uprobe armed. Restart Windsurf language server to trigger handshake.\n"); }
+
+uprobe:/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64:114624096
+{
+    $label_ptr = reg("bx");
+    $label_len = reg("cx");
+    $rand_ptr  = reg("di");
+    $rand_len  = reg("si");
+    $sec_ptr   = reg("r8");
+    $sec_len   = reg("r9");
+
+    /* Sanity checks */
+    if ($label_len == 0 || $label_len > 64)  { return; }
+    if ($rand_len  == 0 || $rand_len  > 64)  { return; }
+    if ($sec_len   == 0 || $sec_len   > 128) { return; }
+
+    /* Read label string */
+    $label = str($label_ptr, $label_len);
+
+    /* Print in NSS SSLKEYLOGFILE format: LABEL CLIENT_RANDOM SECRET */
+    printf("%s ", $label);
+
+    /* clientRandom — 32 bytes */
+    $r = (uint8*)$rand_ptr;
+    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+        $r[0],$r[1],$r[2],$r[3],$r[4],$r[5],$r[6],$r[7],
+        $r[8],$r[9],$r[10],$r[11],$r[12],$r[13],$r[14],$r[15]);
+    if ($rand_len > 16) {
+        printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+            $r[16],$r[17],$r[18],$r[19],$r[20],$r[21],$r[22],$r[23],
+            $r[24],$r[25],$r[26],$r[27],$r[28],$r[29],$r[30],$r[31]);
+    }
+    printf(" ");
+
+    /* secret — up to 48 bytes (TLS 1.3 secrets are 32-48 bytes) */
+    $s = (uint8*)$sec_ptr;
+    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+        $s[0],$s[1],$s[2],$s[3],$s[4],$s[5],$s[6],$s[7],
+        $s[8],$s[9],$s[10],$s[11],$s[12],$s[13],$s[14],$s[15]);
+    if ($sec_len > 16) {
+        printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+            $s[16],$s[17],$s[18],$s[19],$s[20],$s[21],$s[22],$s[23],
+            $s[24],$s[25],$s[26],$s[27],$s[28],$s[29],$s[30],$s[31]);
+    }
+    if ($sec_len > 32) {
+        printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+            $s[32],$s[33],$s[34],$s[35],$s[36],$s[37],$s[38],$s[39],
+            $s[40],$s[41],$s[42],$s[43],$s[44],$s[45],$s[46],$s[47]);
+    }
+    printf("\n");
+
+    @count++;
+}
+
+END {
+    printf("# %d keys captured\n", @count);
+    clear(@count);
+}
