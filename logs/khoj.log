@@ -1,289 +1,38 @@
-2026-04-20 16:19:53,781 - pgserver_django - INFO - Initializing embedded Postgres DB with data directory: /mnt/sdh5/HIGH-GRAVITY/data/khoj/pgserver
+2026-04-20 16:31:39,865 - pgserver_django - INFO - Initializing embedded Postgres DB with data directory: /mnt/DSMIL/HIGH-GRAVITY/data/khoj/pgserver
 NOTICE:  extension "vector" already exists, skipping
-2026-04-20 16:19:53,789 - pgserver_django - INFO - Embedded Postgres DB started successfully
-[15:19:55.415967] WARNING  khoj.routers.email: RESEND_API_KEY not    email.py:23
+2026-04-20 16:31:39,905 - pgserver_django - INFO - Embedded Postgres DB started successfully
+[15:31:42.000839] WARNING  khoj.routers.email: RESEND_API_KEY not    email.py:23
                            set - email sending disabled                         
-[15:19:55.474563] INFO     khoj: 🚒 Initializing Khoj v2.0.0b28      main.py:134
-[15:19:55.475990] INFO     khoj: 📦 Initializing DB:                 main.py:135
+[15:31:42.074794] INFO     khoj: 🚒 Initializing Khoj v2.0.0b28      main.py:134
+[15:31:42.076334] INFO     khoj: 📦 Initializing DB:                 main.py:135
                            Operations to perform:                               
                              Apply all migrations: admin, auth,                 
                            contenttypes, database,                              
                            django_apscheduler, sessions                         
                            Running migrations:                                  
                              No migrations to apply.                            
-[15:19:55.481922] INFO     khoj.utils.initialization: 🗣️    initialization.py:278
+[15:31:42.084453] INFO     khoj.utils.initialization: 🗣️    initialization.py:278
                            Chat model options updated                           
-[15:19:55.484349] INFO     khoj: 🌘 Starting Khoj                    main.py:148
-[15:19:55.486643] INFO     khoj: 🔒 Schedule Leader is already       main.py:169
+[15:31:42.088699] INFO     khoj: 🌘 Starting Khoj                    main.py:148
+[15:31:42.092659] INFO     khoj: 🔒 Schedule Leader is already       main.py:169
                            running                                              
-[15:19:55.488077] INFO     khoj: Started Background Scheduler        main.py:182
-[15:20:00.762433] INFO     khoj.database.adapters: No default    __init__.py:787
+[15:31:42.094903] INFO     khoj: Started Background Scheduler        main.py:182
+[15:31:48.332632] INFO     khoj.database.adapters: No default    __init__.py:787
                            conversation config found, skipping                  
                            default agent creation                               
-[15:20:00.764438] INFO     khoj.configure: 📡 Telemetry enabled configure.py:293
-[15:20:00.765875] INFO     khoj: 🌖 Khoj is ready to engage          main.py:219
-[15:20:00.785224] INFO     uvicorn.error: Started server process    server.py:92
-                           [9070]                                               
-[15:20:00.787343] INFO     uvicorn.error: Waiting for application       on.py:48
+[15:31:48.334680] INFO     khoj.configure: 📡 Telemetry enabled configure.py:293
+[15:31:48.336052] INFO     khoj: 🌖 Khoj is ready to engage          main.py:219
+[15:31:48.362276] INFO     uvicorn.error: Started server process    server.py:92
+                           [13687]                                              
+[15:31:48.364032] INFO     uvicorn.error: Waiting for application       on.py:48
                            startup.                                             
-[15:20:00.789587] INFO     uvicorn.error: Application startup complete. on.py:62
-[15:20:00.791110] INFO     uvicorn.error: Uvicorn running on       server.py:224
+[15:31:48.365675] INFO     uvicorn.error: Application startup complete. on.py:62
+[15:31:48.367445] INFO     uvicorn.error: Uvicorn running on       server.py:224
                            http://127.0.0.1:42110 (Press CTRL+C to              
                            quit)                                                
-[15:20:01.095381] INFO     uvicorn.access: 127.0.0.1:43568 -     h11_impl.py:480
+[15:31:48.408385] INFO     uvicorn.access: 127.0.0.1:43534 -     h11_impl.py:480
                            "GET /api/health HTTP/1.1" 200                       
-[15:20:01.168497] INFO     uvicorn.access: 127.0.0.1:43570 -     h11_impl.py:480
+[15:31:49.385887] INFO     uvicorn.access: 127.0.0.1:43540 -     h11_impl.py:480
                            "GET /api/health HTTP/1.1" 200                       
-[15:20:01.207490] INFO     uvicorn.access: 127.0.0.1:43574 -     h11_impl.py:480
+[15:31:49.613691] INFO     uvicorn.access: 127.0.0.1:43552 -     h11_impl.py:480
                            "GET /api/health HTTP/1.1" 200                       
-[15:20:04.772615] INFO     uvicorn.access: 127.0.0.1:43580 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:06.772212] INFO     uvicorn.access: 127.0.0.1:43582 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:08.904468] INFO     uvicorn.access: 127.0.0.1:35656 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:11.142230] INFO     uvicorn.access: 127.0.0.1:35668 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:13.180936] INFO     uvicorn.access: 127.0.0.1:35684 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:15.429040] INFO     uvicorn.access: 127.0.0.1:35688 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:17.702876] INFO     uvicorn.access: 127.0.0.1:34104 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:19.729991] INFO     uvicorn.access: 127.0.0.1:34106 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:21.738055] INFO     uvicorn.access: 127.0.0.1:34108 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:23.757457] INFO     uvicorn.access: 127.0.0.1:34118 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:26.005608] INFO     uvicorn.access: 127.0.0.1:34126 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:28.230237] INFO     uvicorn.access: 127.0.0.1:40936 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:30.256568] INFO     uvicorn.access: 127.0.0.1:40948 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:32.288744] INFO     uvicorn.access: 127.0.0.1:40958 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:34.374468] INFO     uvicorn.access: 127.0.0.1:40970 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:36.426715] INFO     uvicorn.access: 127.0.0.1:40982 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:38.529914] INFO     uvicorn.access: 127.0.0.1:33498 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:40.586598] INFO     uvicorn.access: 127.0.0.1:33510 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:42.587951] INFO     uvicorn.access: 127.0.0.1:33522 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:44.662811] INFO     uvicorn.access: 127.0.0.1:33524 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:46.905051] INFO     uvicorn.access: 127.0.0.1:33528 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:49.179264] INFO     uvicorn.access: 127.0.0.1:47814 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:51.192652] INFO     uvicorn.access: 127.0.0.1:47820 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:53.414066] INFO     uvicorn.access: 127.0.0.1:47836 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:55.425095] INFO     uvicorn.access: 127.0.0.1:47850 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:57.487894] INFO     uvicorn.access: 127.0.0.1:47852 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:20:59.515496] INFO     uvicorn.access: 127.0.0.1:39086 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:01.532549] INFO     uvicorn.access: 127.0.0.1:39094 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:03.779524] INFO     uvicorn.access: 127.0.0.1:39110 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:06.043819] INFO     uvicorn.access: 127.0.0.1:39118 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:08.065556] INFO     uvicorn.access: 127.0.0.1:39688 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:10.070920] INFO     uvicorn.access: 127.0.0.1:39690 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:12.129803] INFO     uvicorn.access: 127.0.0.1:39694 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:14.191227] INFO     uvicorn.access: 127.0.0.1:39710 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:16.209774] INFO     uvicorn.access: 127.0.0.1:39716 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:18.480788] INFO     uvicorn.access: 127.0.0.1:41944 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:20.476505] INFO     uvicorn.access: 127.0.0.1:41952 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:22.497694] INFO     uvicorn.access: 127.0.0.1:41966 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:24.560789] INFO     uvicorn.access: 127.0.0.1:41970 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:26.842042] INFO     uvicorn.access: 127.0.0.1:41982 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:28.870971] INFO     uvicorn.access: 127.0.0.1:58824 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:30.946803] INFO     uvicorn.access: 127.0.0.1:58840 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:32.946330] INFO     uvicorn.access: 127.0.0.1:58852 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:34.956473] INFO     uvicorn.access: 127.0.0.1:58860 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:36.984098] INFO     uvicorn.access: 127.0.0.1:58868 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:39.073466] INFO     uvicorn.access: 127.0.0.1:55184 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:41.112363] INFO     uvicorn.access: 127.0.0.1:55192 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:43.162703] INFO     uvicorn.access: 127.0.0.1:55200 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:45.225128] INFO     uvicorn.access: 127.0.0.1:55208 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:47.279628] INFO     uvicorn.access: 127.0.0.1:55224 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:49.296453] INFO     uvicorn.access: 127.0.0.1:60548 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:51.369277] INFO     uvicorn.access: 127.0.0.1:60560 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:53.396389] INFO     uvicorn.access: 127.0.0.1:60576 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:55.664916] INFO     uvicorn.access: 127.0.0.1:60586 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:57.908687] INFO     uvicorn.access: 127.0.0.1:59344 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:21:59.913376] INFO     uvicorn.access: 127.0.0.1:59356 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:01.980095] INFO     uvicorn.access: 127.0.0.1:59362 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:04.036922] INFO     uvicorn.access: 127.0.0.1:59364 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:06.035570] INFO     uvicorn.access: 127.0.0.1:59378 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:08.046205] INFO     uvicorn.access: 127.0.0.1:46164 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:10.096733] INFO     uvicorn.access: 127.0.0.1:46180 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:12.102155] INFO     uvicorn.access: 127.0.0.1:46194 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:14.170409] INFO     uvicorn.access: 127.0.0.1:46208 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:16.468904] INFO     uvicorn.access: 127.0.0.1:46218 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:18.731852] INFO     uvicorn.access: 127.0.0.1:52642 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:20.950042] INFO     uvicorn.access: 127.0.0.1:52648 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:23.227711] INFO     uvicorn.access: 127.0.0.1:52650 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:25.233176] INFO     uvicorn.access: 127.0.0.1:52652 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:27.237429] INFO     uvicorn.access: 127.0.0.1:52660 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:29.283010] INFO     uvicorn.access: 127.0.0.1:56744 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:31.326421] INFO     uvicorn.access: 127.0.0.1:56758 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:33.337181] INFO     uvicorn.access: 127.0.0.1:56774 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:35.610413] INFO     uvicorn.access: 127.0.0.1:56786 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:37.639161] INFO     uvicorn.access: 127.0.0.1:41526 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:39.936650] INFO     uvicorn.access: 127.0.0.1:41536 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:41.951015] INFO     uvicorn.access: 127.0.0.1:41548 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:43.974769] INFO     uvicorn.access: 127.0.0.1:41554 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:45.984775] INFO     uvicorn.access: 127.0.0.1:41568 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:48.007081] INFO     uvicorn.access: 127.0.0.1:46574 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:50.054543] INFO     uvicorn.access: 127.0.0.1:46580 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:52.093505] INFO     uvicorn.access: 127.0.0.1:46588 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:54.161561] INFO     uvicorn.access: 127.0.0.1:46598 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:56.197534] INFO     uvicorn.access: 127.0.0.1:46602 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:22:58.432614] INFO     uvicorn.access: 127.0.0.1:52294 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:00.698000] INFO     uvicorn.access: 127.0.0.1:52300 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:02.941480] INFO     uvicorn.access: 127.0.0.1:52304 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:04.953079] INFO     uvicorn.access: 127.0.0.1:52310 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:07.221394] INFO     uvicorn.access: 127.0.0.1:52322 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:09.471599] INFO     uvicorn.access: 127.0.0.1:59750 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:11.532885] INFO     uvicorn.access: 127.0.0.1:59764 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:13.808636] INFO     uvicorn.access: 127.0.0.1:59766 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:15.828096] INFO     uvicorn.access: 127.0.0.1:59774 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:17.859207] INFO     uvicorn.access: 127.0.0.1:45284 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:19.915032] INFO     uvicorn.access: 127.0.0.1:45286 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:22.201809] INFO     uvicorn.access: 127.0.0.1:45290 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:24.206242] INFO     uvicorn.access: 127.0.0.1:45302 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:26.224465] INFO     uvicorn.access: 127.0.0.1:45312 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:28.505974] INFO     uvicorn.access: 127.0.0.1:37800 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:30.534252] INFO     uvicorn.access: 127.0.0.1:37802 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:32.845020] INFO     uvicorn.access: 127.0.0.1:37804 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:34.873466] INFO     uvicorn.access: 127.0.0.1:37814 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:36.914202] INFO     uvicorn.access: 127.0.0.1:37820 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:39.183681] INFO     uvicorn.access: 127.0.0.1:56690 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:41.463720] INFO     uvicorn.access: 127.0.0.1:56692 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:43.473614] INFO     uvicorn.access: 127.0.0.1:56700 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:45.775950] INFO     uvicorn.access: 127.0.0.1:56712 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:47.802211] INFO     uvicorn.access: 127.0.0.1:53842 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:50.051105] INFO     uvicorn.access: 127.0.0.1:53852 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:52.079734] INFO     uvicorn.access: 127.0.0.1:53858 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:54.087840] INFO     uvicorn.access: 127.0.0.1:53864 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:56.340453] INFO     uvicorn.access: 127.0.0.1:53878 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:23:58.359920] INFO     uvicorn.access: 127.0.0.1:42578 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:00.405493] INFO     uvicorn.access: 127.0.0.1:42594 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:02.671429] INFO     uvicorn.access: 127.0.0.1:42608 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:04.728575] INFO     uvicorn.access: 127.0.0.1:42610 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:07.004416] INFO     uvicorn.access: 127.0.0.1:42618 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:09.088758] INFO     uvicorn.access: 127.0.0.1:38780 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:11.150497] INFO     uvicorn.access: 127.0.0.1:38782 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:13.168784] INFO     uvicorn.access: 127.0.0.1:38784 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:15.188378] INFO     uvicorn.access: 127.0.0.1:38800 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:17.455065] INFO     uvicorn.access: 127.0.0.1:38814 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:24:19.732783] INFO     uvicorn.access: 127.0.0.1:39630 -     h11_impl.py:480
-                           "GET /api/health HTTP/1.1" 200                       
-[15:25:49.017557] INFO     uvicorn.error: Shutting down            server.py:272
-[15:25:49.119714] INFO     uvicorn.error: Waiting for application       on.py:67
-                           shutdown.                                            
-[15:25:49.122231] INFO     uvicorn.error: Application shutdown          on.py:76
-                           complete.                                            
-[15:25:49.123574] INFO     uvicorn.error: Finished server process  server.py:102
-                           [9070]                                               

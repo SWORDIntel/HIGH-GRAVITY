@@ -474,22 +474,22 @@ async def proxy_request(path: str, request: Request):
     raise HTTPException(503, "Max retries")
 
 if __name__ == "__main__":
-    import multiprocessing
-    import ssl
+    # Run HTTP proxy on port 9999 (default)
+    # For HTTPS on port 443, use: sudo python3 src/proxy.py --https
+    import sys
     from pathlib import Path
     
-    # Certificate paths
-    REPO_ROOT = Path(__file__).resolve().parent.parent
-    CERT_FILE = REPO_ROOT / "certs" / "proxy.crt"
-    KEY_FILE = REPO_ROOT / "certs" / "proxy.key"
+    # Check for --https flag
+    enable_https = "--https" in sys.argv
     
-    def run_http():
-        """Run HTTP proxy on port 9999"""
-        uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="error")
-    
-    def run_https():
-        """Run HTTPS proxy on port 443"""
+    if enable_https:
+        # Certificate paths
+        REPO_ROOT = Path(__file__).resolve().parent.parent
+        CERT_FILE = REPO_ROOT / "certs" / "proxy.crt"
+        KEY_FILE = REPO_ROOT / "certs" / "proxy.key"
+        
         if CERT_FILE.exists() and KEY_FILE.exists():
+            logger.info("Starting HTTPS proxy on port 443")
             uvicorn.run(
                 app,
                 host="0.0.0.0",
@@ -499,18 +499,8 @@ if __name__ == "__main__":
                 log_level="error"
             )
         else:
-            logger.warning("HTTPS certificates not found, skipping HTTPS proxy")
-    
-    # Run both HTTP and HTTPS in parallel
-    http_process = multiprocessing.Process(target=run_http)
-    https_process = multiprocessing.Process(target=run_https)
-    
-    http_process.start()
-    https_process.start()
-    
-    try:
-        http_process.join()
-        https_process.join()
-    except KeyboardInterrupt:
-        http_process.terminate()
-        https_process.terminate()
+            logger.error("HTTPS certificates not found. Run: python3 add_https_to_proxy.py")
+            sys.exit(1)
+    else:
+        # Default: HTTP on port 9999
+        uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="error")

@@ -82,23 +82,31 @@ start_proxy() {
         echo -e "${GREEN}[*] HTTPS enabled (port 443)${NC}"
     fi
     
-    # Start proxy (needs sudo for port 443)
+    # Start HTTP proxy (port 9999)
+    PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
+    HTTP_PID=$!
+    
+    # Start HTTPS proxy (port 443) if certs exist
     if [ "$HTTPS_ENABLED" = true ]; then
-        # Use sudo with -E to preserve environment
-        echo "1786" | sudo -S -E PYTHONPATH=. python3 src/proxy.py > logs/proxy.log 2>&1 &
-        PROXY_PID=$!
-    else
-        PYTHONPATH=. nohup python3 src/proxy.py > logs/proxy.log 2>&1 &
-        PROXY_PID=$!
+        echo "1786" | sudo -S -E PYTHONPATH=. python3 src/proxy.py --https > logs/proxy_https.log 2>&1 &
+        HTTPS_PID=$!
     fi
     
-    # Wait for proxy to be ready
+    # Wait for HTTP proxy to be ready
     for i in {1..10}; do
         if lsof -i:9999 >/dev/null 2>&1; then
-            if [ "$HTTPS_ENABLED" = true ] && lsof -i:443 >/dev/null 2>&1; then
-                echo -e "${GREEN}[✓] Proxy started (PID: $PROXY_PID, HTTP: 9999, HTTPS: 443)${NC}"
+            if [ "$HTTPS_ENABLED" = true ]; then
+                # Wait a bit more for HTTPS
+                sleep 2
+                if lsof -i:443 >/dev/null 2>&1; then
+                    echo -e "${GREEN}[✓] Proxy started (HTTP PID: $HTTP_PID, HTTPS PID: $HTTPS_PID)${NC}"
+                    echo -e "${GREEN}    HTTP: 9999, HTTPS: 443${NC}"
+                else
+                    echo -e "${GREEN}[✓] HTTP Proxy started (PID: $HTTP_PID, Port: 9999)${NC}"
+                    echo -e "${YELLOW}[!] HTTPS failed to start (check logs/proxy_https.log)${NC}"
+                fi
             else
-                echo -e "${GREEN}[✓] Proxy started (PID: $PROXY_PID, HTTP: 9999)${NC}"
+                echo -e "${GREEN}[✓] Proxy started (PID: $HTTP_PID, Port: 9999)${NC}"
             fi
             return 0
         fi
