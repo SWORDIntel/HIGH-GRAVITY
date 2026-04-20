@@ -51,7 +51,11 @@ fi
 # Export environment variables
 export KHOJ_ADMIN_EMAIL="$KHOJ_ADMIN_EMAIL"
 export KHOJ_ADMIN_PASSWORD="$KHOJ_ADMIN_PASSWORD"
-export KHOJ_DB_PATH="$DATA_DIR/khoj.db"
+
+# Use embedded PostgreSQL (pgserver)
+export USE_EMBEDDED_DB="true"
+export PGSERVER_DATA_DIR="$DATA_DIR/pgserver"
+export POSTGRES_DB="khoj"
 
 cd "$KHOJ_DIR"
 
