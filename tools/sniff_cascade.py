@@ -139,6 +139,41 @@ def remove_hosts():
     hosts_path.write_text("\n".join(lines) + "\n")
     print(f"  [+] Removed {len(SNIFF_DOMAINS)} domain redirects")
 
+# ─── iptables management ───────────────────────────────────────────────
+IPTABLES_CHAIN = "HG-SNIFF"
+
+def install_iptables():
+    """Redirect Windsurf language server traffic to 127.0.0.1:443 using NAT table"""
+    import subprocess
+
+    # Create chain in nat table if not exists
+    subprocess.run(["iptables", "-t", "nat", "-N", IPTABLES_CHAIN], stderr=subprocess.DEVNULL)
+    subprocess.run(["iptables", "-t", "nat", "-F", IPTABLES_CHAIN], stderr=subprocess.DEVNULL)
+
+    # Redirect target IPs to 127.0.0.1:443
+    for ip in set(UPSTREAM_MAP.values()):
+        subprocess.run([
+            "iptables", "-t", "nat", "-A", IPTABLES_CHAIN,
+            "-p", "tcp", "-d", ip, "--dport", "443",
+            "-j", "REDIRECT", "--to-port", "443"
+        ], stderr=subprocess.DEVNULL)
+
+    # Insert into OUTPUT chain in nat table for outgoing traffic
+    subprocess.run([
+        "iptables", "-t", "nat", "-I", "OUTPUT", "1",
+        "-j", IPTABLES_CHAIN
+    ], stderr=subprocess.DEVNULL)
+
+    print(f"  [+] Redirected {len(set(UPSTREAM_MAP.values()))} IPs via iptables NAT")
+
+def remove_iptables():
+    """Remove iptables NAT rules"""
+    import subprocess
+    subprocess.run(["iptables", "-t", "nat", "-D", "OUTPUT", "-j", IPTABLES_CHAIN], stderr=subprocess.DEVNULL)
+    subprocess.run(["iptables", "-t", "nat", "-F", IPTABLES_CHAIN], stderr=subprocess.DEVNULL)
+    subprocess.run(["iptables", "-t", "nat", "-X", IPTABLES_CHAIN], stderr=subprocess.DEVNULL)
+    print(f"  [+] Removed iptables NAT rules")
+
 
 # ─── HTTPX client that bypasses /etc/hosts ───────────────────────────
 class DirectTransport(httpx.AsyncHTTPTransport):
@@ -240,8 +275,9 @@ async def sniff(request: Request, path: str):
 
 # ─── main ────────────────────────────────────────────────────────────
 def cleanup(sig=None, frame=None):
-    print("\n  [*] Cleaning up /etc/hosts...")
+    print("\n  [*] Cleaning up...")
     remove_hosts()
+    remove_iptables()
     jsonl_file.close()
     human_file.close()
     print("  [*] Done. Logs in logs/cascade_sniff.*")
@@ -268,10 +304,12 @@ if __name__ == "__main__":
     print()
     print("  [*] Installing /etc/hosts redirects...")
     install_hosts()
+    print("  [*] Installing iptables REDIRECT rules...")
+    install_iptables()
     print(f"  [*] Logging to: logs/cascade_sniff.log")
     print(f"  [*] JSONL to:   logs/cascade_sniff.jsonl")
     print(f"  [*] Listening on 0.0.0.0:443 (TLS)")
-    print(f"  [*] Press Ctrl+C to stop and restore /etc/hosts")
+    print(f"  [*] Press Ctrl+C to stop and restore /etc/hosts + iptables")
     print()
     print("  Waiting for Windsurf traffic...")
     print()

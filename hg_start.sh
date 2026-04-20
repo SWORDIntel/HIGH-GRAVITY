@@ -280,6 +280,14 @@ do_hosts_clean() {
     fi
 
     rm "$temp"
+
+    # Remove iptables NAT rules
+    echo -e "${B}  [*] Removing iptables NAT rules...${NC}"
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -D OUTPUT -j HG-SNIFF 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -F HG-SNIFF 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -X HG-SNIFF 2>/dev/null || true
+    echo -e "  ${G}[+] iptables NAT cleaned${NC}"
+
     pause
 }
 
