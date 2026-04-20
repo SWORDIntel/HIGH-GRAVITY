@@ -1,0 +1,20 @@
+2026-04-20 03:52:54.414 BST [245423] LOG:  starting PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit
+2026-04-20 03:52:54.439 BST [245423] LOG:  listening on Unix socket "/mnt/DSMIL/HIGH-GRAVITY/data/khoj/pgserver/.s.PGSQL.5432"
+2026-04-20 03:52:54.501 BST [245433] LOG:  database system was shut down at 2026-04-20 03:52:36 BST
+2026-04-20 03:52:54.524 BST [245423] LOG:  database system is ready to accept connections
+2026-04-20 03:57:54.601 BST [245431] LOG:  checkpoint starting: time
+2026-04-20 04:00:01.398 BST [245431] LOG:  checkpoint complete: wrote 1259 buffers (7.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=125.946 s, sync=0.800 s, total=126.798 s; sync files=708, longest=0.083 s, average=0.002 s; distance=6834 kB, estimate=6834 kB; lsn=0/1B2D548, redo lsn=0/1B2D510
+2026-04-20 04:04:29.673 BST [245423] LOG:  received smart shutdown request
+2026-04-20 04:04:29.708 BST [245461] FATAL:  terminating connection due to administrator command
+2026-04-20 04:04:29.708 BST [245727] FATAL:  terminating connection due to administrator command
+2026-04-20 04:04:29.762 BST [245423] LOG:  background worker "logical replication launcher" (PID 245436) exited with exit code 1
+2026-04-20 04:04:29.763 BST [245431] LOG:  shutting down
+2026-04-20 04:04:29.771 BST [245431] LOG:  checkpoint starting: shutdown immediate
+2026-04-20 04:04:29.810 BST [245431] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.048 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=6151 kB; lsn=0/1B2D5F8, redo lsn=0/1B2D5F8
+2026-04-20 04:04:29.830 BST [245423] LOG:  database system is shut down
+2026-04-20 04:05:32.217 BST [251821] LOG:  starting PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit
+2026-04-20 04:05:32.224 BST [251821] LOG:  listening on Unix socket "/mnt/DSMIL/HIGH-GRAVITY/data/khoj/pgserver/.s.PGSQL.5432"
+2026-04-20 04:05:32.262 BST [251824] LOG:  database system was shut down at 2026-04-20 04:04:29 BST
+2026-04-20 04:05:32.348 BST [251821] LOG:  database system is ready to accept connections
+2026-04-20 04:10:32.360 BST [251822] LOG:  checkpoint starting: time
+2026-04-20 04:10:33.073 BST [251822] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.603 s, sync=0.060 s, total=0.714 s; sync files=8, longest=0.018 s, average=0.008 s; distance=3 kB, estimate=3 kB; lsn=0/1B2E5E0, redo lsn=0/1B2E5A8
