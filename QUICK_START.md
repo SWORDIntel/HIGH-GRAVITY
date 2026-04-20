@@ -7,17 +7,22 @@
 pkill -f windsurf
 ```
 
-### Step 2: Patch Language Server Binary
+### Step 2: Apply All Patches
 ```bash
 cd /mnt/DSMIL/HIGH-GRAVITY
-bash patch_windsurf_binary.sh
+bash apply_all_patches.sh
 ```
 
 **What it does:**
-- Patches language server binary to redirect API calls to proxy
+- Patches extension.js (8 URL replacements)
+- Patches language server binary (2 URL replacements)
+- Adds /etc/hosts DNS redirects (3 domains)
 - Creates backup at `language_server_linux_x64.original`
-- Redirects `https://server.codeium.com` → `http://127.0.0.1:9999`
-- Redirects `https://inference.codeium.com` → `http://127.0.0.1:9999`
+
+**Triple-layer approach catches all URLs:**
+- Extension patches: Some hardcoded URLs
+- Binary patches: Binary-embedded URLs  
+- DNS redirects: Runtime-constructed URLs
 
 ### Step 3: Start HIGH-GRAVITY
 ```bash
