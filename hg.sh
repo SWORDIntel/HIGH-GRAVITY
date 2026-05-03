@@ -1,0 +1,145 @@
+#!/bin/bash
+# HIGH-GRAVITY Unified Entrypoint CLI
+# Consolidates all management scripts and bootstraps the environment.
+
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.hg_proxy_venv"
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+PYTHON="$VENV_DIR/bin/python"
+
+# Colors
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; NC='\033[0m'
+
+bootstrap_venv() {
+    if [ ! -d "$VENV_DIR" ]; then
+        echo -e "${B}[*] Creating virtual environment...${NC}"
+        python3 -m venv "$VENV_DIR"
+    fi
+
+    if [ ! -f "$PYTHON" ]; then
+        echo -e "${R}[!] Virtual environment broken. Recreating...${NC}"
+        rm -rf "$VENV_DIR"
+        python3 -m venv "$VENV_DIR"
+    fi
+
+    # Check if critical packages are installed
+    if ! "$PYTHON" -c "import aiohttp, fastapi, rich, requests" 2>/dev/null; then
+        echo -e "${B}[*] Installing/Updating dependencies in venv...${NC}"
+        "$PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null
+        "$PYTHON" -m pip install aiohttp fastapi uvicorn requests rich textual sentence-transformers >/dev/null
+        echo -e "${G}[✓] Dependencies installed${NC}"
+    fi
+}
+
+print_sudo_notice() {
+    local cmd="$1"
+    case "$cmd" in
+        menu|start|restart|stop|verify|status|doctor|patch|repatch|undo|kp14|re)
+            echo "Notice: '$cmd' may require sudo (iptables, /etc/hosts, port 443, service control)."
+            echo "You may be prompted for your password."
+            ;;
+    esac
+}
+
+usage() {
+    cat <<USAGE
+${C}HIGH-GRAVITY Unified CLI${NC}
+
+Usage: ./hg.sh <command>
+
+Commands:
+  ${G}(none)${NC}      Launch the interactive TUI Dashboard (default)
+  ${G}start${NC}       Quick start: Patch then start all services
+  ${G}stop${NC}        Quick stop: Emergency shutdown
+  ${G}status${NC}      Show service status (CLI)
+  ${G}verify${NC}      Verify patch + service status
+  ${G}shim${NC}        Deploy LSP Shield (binary wrapper)
+  ${G}patch${NC}       Apply patches
+  ${G}repatch${NC}     Clean repatch flow
+  ${G}undo${NC}        Restore from backups and cleanup
+  ${G}khoj${NC}        Khoj controls (start/stop/status/reindex/logs)
+  ${G}doctor${NC}      Deep diagnostics (health, routing, latency)
+  ${G}trace${NC}       Watch prompt/completion logs
+  ${G}aliases${NC}     Print command to source aliases
+
+USAGE
+}
+
+# Ensure we are in the right directory
+cd "$SCRIPT_DIR"
+
+# Bootstrap on every run (fast if already done)
+bootstrap_venv
+
+cmd="${1:-dashboard}"
+
+case "$cmd" in
+    dashboard)
+        if [ -f "hg_dashboard.py" ]; then
+            exec "$PYTHON" hg_dashboard.py
+        else
+            echo -e "${R}[!] hg_dashboard.py not found in $SCRIPT_DIR${NC}"
+            exit 1
+        fi
+        ;;
+    menu)
+        print_sudo_notice "$cmd"
+        exec bash "$SCRIPTS_DIR/hg_start.sh" menu
+        ;;
+    start)
+        print_sudo_notice "$cmd"
+        HG_NON_INTERACTIVE=1 bash "$SCRIPTS_DIR/hg_start.sh" patch
+        exec bash "$SCRIPTS_DIR/hg_start.sh" start
+        ;;
+    stop)
+        print_sudo_notice "$cmd"
+        exec bash "$SCRIPTS_DIR/hg_stop.sh" --direct
+        ;;
+    restart)
+        print_sudo_notice "$cmd"
+        bash "$SCRIPTS_DIR/hg_stop.sh" --direct
+        exec bash "$SCRIPT_DIR/hg.sh" start
+        ;;
+    status)
+        print_sudo_notice "$cmd"
+        exec bash "$SCRIPTS_DIR/hg_status.sh" --direct
+        ;;
+    shim)
+        print_sudo_notice "$cmd"
+        exec bash "$SCRIPTS_DIR/deploy_lsp_shim.sh"
+        ;;
+    verify|patch|repatch|undo)
+        print_sudo_notice "$cmd"
+        exec bash "$SCRIPTS_DIR/hg_start.sh" "$cmd"
+        ;;
+    khoj)
+        shift || true
+        exec bash "$SCRIPTS_DIR/hg_khoj.sh" "${1:-status}"
+        ;;
+    doctor)
+        shift || true
+        exec bash "$SCRIPTS_DIR/hg_doctor.sh" "$@"
+        ;;
+    trace|watch)
+        shift || true
+        exec bash "$SCRIPTS_DIR/hg_trace.sh" "$@"
+        ;;
+    kp14|re)
+        print_sudo_notice "$cmd"
+        shift || true
+        exec bash "$SCRIPTS_DIR/run_kp14_decompile.sh" "$@"
+        ;;
+    aliases)
+        echo "Run this command to load aliases:"
+        echo "  source $SCRIPTS_DIR/hg_aliases.sh"
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        echo -e "${R}Unknown command: $cmd${NC}"
+        usage
+        exit 1
+        ;;
+esac

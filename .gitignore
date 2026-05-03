@@ -1,18 +1,36 @@
-__pycache__/
-.windsurf/__pycache__/
-*.pyc
-
-# Key and session data
-gemini_keys.json
-key_test_results.json
-config/gemini_keys.json
-config/windsurf_session_keys.json
-unique_claude_keys.txt
-exhaustive_flags.txt
+# Sensitive data
+config/*.json
 *.key
 *.token
-.env
+*.env
 auth_status.json
+unique_claude_keys.txt
+key_test_results.json
 
-veo3_outputs/
+# Large data and sub-repos
+Ablation/
+CRYPTOGRAM/
+SWORDSwarm/
+peers/
+rpc_captures/
 windsurf_profiles/
+kp14_cache/
+
+# Environment and Backups
+.hg_proxy_venv/
+.venv/
+backups/
+archive/
+
+# Runtime and telemetry
+logs/
+data/
+*.db
+*.pid
+.codex
+*.zip
+*.iso
+
+# Python
+__pycache__/
+*.pyc

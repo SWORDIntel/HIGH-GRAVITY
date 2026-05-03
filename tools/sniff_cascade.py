@@ -11,6 +11,7 @@ Run with sudo (needs port 443):
 Logs to: logs/cascade_sniff.jsonl  (machine-readable)
          logs/cascade_sniff.log    (human-readable)
 """
+import argparse
 import asyncio
 import gzip
 import hashlib
@@ -51,16 +52,46 @@ SNIFF_DOMAINS = list(UPSTREAM_MAP.keys())
 
 HOSTS_MARKER = "# HG-SNIFF"
 
+
+def is_truthy(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def cascade_only_enabled():
+    return is_truthy(os.environ.get("HIGHGRAVITY_CASCADE_ONLY") or os.environ.get("HG_CASCADE_ONLY"))
+
 # ─── logging ─────────────────────────────────────────────────────────
 jsonl_file = open(LOG_DIR / "cascade_sniff.jsonl", "a")
 human_file = open(LOG_DIR / "cascade_sniff.log", "a")
 
 seq = 0
 
+
+def classify_rpc(path, host="", req_body=""):
+    if "GetStreamingCompletions" in path:
+        return "completion"
+    if "LanguageServerService/AcknowledgeCascadeCodeEdit" in path:
+        return "cascade/edit-ack"
+    if "LanguageServerService/GetCodeMapSuggestions" in path:
+        return "cascade/code-map"
+    if "LanguageServerService/" in path:
+        return "cascade/rpc"
+    if "GetUserStatus" in path or "GetCliTeamSettings" in path or "GetCliModelConfigs" in path:
+        return "auth"
+    if "/unleash/client/metrics" in path or "/unleash/client/features" in path or "/unleash/client/register" in path:
+        return "polling"
+    if "ECONNRESET" in req_body or "Connection failed" in req_body or "Authentication failed" in req_body:
+        return "error"
+    return ""
+
 def log_exchange(method, host, path, req_headers, req_body, status, resp_headers, resp_body, elapsed_ms):
     global seq
     seq += 1
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    rpc_kind = classify_rpc(path, host=host, req_body=req_body)
+
+    if cascade_only_enabled() and not rpc_kind.startswith("cascade"):
+        return
 
     # Truncate large bodies for human log
     req_preview = (req_body[:2000] + "...") if len(req_body) > 2000 else req_body
@@ -68,7 +99,8 @@ def log_exchange(method, host, path, req_headers, req_body, status, resp_headers
 
     # Human-readable
     human_file.write(f"\n{'='*80}\n")
-    human_file.write(f"[{seq:04d}] {ts}  {method} https://{host}/{path}  → {status}  ({elapsed_ms:.0f}ms)\n")
+    suffix = f" [{rpc_kind}]" if rpc_kind else ""
+    human_file.write(f"[{seq:04d}] {ts}  {method} https://{host}/{path}  → {status}  ({elapsed_ms:.0f}ms){suffix}\n")
     human_file.write(f"{'─'*80}\n")
     human_file.write(f"REQ HEADERS:\n")
     for k, v in req_headers.items():
@@ -98,6 +130,7 @@ def log_exchange(method, host, path, req_headers, req_body, status, resp_headers
         "status": status,
         "resp_body_len": len(resp_body),
         "elapsed_ms": round(elapsed_ms, 1),
+        "rpc_kind": rpc_kind,
     }
     # Store small bodies inline
     if len(req_body) < 10000:
@@ -119,7 +152,8 @@ def log_exchange(method, host, path, req_headers, req_body, status, resp_headers
             content_hint += f" model={j['model']}"
     except:
         pass
-    print(f"  {color}[{seq:04d}]{nc} {method:6s} {host}/{path[:50]}  → {status} {elapsed_ms:.0f}ms  body={len(resp_body)}{content_hint}")
+    kind_hint = f" kind={rpc_kind}" if rpc_kind else ""
+    print(f"  {color}[{seq:04d}]{nc} {method:6s} {host}/{path[:50]}  → {status} {elapsed_ms:.0f}ms  body={len(resp_body)}{content_hint}{kind_hint}")
 
 
 # ─── /etc/hosts management ───────────────────────────────────────────
@@ -287,6 +321,13 @@ signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Transparent HTTPS pass-through logger for Windsurf/Cascade")
+    parser.add_argument("--cascade-only", action="store_true", help="Only emit Cascade-local RPCs")
+    args = parser.parse_args()
+
+    if args.cascade_only:
+        os.environ["HIGHGRAVITY_CASCADE_ONLY"] = "1"
+
     if os.geteuid() != 0:
         print("ERROR: Must run as root (needs port 443)")
         print("  echo 1786 | sudo -S -E python3 tools/sniff_cascade.py")
@@ -308,6 +349,8 @@ if __name__ == "__main__":
     install_iptables()
     print(f"  [*] Logging to: logs/cascade_sniff.log")
     print(f"  [*] JSONL to:   logs/cascade_sniff.jsonl")
+    if cascade_only_enabled():
+        print("  [*] Mode:      Cascade-only filtering enabled")
     print(f"  [*] Listening on 0.0.0.0:443 (TLS)")
     print(f"  [*] Press Ctrl+C to stop and restore /etc/hosts + iptables")
     print()

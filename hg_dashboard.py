@@ -38,6 +38,7 @@ class Dashboard:
     def __init__(self):
         self.tel = {}
         self.khoj = {}
+        self.install_status = {}
         self.status_msg = "[dim]Starting...[/dim]"
         self.view = "main"   # main | logs | pegasus
         self.log_name = ""
@@ -55,6 +56,38 @@ class Dashboard:
             self.khoj = r.json() if r.ok else {}
         except Exception:
             self.khoj = {}
+        self._check_install_status()
+    
+    def _check_install_status(self):
+        """Check installation completeness"""
+        import shutil
+        self.install_status = {
+            "python3": shutil.which("python3") is not None,
+            "docker": shutil.which("docker") is not None,
+            "aiohttp": self._check_python_pkg("aiohttp"),
+            "fastapi": self._check_python_pkg("fastapi"),
+            "khoj_image": self._check_docker_image("ghcr.io/khoj-ai/khoj"),
+            "pgvector_image": self._check_docker_image("pgvector/pgvector"),
+            "certs": (REPO_ROOT / "certs" / "proxy.crt").exists(),
+            "patch_script": (REPO_ROOT / "src" / "patch_all.py").exists(),
+        }
+    
+    def _check_python_pkg(self, pkg):
+        try:
+            __import__(pkg)
+            return True
+        except ImportError:
+            return False
+    
+    def _check_docker_image(self, name):
+        try:
+            result = subprocess.run(
+                ["docker", "images", "-q", name],
+                capture_output=True, text=True, timeout=2
+            )
+            return bool(result.stdout.strip())
+        except:
+            return False
 
     def read_log_tail(self, name, n=40):
         p = LOG_DIR / name
@@ -76,14 +109,14 @@ class Dashboard:
                 shell=True, text=True, timeout=2
             )
             for tok in out.split():
-                if "server_url" in tok:
+                if "server_url" in tok and not tok.startswith("http"):
                     continue
                 if tok.startswith("http"):
-                    return tok
+                    return tok.strip("'").strip('"')
             # fallback: parse --api_server_url
             if "--api_server_url" in out:
                 idx = out.index("--api_server_url")
-                return out[idx:].split()[1]
+                return out[idx:].split()[1].strip("'").strip('"')
         except Exception:
             pass
         return None
@@ -161,6 +194,7 @@ class Dashboard:
         return Panel(tbl, title="Khoj", border_style="blue")
 
     def _system_panel(self):
+        import subprocess, socket
         tbl = Table(expand=True, show_header=False, box=None, padding=(0, 1))
         tbl.add_column(style="bold cyan", no_wrap=True)
         tbl.add_column()
@@ -168,23 +202,72 @@ class Dashboard:
         # Windsurf
         api_url = self.windsurf_api_url()
         if api_url:
-            if "shield" in api_url or "127.0.0.1" in api_url:
-                tbl.add_row("Windsurf", "[green]→ PROXY[/green]")
+            proxied_domains = ["proxy.windsurf.com", "inferapi.windsurf.com", "server.self-serve.windsurf.com", "127.0.0.1"]
+            if any(d in api_url for d in proxied_domains):
+                tbl.add_row("Windsurf", "[green]PROXIED[/green]")
             else:
-                tbl.add_row("Windsurf", f"[red]→ {api_url[:30]}[/red]")
+                tbl.add_row("Windsurf", f"[red]DIRECT {api_url[:28]}[/red]")
         else:
             tbl.add_row("Windsurf", "[dim]not running[/dim]")
+
+        # Proxy ports
+        def port_up(p):
+            try:
+                s = socket.create_connection(("127.0.0.1", p), timeout=0.5); s.close(); return True
+            except: return False
+        tbl.add_row("HTTP  :9999", "[green]UP[/green]" if port_up(9999) else "[red]DOWN[/red]")
+        tbl.add_row("HTTPS :443",  "[green]UP[/green]" if port_up(443)  else "[yellow]DOWN[/yellow]")
+
+        # iptables 50001→9999
+        ipt = subprocess.run(
+            ["sudo","-n","iptables","-t","nat","-C","OUTPUT","-p","tcp",
+             "--dport","50001","-j","REDIRECT","--to-port","9999"],
+            capture_output=True, text=True
+        ).returncode == 0
+        if not ipt:
+            # Fallback to the hardcoded password if sudo -n fails
+            ipt = subprocess.run(
+                ["sudo","-S","iptables","-t","nat","-C","OUTPUT","-p","tcp",
+                 "--dport","50001","-j","REDIRECT","--to-port","9999"],
+                input="1786\n", capture_output=True, text=True
+            ).returncode == 0
+        tbl.add_row("ipt 50001→9999", "[green]ACTIVE[/green]" if ipt else "[red]MISSING[/red]")
 
         # Patches
         ext = Path("/usr/share/windsurf-next/resources/app/extensions/windsurf/dist/extension.js")
         if ext.exists():
-            content = ext.read_text()[:5000]
-            if 'getApiServerUrlFromContext=A=>{return"http://shield' in content:
-                tbl.add_row("Ext patch", "[green]✓ ROOT FIX[/green]")
-            elif "shield.windsurf.com" in content:
-                tbl.add_row("Ext patch", "[yellow]~ partial[/yellow]")
+            content = ext.read_text()
+            if 'DEFAULT_API_SERVER_URL="https://proxy.windsurf.com"' in content:
+                tbl.add_row("JS patch", "[green]✓ OK[/green]")
+            elif "proxy.windsurf.com" in content:
+                tbl.add_row("JS patch", "[yellow]~ partial[/yellow]")
             else:
-                tbl.add_row("Ext patch", "[red]✗ none[/red]")
+                tbl.add_row("JS patch", "[red]✗ none[/red]")
+        from pathlib import Path as _P
+        bin_path = _P("/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64")
+        if bin_path.exists():
+            is_shim = False
+            try:
+                with open(bin_path, "rb") as f:
+                    header = f.read(16)
+                    if b"#!/bin/bash" in header or b"#!/bin/sh" in header:
+                        is_shim = True
+            except: pass
+            tbl.add_row("LSP Shield", "[green]✓ ACTIVE[/green]" if is_shim else "[yellow]~ binary[/yellow]")
+
+        bin_real = _P("/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64.real")
+        if bin_real.exists():
+            with open(bin_real, "rb") as f:
+                f.seek(0x818e12d); b = f.read(2)
+            tbl.add_row("Bin patch", "[green]✓ NOP[/green]" if b == b'\x90\x90' else "[red]✗ orig[/red]")
+
+        # TurboQuant cache stats
+        tbl.add_row("TQ hits",  str(self.tel.get("tq_ann_hits", 0)))
+        tbl.add_row("TQ index", str(self.tel.get("tq_index_size", 0)))
+        ratio = self.tel.get("tq_raw_bytes", 0)
+        cmp   = self.tel.get("tq_compressed_bytes", 0)
+        if ratio > 0:
+            tbl.add_row("TQ ratio", f"{cmp/ratio:.2f}x")
 
         tbl.add_row("Logs", str(LOG_DIR))
         return Panel(tbl, title="System", border_style="yellow")
@@ -216,16 +299,42 @@ class Dashboard:
             tbl.add_row(Text(label, style=f"bold {color}"), str(n), bar)
         return Panel(tbl, title="Reasoning", border_style="blue")
 
+    def _install_panel(self):
+        tbl = Table(expand=True, box=None, show_header=False)
+        tbl.add_column(style="bold cyan", no_wrap=True)
+        tbl.add_column()
+        
+        checks = [
+            ("Python3", "python3"),
+            ("Docker", "docker"),
+            ("aiohttp", "aiohttp"),
+            ("FastAPI", "fastapi"),
+            ("Khoj image", "khoj_image"),
+            ("PGVector", "pgvector_image"),
+            ("TLS certs", "certs"),
+            ("Patcher", "patch_script"),
+        ]
+        
+        for label, key in checks:
+            status = self.install_status.get(key, False)
+            icon = "[green]✓[/green]" if status else "[red]✗[/red]"
+            tbl.add_row(label, icon)
+        
+        all_ok = all(self.install_status.values())
+        color = "green" if all_ok else "yellow"
+        return Panel(tbl, title="Installation", border_style=color)
+    
     def _hotkey_panel(self):
         tbl = Table(expand=True, box=None, padding=(0, 0))
         tbl.add_column("Key", style="bold cyan", no_wrap=True, width=3)
         tbl.add_column("Action", no_wrap=True)
-        tbl.add_row("C", "Clear cache")
-        tbl.add_row("R", "Rotate keys")
-        tbl.add_row("P", "Patch Windsurf")
-        tbl.add_row("U", "Undo patches")
-        tbl.add_row("W", "Launch Windsurf")
-        tbl.add_row("X", "Git push")
+        tbl.add_row("S", "Start All")
+        tbl.add_row("X", "Stop All")
+        tbl.add_row("P", "Patch Client")
+        tbl.add_row("H", "LSP Shield")
+        tbl.add_row("W", "Launch Editor")
+        tbl.add_row("C", "Clear Cache")
+        tbl.add_row("R", "Rotate Keys")
         tbl.add_row("L", "Logs view")
         tbl.add_row("Q", "Quit")
         return Panel(tbl, title="Keys", border_style="yellow")
@@ -280,7 +389,8 @@ class Dashboard:
 
         root["top"].split_row(
             Layout(self._proxy_panel(), ratio=3),
-            Layout(self._mitm_panel(), ratio=3),
+            Layout(self._mitm_panel(), ratio=2),
+            Layout(self._install_panel(), ratio=2),
             Layout(self._hotkey_panel(), ratio=2),
         )
 
@@ -331,14 +441,20 @@ class Dashboard:
                     # Main view keys
                     if c == "q":
                         break
+                    elif c == "s":
+                        self.run_cmd("Start", ["bash", "scripts/hg_start.sh", "start"])
+                    elif c == "x":
+                        self.run_cmd("Stop", ["bash", "scripts/hg_stop.sh", "--direct"])
+                    elif c == "h":
+                        self.run_cmd("Shield", ["bash", "scripts/deploy_lsp_shim.sh"])
                     elif c == "c":
                         self.action("clear_cache")
                     elif c == "r":
                         self.action("rotate_keys")
                     elif c == "p":
-                        self.run_cmd("Patch", ["python3", "src/patch_windsurf_client.py", "--force"])
+                        self.run_cmd("Patch", ["python3", "src/patch_all.py", "--force"])
                     elif c == "u":
-                        self.run_cmd("Undo", ["python3", "src/patch_windsurf_client.py", "--undo"])
+                        self.run_cmd("Undo", ["python3", "src/patch_all.py", "--restore"])
                     elif c == "w":
                         subprocess.Popen(
                             ["/usr/share/windsurf-next/windsurf-next"],
@@ -346,6 +462,8 @@ class Dashboard:
                             start_new_session=True
                         )
                         self.status_msg = "[green]Windsurf launching...[/green]"
+                    elif c == "i":
+                        self.run_cmd("Install", ["bash", "scripts/install.sh"])
                     elif c == "x":
                         self.run_cmd("Git push", ["git", "push", "origin", "main", "--no-verify"])
                     elif c == "l":

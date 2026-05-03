@@ -12,7 +12,15 @@ LOG_DIR = Path("/mnt/DSMIL/HIGH-GRAVITY/logs/lsp")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 def force_proxy_args(args):
-    """Overrides any server URL arguments to point to the local proxy."""
+    """Rewrite LS URLs with safe defaults.
+    Default: force both API and inference URLs through proxy.
+    Set HG_PROXY_MODE=inference-only to only rewrite inference URL.
+    """
+    proxy_url = os.environ.get("HG_PROXY_URL", "https://proxy.windsurf.com")
+    proxy_mode = os.environ.get("HG_PROXY_MODE", "full").strip().lower()
+    rewrite_api = proxy_mode == "full"
+    rewrite_inference = True
+
     new_args = []
     skip_next = False
     for i, arg in enumerate(args):
@@ -20,14 +28,34 @@ def force_proxy_args(args):
             skip_next = False
             continue
         
-        if arg in ["--api_server_url", "--inference_api_server_url"]:
+        if arg == "--api_server_url":
             new_args.append(arg)
-            new_args.append("http://localhost:9999")
-            skip_next = True
+            if rewrite_api and i + 1 < len(args):
+                new_args.append(proxy_url)
+                skip_next = True
+            elif i + 1 < len(args):
+                new_args.append(args[i + 1])
+                skip_next = True
+        elif arg == "--inference_api_server_url":
+            new_args.append(arg)
+            if rewrite_inference and i + 1 < len(args):
+                new_args.append(proxy_url)
+                skip_next = True
+            elif i + 1 < len(args):
+                new_args.append(args[i + 1])
+                skip_next = True
         elif arg.startswith("--api_server_url="):
-            new_args.append("--api_server_url=http://localhost:9999")
+            if rewrite_api:
+                new_args.append(f"--api_server_url={proxy_url}")
+            else:
+                new_args.append(arg)
         elif arg.startswith("--inference_api_server_url="):
-            new_args.append("--inference_api_server_url=http://localhost:9999")
+            if rewrite_inference:
+                new_args.append(f"--inference_api_server_url={proxy_url}")
+            else:
+                new_args.append(arg)
+        elif arg == "--api_server_url" or arg == "--inference_api_server_url":
+            skip_next = True
         else:
             new_args.append(arg)
     return new_args
