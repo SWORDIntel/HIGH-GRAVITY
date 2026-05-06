@@ -53,4 +53,4 @@ If you need to force a specific model (e.g., force Sonnet to act like Gemini 1.5
 If traffic isn't reaching the proxy:
 1. Check that your Windsurf instance was launched via `launch_windsurf.sh` (The dashboard does this automatically).
 2. Run `./launch_debug.sh` to see raw traffic hex-dumps and gRPC routing logs.
-3. Confirm `OPENAI_API_BASE=http://localhost:9999` is set in the Windsurf terminal.
+3. Confirm `OPENAI_API_BASE=http://localhost:9998` is set in the Windsurf terminal.

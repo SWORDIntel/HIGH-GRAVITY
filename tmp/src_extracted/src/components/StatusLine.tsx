@@ -48,20 +48,19 @@ function buildStatusLineCommandInput(permissionMode: PermissionMode, exceeds200k
   const sessionId = getSessionId();
   const sessionName = getCurrentSessionTitle(sessionId);
   const rawUtil = getRawUtilization();
-  const rateLimits: StatusLineCommandInput['rate_limits'] = {
-    ...(rawUtil.five_hour && {
-      five_hour: {
-        used_percentage: rawUtil.five_hour.utilization * 100,
-        resets_at: rawUtil.five_hour.resets_at
-      }
-    }),
-    ...(rawUtil.seven_day && {
-      seven_day: {
-        used_percentage: rawUtil.seven_day.utilization * 100,
-        resets_at: rawUtil.seven_day.resets_at
-      }
-    })
-  };
+  const rateLimits: StatusLineCommandInput['rate_limits'] = {};
+  if (rawUtil.five_hour) {
+    rateLimits.five_hour = {
+      used_percentage: rawUtil.five_hour.utilization * 100,
+      resets_at: rawUtil.five_hour.resets_at
+    };
+  }
+  if (rawUtil.seven_day) {
+    rateLimits.seven_day = {
+      used_percentage: rawUtil.seven_day.utilization * 100,
+      resets_at: rawUtil.seven_day.resets_at
+    };
+  }
   return {
     ...createBaseHookInput(),
     ...(sessionName && {

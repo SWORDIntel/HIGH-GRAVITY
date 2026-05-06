@@ -21,7 +21,7 @@ class KeyValidator:
             logger.info(f"Probing: {key[:15]}...")
             try:
                 # Minimal probe via proxy
-                resp = requests.post("http://127.0.0.1:9999/v1/chat/completions", 
+                resp = requests.post("http://127.0.0.1:9998/v1/chat/completions", 
                                      json={"model": "claude-3-5-sonnet", "messages": [{"role": "user", "content": "hi"}]},
                                      headers={"Authorization": f"Bearer {key}"}, timeout=5)
                 if resp.status_code == 200:

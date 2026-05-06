@@ -128,7 +128,7 @@ def wire_in():
         "--window-name", workspace_id,
         "--mode", "windsurf",
         "--provider", "proxy",
-        "--proxy-url", "http://localhost:9999"
+        "--proxy-url", "http://localhost:9998"
     ], check=True)
 
     # 2. Deploy hooks to the target workspace

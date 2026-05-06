@@ -70,7 +70,7 @@ self.khoj_last_index = "Never"
 # Added stats fetching
 def fetch_khoj_stats(self):
     """Fetch Khoj statistics from proxy API"""
-    # Fetches from http://127.0.0.1:9999/hg/khoj/status
+    # Fetches from http://127.0.0.1:9998/hg/khoj/status
 ```
 
 ## 📊 Current System Status
@@ -83,7 +83,7 @@ def fetch_khoj_stats(self):
 ```
 
 ### Services:
-- **Proxy**: ✅ Running on port 9999
+- **Proxy**: ✅ Running on port 9998
 - **Khoj**: 🟡 Starting (installing dependencies)
 - **Pegasus**: ✅ Active
 - **MITM Logging**: ✅ Operational
@@ -142,19 +142,19 @@ python3 hg.py
 
 ### View Khoj Status:
 ```bash
-curl http://127.0.0.1:9999/hg/khoj/status
+curl http://127.0.0.1:9998/hg/khoj/status
 ```
 
 ### Search Across All Workspaces:
 ```bash
-curl -X POST http://127.0.0.1:9999/hg/search \
+curl -X POST http://127.0.0.1:9998/hg/search \
   -H "Content-Type: application/json" \
   -d '{"query": "authentication", "n": 10}'
 ```
 
 ### Trigger Manual Reindex:
 ```bash
-curl -X POST http://127.0.0.1:9999/hg/khoj/reindex
+curl -X POST http://127.0.0.1:9998/hg/khoj/reindex
 ```
 
 ## 🎯 Next Steps

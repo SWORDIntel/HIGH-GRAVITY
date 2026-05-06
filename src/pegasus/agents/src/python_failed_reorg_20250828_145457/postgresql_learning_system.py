@@ -2439,7 +2439,7 @@ class UltimatePostgreSQLLearningSystem:
             # Generate insights from patterns
             import random
 
-            insight_id_counter = int(time.time() * 1000) + random.randint(1000, 9999)
+            insight_id_counter = int(time.time() * 1000) + random.randint(1000, 9998)
 
             # Insights from successful sequences
             for seq_pattern in patterns.get("sequences", []):

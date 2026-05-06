@@ -22,7 +22,7 @@ if [ ! -f "certs/proxy.crt" ] || [ ! -f "certs/proxy.key" ]; then
 fi
 
 echo "[*] Starting proxy..."
-echo "    HTTP:  0.0.0.0:9999"
+echo "    HTTP:  0.0.0.0:9998"
 echo "    HTTPS: 0.0.0.0:443"
 echo ""
 
@@ -33,10 +33,10 @@ PROXY_PID=$!
 sleep 5
 
 # Check if running
-if lsof -i :9999 -i :443 2>/dev/null | grep -q python3; then
+if lsof -i :9998 -i :443 2>/dev/null | grep -q python3; then
     echo "[✓] Proxy started successfully"
     echo ""
-    lsof -i :9999 -i :443 | grep python3
+    lsof -i :9998 -i :443 | grep python3
     echo ""
     echo "Logs: tail -f logs/proxy.log"
 else

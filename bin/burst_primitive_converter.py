@@ -5804,7 +5804,7 @@ PRIMITIVE_TEMPLATES = {
         {"id": "79996", "name": "POST-EX Proof Lsass 21", "cvss": "10.0", "category": "Lsass"},
         {"id": "79997", "name": "POST-EX Proof Lsass 22", "cvss": "10.0", "category": "Lsass"},
         {"id": "79998", "name": "POST-EX Proof Lsass 23", "cvss": "10.0", "category": "Lsass"},
-        {"id": "79999", "name": "POST-EX Proof Lsass 24", "cvss": "10.0", "category": "Lsass"},
+        {"id": "79998", "name": "POST-EX Proof Lsass 24", "cvss": "10.0", "category": "Lsass"},
         {"id": "80000", "name": "POST-EX Proof Lsass 25", "cvss": "10.0", "category": "Lsass"},
     ],
     "postex_proof_sam": [
@@ -16523,7 +16523,7 @@ PRIMITIVE_TEMPLATES = {
         {"id": "89996", "name": "Glue Utility Iri Utils 21", "cvss": "8.5", "category": "Iri Utils"},
         {"id": "89997", "name": "Glue Utility Iri Utils 22", "cvss": "8.5", "category": "Iri Utils"},
         {"id": "89998", "name": "Glue Utility Iri Utils 23", "cvss": "8.5", "category": "Iri Utils"},
-        {"id": "89999", "name": "Glue Utility Iri Utils 24", "cvss": "8.5", "category": "Iri Utils"},
+        {"id": "89998", "name": "Glue Utility Iri Utils 24", "cvss": "8.5", "category": "Iri Utils"},
         {"id": "90000", "name": "Glue Utility Iri Utils 25", "cvss": "8.5", "category": "Iri Utils"},
     ],
     "glue_mime_utils": [

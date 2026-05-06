@@ -18,7 +18,7 @@ These cannot be patched by modifying `extension.js` because they're in the compi
 Process 7673 (language server) shows:
 ```bash
 --api_server_url https://server.self-serve.windsurf.com  # ❌ NOT patched
---inference_api_server_url http://shield.windsurf.com:9999  # ✅ Patched
+--inference_api_server_url http://shield.windsurf.com:9998  # ✅ Patched
 ```
 
 Network connections show:
@@ -29,7 +29,7 @@ Network connections show:
 ## Why Patches Didn't Work
 
 1. **Extension.js patches**: Only affect the extension, not the language server binary
-2. **DNS redirect (/etc/hosts)**: Breaks HTTPS because proxy is HTTP on port 9999
+2. **DNS redirect (/etc/hosts)**: Breaks HTTPS because proxy is HTTP on port 9998
 3. **Language server args**: Some args come from extension (patched), others from binary (hardcoded)
 
 ## Solutions (In Order of Complexity)
@@ -54,7 +54,7 @@ Use iptables to redirect port 443 traffic + make proxy handle HTTPS:
 
 ```bash
 iptables -t nat -A OUTPUT -p tcp -d 35.223.238.178 --dport 443 \
-  -j REDIRECT --to-port 9999
+  -j REDIRECT --to-port 9998
 ```
 
 **Pros**: No DNS changes needed
@@ -76,8 +76,8 @@ sed -i 's/server.codeium.com/shield.windsurf.com/g' language_server_linux_x64
 Set system-wide proxy:
 
 ```bash
-export HTTP_PROXY=http://127.0.0.1:9999
-export HTTPS_PROXY=http://127.0.0.1:9999
+export HTTP_PROXY=http://127.0.0.1:9998
+export HTTPS_PROXY=http://127.0.0.1:9998
 ```
 
 **Pros**: Standard approach
@@ -96,7 +96,7 @@ export HTTPS_PROXY=http://127.0.0.1:9999
 1. **Update proxy.py to handle HTTPS on port 443**
    - Add TLS termination
    - Self-signed cert for localhost
-   - Listen on both 9999 (HTTP) and 443 (HTTPS)
+   - Listen on both 9998 (HTTP) and 443 (HTTPS)
 
 2. **Add /etc/hosts entries** (after proxy supports HTTPS)
    ```
@@ -136,7 +136,7 @@ If HTTPS proxy is too complex, we can:
 Language server: https://server.codeium.com
   → DNS: 127.0.0.1
   → Tries: https://127.0.0.1:443
-  → Proxy: Only listening on HTTP :9999
+  → Proxy: Only listening on HTTP :9998
   → Result: Connection refused
 ```
 

@@ -646,7 +646,7 @@ class ChaosCoordinator:
 
     async def create_experiment(self, experiment_config: Dict[str, Any]) -> str:
         """Create a new chaos experiment"""
-        experiment_id = f"chaos_exp_{int(time.time())}_{random.randint(1000, 9999)}"
+        experiment_id = f"chaos_exp_{int(time.time())}_{random.randint(1000, 9998)}"
 
         experiment = ChaosExperiment(
             experiment_id=experiment_id,
@@ -1033,7 +1033,7 @@ class SecurityChaosAgentPythonExecutor(
 
             for finding in findings:
                 analysis = {
-                    "finding_id": f"finding_{int(time.time())}_{random.randint(1000, 9999)}",
+                    "finding_id": f"finding_{int(time.time())}_{random.randint(1000, 9998)}",
                     "original_finding": finding,
                     "severity_assessment": self._assess_severity(finding),
                     "cvss_score": self._calculate_cvss_score(finding),

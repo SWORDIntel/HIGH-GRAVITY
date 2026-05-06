@@ -17,10 +17,10 @@ case "$cmd" in
     echo "[+] Khoj stop signal sent."
     ;;
   status)
-    curl -s http://127.0.0.1:9999/hg/khoj/status | jq .
+    curl -s http://127.0.0.1:9998/hg/khoj/status | jq .
     ;;
   reindex)
-    curl -s -X POST http://127.0.0.1:9999/hg/khoj/reindex | jq .
+    curl -s -X POST http://127.0.0.1:9998/hg/khoj/reindex | jq .
     ;;
   logs)
     tail -n 120 logs/khoj_docker.log 2>/dev/null || echo "No khoj log file yet."

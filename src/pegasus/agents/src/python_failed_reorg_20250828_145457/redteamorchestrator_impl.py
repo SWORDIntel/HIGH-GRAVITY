@@ -1218,7 +1218,7 @@ class REDTEAMORCHESTRATORPythonExecutor(
             for i in range(vuln_count):
                 vulnerabilities.append(
                     {
-                        "id": f"VULN-{random.randint(1000, 9999)}",
+                        "id": f"VULN-{random.randint(1000, 9998)}",
                         "severity": random.choice(
                             ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
                         ),

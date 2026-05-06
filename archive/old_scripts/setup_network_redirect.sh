@@ -19,12 +19,12 @@ echo "[*] Setting up iptables rules to redirect Codeium traffic..."
 echo ""
 
 for IP in "${CODEIUM_IPS[@]}"; do
-    echo "  Redirecting: $IP:443 → 127.0.0.1:9999"
+    echo "  Redirecting: $IP:443 → 127.0.0.1:9998"
     
     # Redirect outgoing HTTPS to Codeium to our proxy
     echo "$SUDO_PASS" | sudo -S iptables -t nat -A OUTPUT \
         -p tcp -d "$IP" --dport 443 \
-        -j DNAT --to-destination 127.0.0.1:9999 2>/dev/null
+        -j DNAT --to-destination 127.0.0.1:9998 2>/dev/null
     
     if [ $? -eq 0 ]; then
         echo "    ✓ Rule added"
@@ -35,7 +35,7 @@ done
 
 echo ""
 echo "[*] Current iptables NAT rules:"
-echo "$SUDO_PASS" | sudo -S iptables -t nat -L OUTPUT -n -v | grep -E "127.0.0.1:9999|Chain OUTPUT"
+echo "$SUDO_PASS" | sudo -S iptables -t nat -L OUTPUT -n -v | grep -E "127.0.0.1:9998|Chain OUTPUT"
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"

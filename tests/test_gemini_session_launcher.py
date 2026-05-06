@@ -33,13 +33,13 @@ class GeminiSessionLauncherTests(unittest.TestCase):
             api_key=self.api_key,
             window_name="Main Window",
             provider="proxy",
-            proxy_url="http://localhost:9999",
+            proxy_url="http://localhost:9998",
         )
 
         self.assertEqual(profile["profile_id"], "main-window")
         self.assertEqual(profile["provider"], "proxy")
         self.assertEqual(profile["env"]["GOOGLE_API_KEY"], self.api_key)
-        self.assertEqual(profile["env"]["OPENAI_BASE_URL"], "http://localhost:9999")
+        self.assertEqual(profile["env"]["OPENAI_BASE_URL"], "http://localhost:9998")
         self.assertEqual(profile["env"]["HIGHGRAVITY_WINDOW_ID"], "main-window")
 
     def test_build_windsurf_profile_direct_omits_proxy_env(self):
@@ -84,7 +84,7 @@ class GeminiSessionLauncherTests(unittest.TestCase):
                 "variables": {
                     "apiKey": self.api_key,
                     "mode": "windsurf",
-                    "proxyUrl": "http://localhost:9999",
+                    "proxyUrl": "http://localhost:9998",
                     "windowName": "Cascade Window",
                     "dryRun": True,
                 }
@@ -95,7 +95,7 @@ class GeminiSessionLauncherTests(unittest.TestCase):
 
         self.assertEqual(normalized["api_key"], self.api_key)
         self.assertEqual(normalized["mode"], "windsurf")
-        self.assertEqual(normalized["proxy_url"], "http://localhost:9999")
+        self.assertEqual(normalized["proxy_url"], "http://localhost:9998")
         self.assertEqual(normalized["window_name"], "Cascade Window")
         self.assertTrue(normalized["dry_run"])
 
@@ -108,7 +108,7 @@ class GeminiSessionLauncherTests(unittest.TestCase):
                 "apiKey": self.api_key,
                 "mode": "windsurf",
                 "provider": "proxy",
-                "proxyUrl": "http://localhost:9999",
+                "proxyUrl": "http://localhost:9998",
                 "dryRun": True,
             },
         })
@@ -116,7 +116,7 @@ class GeminiSessionLauncherTests(unittest.TestCase):
         self.assertEqual(overrides["api_key"], self.api_key)
         self.assertEqual(overrides["mode"], "windsurf")
         self.assertEqual(overrides["provider"], "proxy")
-        self.assertEqual(overrides["proxy_url"], "http://localhost:9999")
+        self.assertEqual(overrides["proxy_url"], "http://localhost:9998")
         self.assertTrue(overrides["dry_run"])
         self.assertEqual(overrides["window_name"], "traj-123-exec-456")
 

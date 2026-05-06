@@ -1,4 +1,4 @@
-proxy_port: 9999
+proxy_port: 9998
 log_path: "logs/proxy.log"
 rotation_mode: "round-robin"
 max_log_size_mb: 5
@@ -13,3 +13,8 @@ mitm_services:
   - openai
 mitm_inject_premium: true
 mitm_reduce_rate_limits: true
+
+# Khoj Semantic Search Configuration
+khoj_enabled: true
+khoj_url: "http://127.0.0.1:42110"
+khoj_token: "hg-wpm08A29Jf-SCgLIqnb2i-sdFLphq3tQ8W9dmlGnnRA"

@@ -40,6 +40,7 @@ Once the dashboard is open:
 ./hg.sh stop        # Emergency shutdown
 ./hg.sh status      # CLI status check
 ./hg.sh trace       # Watch AI completion routing
+./hg.sh khoj status # Khoj integration status
 ```
 
 ---
@@ -54,7 +55,7 @@ Once the dashboard is open:
        ↓
 ┌─────────────────────────────────┐
 │  HIGH-GRAVITY Proxy             │
-│  ├─ HTTP  :9999                 │
+│  ├─ HTTP  :9998                 │
 │  ├─ HTTPS :443                  │
 │  ├─ Key Rotation (19 keys)      │
 │  ├─ Enterprise & Quota Bypass   │
@@ -87,6 +88,11 @@ Once the dashboard is open:
 - Cache performance and TurboQuant ratios
 - System health (Patches, Iptables, Docker)
 - Integrated log viewer
+
+**Khoj Runtime (auto-start with `./hg.sh start`):**
+- Runs on `127.0.0.1:42110` via Docker
+- Uses persistent disk state under `/tank/khoj` when `/tank` exists
+- Health is checked by HTTP success (`/api/health`), not a fixed JSON body
 
 **LSP Shield:**
 - Transparent binary wrapper for the Language Server
@@ -134,7 +140,7 @@ For issues or questions:
 1. Check logs in `logs/`
 2. Run `./hg.sh verify` to verify status
 3. Run `./hg.sh dashboard` for real-time diagnostics
-4. Review [KHOJ_WINDSURF_INTEGRATION.md](KHOJ_WINDSURF_INTEGRATION.md) for Khoj setup
+4. Review [docs/research/KHOJ_WINDSURF_INTEGRATION.md](docs/research/KHOJ_WINDSURF_INTEGRATION.md) for Khoj setup
 
 ---
 

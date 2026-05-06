@@ -32,7 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 with open(REPO_ROOT / "config" / "settings.yaml", "r") as f:
     config = yaml.safe_load(f)
 
-PROXY_PORT = config.get("proxy_port", 9999)
+PROXY_PORT = config.get("proxy_port", 9998)
 LOG_FILE = REPO_ROOT / config.get("log_path", "logs/proxy.log")
 
 # MITM Bridge Configuration

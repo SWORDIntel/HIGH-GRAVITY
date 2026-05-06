@@ -95,12 +95,19 @@ class PegasusKhojBridge:
         # Auto-detect: enabled if khoj directory exists
         return (self.repo_root / "khoj").exists()
     
-    def _headers(self) -> Dict[str, str]:
-        """Get request headers with optional auth"""
-        headers = {"Content-Type": "application/json"}
-        if self.token:
+    def _headers(self, include_content_type: bool = True, use_auth: bool = True) -> Dict[str, str]:
+        """Get request headers with optional auth/content-type"""
+        headers: Dict[str, str] = {}
+        if include_content_type:
+            headers["Content-Type"] = "application/json"
+        if self.token and use_auth:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
+
+    def _auth_attempts(self) -> List[bool]:
+        if self.token:
+            return [True, False]
+        return [False]
     
     async def health_check(self) -> bool:
         """Check if Khoj is healthy"""
@@ -114,7 +121,7 @@ class PegasusKhojBridge:
         except Exception:
             return False
     
-    async def search(self, query: str, n: int = None) -> Dict[str, Any]:
+    async def search(self, query: str, n: int = None, timeout_override: Optional[float] = None) -> Dict[str, Any]:
         """Search Khoj index"""
         if not self.enabled:
             return {"status": "disabled"}
@@ -145,33 +152,37 @@ class PegasusKhojBridge:
         try:
             t0 = time.time()
             self.search_count += 1
-            timeout = aiohttp.ClientTimeout(total=self.timeout_s)
+            timeout = aiohttp.ClientTimeout(total=timeout_override if timeout_override is not None else self.timeout_s)
             
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 params = {"q": query, "n": n, "r": "true"}
-                async with session.get(
-                    f"{self.base_url}/api/search",
-                    params=params,
-                    headers=self._headers()
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        took = (time.time() - t0) * 1000.0
-                        self.last_search_ms = took
-                        self.last_search_status = "ok"
-                        self.search_latencies_ms.append(took)
-                        out = {"status": "ok", "results": data}
-                        self.query_cache[qhash] = (now, out)
-                        self._emit_trace(
-                            "search_ok",
-                            query=query[:200],
-                            query_hash=qhash[:16],
-                            n=n,
-                            took_ms=round(took, 2),
-                            result_count=len(data) if hasattr(data, "__len__") else None,
-                        )
-                        return out
-                    else:
+                for use_auth in self._auth_attempts():
+                    async with session.get(
+                        f"{self.base_url}/api/search",
+                        params=params,
+                        headers=self._headers(include_content_type=False, use_auth=use_auth),
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            took = (time.time() - t0) * 1000.0
+                            self.last_search_ms = took
+                            self.last_search_status = "ok"
+                            self.search_latencies_ms.append(took)
+                            out = {"status": "ok", "results": data}
+                            self.query_cache[qhash] = (now, out)
+                            self._emit_trace(
+                                "search_ok",
+                                query=query[:200],
+                                query_hash=qhash[:16],
+                                n=n,
+                                took_ms=round(took, 2),
+                                result_count=len(data) if hasattr(data, "__len__") else None,
+                            )
+                            return out
+
+                        if use_auth and resp.status in (401, 403, 500):
+                            continue
+
                         self._mark_failure(f"http_{resp.status}")
                         self.last_search_status = f"http_{resp.status}"
                         self._emit_trace(
@@ -182,6 +193,9 @@ class PegasusKhojBridge:
                             status=resp.status,
                         )
                         return {"status": "error", "code": resp.status}
+                self._mark_failure("auth_fallback_exhausted")
+                self.last_search_status = "auth_fallback_exhausted"
+                return {"status": "error", "message": "auth_fallback_exhausted"}
         except Exception as exc:
             logger.debug(f"Khoj search error: {exc}")
             self._mark_failure(type(exc).__name__)
@@ -196,17 +210,30 @@ class PegasusKhojBridge:
             return {"status": "error", "message": str(exc)}
     
     def _extract_query(self, messages: List[Dict]) -> str:
-        """Extract search query from message history"""
+        """Extract search query from message history (hardened for Cascade/Claude)"""
         if not messages:
             return ""
         
         # Get last user message
         for msg in reversed(messages):
-            if msg.get("role") == "user":
+            # Support both OpenAI/Anthropic 'role' and Cascade 'author'
+            role = str(msg.get("role") or msg.get("author") or "").lower()
+            if role in {"user", "human"}:
                 content = msg.get("content", "")
+                
+                # Handle string content
                 if isinstance(content, str):
-                    # Take first 200 chars as query
                     return content[:200]
+                
+                # Handle list-based content (standard in Claude/Cascade)
+                if isinstance(content, list):
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            text_parts.append(part.get("text", ""))
+                        elif isinstance(part, str):
+                            text_parts.append(part)
+                    return " ".join(text_parts)[:200]
         return ""
     
     def _to_snippets(self, results: Any, limit_chars: int = 800) -> List[str]:
@@ -275,10 +302,10 @@ class PegasusKhojBridge:
         self.last_query = query
         self.last_query_hash = hashlib.sha256(query.encode()).hexdigest()
         deep_mode = any(tok in query.lower() for tok in ["deep", "thorough", "investigate", "comprehensive"])
-        self.timeout_s = self.deep_timeout_s if deep_mode else self.fast_timeout_s
+        timeout_override = self.deep_timeout_s if deep_mode else self.fast_timeout_s
         
         # Search Khoj
-        search_result = await self.search(query)
+        search_result = await self.search(query, timeout_override=timeout_override)
         if search_result.get("status") != "ok":
             self.last_injection_status = search_result.get("status", "search_error")
             self._emit_trace(
@@ -388,10 +415,18 @@ class PegasusKhojBridge:
             return []
     
     async def update_content_sources(self) -> bool:
-        """Update Khoj content sources to include Windsurf workspaces"""
+        """Update Khoj content sources to include Windsurf workspaces.
+
+        Khoj configures content sources via Django models (LocalMarkdownConfig,
+        LocalPlaintextConfig, etc.), not via REST endpoints. The /api/content/computer
+        endpoint only supports GET (returns list of indexed files).
+
+        Strategy: Use PATCH /api/content with file uploads for direct content injection,
+        or fall back to PUT /api/content to trigger re-indexing of DB-configured sources.
+        """
         if not self.enabled:
             return False
-        
+
         # Build index paths
         index_paths = [
             str(self.repo_root / "src"),
@@ -400,81 +435,156 @@ class PegasusKhojBridge:
             str(self.repo_root / "config"),
             str(self.repo_root / "docs"),
         ]
-        
+
         # Add Windsurf workspaces
         windsurf_workspaces = self._get_windsurf_workspaces()
         if windsurf_workspaces:
             logger.info(f"Adding {len(windsurf_workspaces)} Windsurf workspace(s) to index")
             index_paths.extend(windsurf_workspaces)
-        
+
         # Filter to existing paths
         existing_paths = [p for p in index_paths if Path(p).exists()]
-        
+
         include_globs = os.environ.get(
             "HG_KHOJ_INCLUDE_GLOBS",
             "*.py,*.md,*.txt,*.json,*.yaml,*.yml,*.sh,*.c,*.cpp,*.h,*.rs,*.go,*.js,*.ts,*.jsx,*.tsx,*.java,*.kt,*.swift,*.rb"
         )
-        payload = {
-            "name": "HIGH-GRAVITY + Windsurf Workspaces",
-            "input_files": existing_paths,
-            "input_filter": [g.strip() for g in include_globs.split(",") if g.strip()],
-            "index_heading_entries": True,
-        }
-        
+        globs = [g.strip() for g in include_globs.split(",") if g.strip()]
+
+        # Collect files matching globs from configured paths
+        files_to_index = []
+        for dir_path in existing_paths:
+            p = Path(dir_path)
+            if not p.is_dir():
+                continue
+            for glob_pattern in globs:
+                for f in p.rglob(glob_pattern):
+                    if f.is_file():
+                        files_to_index.append(f)
+
+        if not files_to_index:
+            logger.warning("No files found to index from configured paths")
+            return False
+
+        logger.info(f"Uploading {len(files_to_index)} files to Khoj for indexing")
+
+        # Use PATCH /api/content to upload files directly (replaces existing content)
+        # This works even when DB-based content sources aren't configured.
         try:
-            timeout = aiohttp.ClientTimeout(total=30)
+            timeout = aiohttp.ClientTimeout(total=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{self.base_url}/api/content/computer",
-                    json=payload,
-                    headers=self._headers()
-                ) as resp:
-                    if resp.status in [200, 201]:
-                        logger.info("Content sources updated successfully")
-                        return True
-                    else:
-                        logger.warning(f"Content source update failed: {resp.status}")
+                # Prepare multipart form data with file contents
+                data = aiohttp.FormData()
+                batch_size = int(os.environ.get("HG_KHOJ_INDEX_BATCH_SIZE", "50"))
+                total_uploaded = 0
+
+                for i in range(0, len(files_to_index), batch_size):
+                    batch = files_to_index[i:i + batch_size]
+                    data = aiohttp.FormData()
+                    for f in batch:
+                        try:
+                            content = f.read_text(errors="ignore")
+                            data.add_field(
+                                "files",
+                                content.encode("utf-8"),
+                                filename=str(f),
+                                content_type="text/plain",
+                            )
+                        except Exception as exc:
+                            logger.debug(f"Skipping file {f}: {exc}")
+                            continue
+
+                    uploaded = False
+                    for use_auth in self._auth_attempts():
+                        async with session.patch(
+                            f"{self.base_url}/api/content",
+                            data=data,
+                            headers=self._headers(include_content_type=False, use_auth=use_auth),
+                        ) as resp:
+                            if resp.status in [200, 201, 202]:
+                                total_uploaded += len(batch)
+                                logger.info(f"Indexed batch {i // batch_size + 1}: {len(batch)} files (status={resp.status})")
+                                uploaded = True
+                                break
+                            if use_auth and resp.status in (401, 403, 500):
+                                continue
+                            body = await resp.text()
+                            logger.warning(f"Content upload batch failed: {resp.status} body={body[:200]}")
+                    if not uploaded:
+                        # fallback trigger
+                        async with session.get(
+                            f"{self.base_url}/api/update",
+                            params={"force": "true"},
+                            headers=self._headers(include_content_type=False, use_auth=False),
+                        ) as upd_resp:
+                            if upd_resp.status in [200, 201, 202]:
+                                logger.info("Re-index triggered via GET /api/update")
+                                return True
                         return False
+
+                logger.info(f"Content sources updated: {total_uploaded} files uploaded")
+                return True
         except Exception as exc:
             logger.warning(f"Content source update error: {exc}")
+            # Last resort: try PUT /api/content to re-index DB-configured sources
+            try:
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    async with session.get(
+                        f"{self.base_url}/api/update",
+                        params={"force": "true"},
+                        headers=self._headers(include_content_type=False, use_auth=False),
+                    ) as resp:
+                        if resp.status in [200, 201, 202]:
+                            logger.info("Re-index triggered via GET /api/update fallback")
+                            return True
+            except Exception:
+                pass
             return False
     
     async def trigger_reindex(self) -> bool:
-        """Trigger workspace re-indexing (includes Windsurf workspaces)"""
+        """Trigger workspace re-indexing (includes Windsurf workspaces).
+
+        Khoj uses PUT /api/content to trigger indexing of DB-configured sources.
+        The old /api/update and /api/index/update endpoints don't exist in current Khoj.
+        """
         if not self.enabled:
             return False
-        
+
         current_time = time.time()
         if current_time - self.last_index_time < self.index_interval:
             logger.debug("Skipping re-index (too soon)")
             return False
-        
+
         self.last_reindex_progress = {"state": "starting", "updated_at": int(time.time())}
         # Update content sources first to include any new Windsurf workspaces
         await self.update_content_sources()
-        
+
         try:
             timeout = aiohttp.ClientTimeout(total=120)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                candidates = [
-                    ("POST", f"{self.base_url}/api/update"),
-                    ("POST", f"{self.base_url}/api/index/update"),
-                    ("GET", f"{self.base_url}/api/update"),
-                ]
-                for method, url in candidates:
-                    if method == "POST":
-                        resp_ctx = session.post(url, headers=self._headers())
-                    else:
-                        resp_ctx = session.get(url, headers=self._headers())
-                    async with resp_ctx as resp:
+                success = False
+                detail = ""
+                for use_auth in self._auth_attempts():
+                    async with session.get(
+                        f"{self.base_url}/api/update",
+                        params={"force": "true"},
+                        headers=self._headers(include_content_type=False, use_auth=use_auth),
+                    ) as resp:
                         if resp.status in (200, 201, 202):
                             self.last_index_time = current_time
                             self.last_reindex_status = "ok"
-                            self.last_reindex_detail = f"{method} {url} -> {resp.status}"
+                            self.last_reindex_detail = f"GET /api/update -> {resp.status}"
                             self.last_reindex_progress = {"state": "ok", "updated_at": int(time.time())}
-                            logger.info("Workspace re-indexed successfully (including Windsurf workspaces)")
+                            logger.info("Workspace re-indexed successfully")
                             return True
-                        self.last_reindex_detail = f"{method} {url} -> {resp.status}"
+                        if use_auth and resp.status in (401, 403, 500):
+                            continue
+                        body = await resp.text()
+                        detail = f"GET /api/update -> {resp.status} {body[:200]}"
+                        break
+                if detail:
+                    self.last_reindex_detail = detail
+
                 self.last_reindex_status = "failed"
                 self.last_reindex_progress = {"state": "failed", "updated_at": int(time.time())}
                 logger.warning(f"Re-index failed: {self.last_reindex_detail}")

@@ -645,7 +645,7 @@ class ProductionCVPipeline:
 
     async def submit_classification_task(self, image: np.ndarray, model_name: str = 'mobilenet_v3') -> str:
         """Submit image classification task"""
-        task_id = f"cls_{int(time.time()*1000)}_{np.random.randint(1000, 9999)}"
+        task_id = f"cls_{int(time.time()*1000)}_{np.random.randint(1000, 9998)}"
         task = {
             'id': task_id,
             'type': 'classification',
@@ -658,7 +658,7 @@ class ProductionCVPipeline:
 
     async def submit_detection_task(self, image: np.ndarray, model_name: str = 'yolov8n') -> str:
         """Submit object detection task"""
-        task_id = f"det_{int(time.time()*1000)}_{np.random.randint(1000, 9999)}"
+        task_id = f"det_{int(time.time()*1000)}_{np.random.randint(1000, 9998)}"
         task = {
             'id': task_id,
             'type': 'detection',

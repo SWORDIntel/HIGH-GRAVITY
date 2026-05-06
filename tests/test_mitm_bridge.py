@@ -7,7 +7,7 @@ import requests
 import json
 import time
 
-PROXY_URL = "http://localhost:9999"
+PROXY_URL = "http://localhost:9998"
 
 def test_telemetry():
     """Check MITM bridge status via telemetry endpoint"""

@@ -127,7 +127,7 @@ class AgentMetadata:
 
 2. **agent_protocol_server.py** starts:
    ```python
-   server = AgentServer(host='127.0.0.1', port=9999)
+   server = AgentServer(host='127.0.0.1', port=9998)
    server.start()                          # Begin accepting connections
    ```
 

@@ -176,7 +176,7 @@ MITM_BRIDGE: Rate limit hit on GEMINI, reduced cooldown=0.5s
 python tools/integration/highgravity_proxy.py
 ```
 
-The proxy runs on `http://localhost:9999` by default.
+The proxy runs on `http://localhost:9998` by default.
 
 ### Testing MITM Bridge
 
@@ -219,7 +219,7 @@ It refreshes twice per second from `/hg/telemetry` and shows:
 Check MITM bridge status via telemetry:
 
 ```bash
-curl http://localhost:9999/hg/telemetry
+curl http://localhost:9998/hg/telemetry
 ```
 
 Response includes:
@@ -241,7 +241,7 @@ Response includes:
 
 **Original Request:**
 ```bash
-curl -X POST http://localhost:9999/v1/chat/completions \
+curl -X POST http://localhost:9998/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Host: generativelanguage.googleapis.com" \
   -d '{
@@ -268,7 +268,7 @@ MITM_BRIDGE: Set thinkingBudget=-1 (tier=deep)
 
 **Original Request:**
 ```bash
-curl -X POST http://localhost:9999/v1/engines/davinci-codex/completions \
+curl -X POST http://localhost:9998/v1/engines/davinci-codex/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "davinci-codex",
@@ -298,8 +298,8 @@ import requests
 
 # Configure client to use proxy
 proxies = {
-    "http": "http://localhost:9999",
-    "https": "http://localhost:9999"
+    "http": "http://localhost:9998",
+    "https": "http://localhost:9998"
 }
 
 # Make Gemini request

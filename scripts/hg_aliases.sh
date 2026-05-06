@@ -8,10 +8,10 @@ HG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 alias hg="$HG_ROOT/hg.sh"
 
 # Windsurf launchers
-alias hg-windsurf="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999"
-alias hg-windsurf-k1="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --key-index 1"
-alias hg-windsurf-k2="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --key-index 2"
-alias hg-windsurf-k3="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9999 --key-index 3"
+alias hg-windsurf="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9998"
+alias hg-windsurf-k1="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9998 --key-index 1"
+alias hg-windsurf-k2="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9998 --key-index 2"
+alias hg-windsurf-k3="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9998 --key-index 3"
 
 # Gemini launchers
 alias hg-studio="$HG_ROOT/bin/gemini_session_launcher.py --mode studio"
@@ -22,13 +22,13 @@ alias hg-chat-k1="$HG_ROOT/bin/gemini_session_launcher.py --mode chat --key-inde
 alias hg-chat-k2="$HG_ROOT/bin/gemini_session_launcher.py --mode chat --key-index 2"
 
 # Piped launcher
-alias hg-pipe="$HG_ROOT/scripts/launch_windsurf_piped.sh"
+alias hg-pipe="$HG_ROOT/scripts/internal/launch_windsurf_piped.sh"
 
 # Utilities
 alias hg-keys="$HG_ROOT/bin/gemini_session_launcher.py --list"
 alias hg-check="$HG_ROOT/bin/gemini_session_launcher.py --check"
-alias hg-status="curl -s http://localhost:9999/hg/telemetry | jq"
-alias hg-patch="python3 $HG_ROOT/src/patch_windsurf_client.py"
+alias hg-status="curl -s http://localhost:9998/hg/telemetry | jq"
+alias hg-patch="python3 $HG_ROOT/src/patch_all.py"
 
 # Proxy control
 alias hg-proxy-start="python3 $HG_ROOT/tools/integration/highgravity_proxy.py &"
@@ -37,11 +37,11 @@ alias hg-proxy-stop="pkill -f highgravity_proxy.py"
 # Quick launch functions
 hg-launch() {
     local config="${1:-basic}"
-    cat "$HG_ROOT/config/windsurf_launch_examples.json" | jq -r ".examples.$config.config" | $HG_ROOT/scripts/launch_windsurf_piped.sh
+    cat "$HG_ROOT/config/windsurf_launch_examples.json" | jq -r ".examples.$config.config" | $HG_ROOT/scripts/internal/launch_windsurf_piped.sh
 }
 
 hg-launch-json() {
-    echo "$1" | $HG_ROOT/scripts/launch_windsurf_piped.sh
+    echo "$1" | $HG_ROOT/scripts/internal/launch_windsurf_piped.sh
 }
 
 echo "HIGH-GRAVITY aliases loaded!"

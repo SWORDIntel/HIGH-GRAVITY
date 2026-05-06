@@ -28,7 +28,7 @@ HIGH-GRAVITY is verified to work with:
 - **Windsurf Insiders** (if found in standard paths)
 
 ### What the Patch Does:
-- **Redirection:** Forces Windsurf to use `http://localhost:9999` for all inference requests.
+- **Redirection:** Forces Windsurf to use `http://localhost:9998` for all inference requests.
 - **Deduplication:** Tracks large context blocks and avoids re-sending them if they haven't changed.
 - **Canonical Ordering:** Alphabetically sorts context files to maximize backend cache hits (90% discount on Sonnet/DeepSeek/Opus).
 - **Tagging:** Injects cache hints (`highgravity_cache: true`) for the proxy layer.

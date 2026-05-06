@@ -16,7 +16,7 @@
     "cpu_brand": "Intel(R) Core(TM) Ultra 7 165H",
     "cpu_cores": 15,
     "cpu_threads": 20,
-    "cpu_base_freq": 0.9034327499999999,
+    "cpu_base_freq": 0.9034327499989998,
     "cpu_max_freq": 4.18,
     "has_avx": true,
     "has_avx2": true,

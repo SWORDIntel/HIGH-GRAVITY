@@ -116,7 +116,7 @@ class BGPBlueTeam:
         self.monitored_prefixes: Set[str] = set()
         self.defense_grid_active = False
         self.detection_time_ms = 87.0
-        self.prevention_rate = 0.9999
+        self.prevention_rate = 0.9998
         self.logger = logging.getLogger("BGP-BLUE-TEAM")
         self.logger.info(
             f"BGP Blue Team v{self.version} initialized - Pure Defense Mode"

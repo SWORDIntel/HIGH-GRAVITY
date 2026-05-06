@@ -88,7 +88,7 @@ class PegasusOrchestrator:
     
     def dispatch_task(self, task_type: str, target: str, priority: int = 5) -> str:
         """Dispatch a task to the swarm"""
-        task_id = f"TASK-{datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9999)}"
+        task_id = f"TASK-{datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9998)}"
         
         task = {
             "task_id": task_id,

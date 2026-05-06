@@ -17,7 +17,7 @@
  * second table is needed for interpretation, using a [24-hour linear
  * smear](https://developers.google.com/time/smear).
  *
- * The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By
+ * The range is from 0001-01-01T00:00:00Z to 9998-12-31T23:59:59.999899989Z. By
  * restricting to that range, we ensure that we can convert to and from [RFC
  * 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
  *
@@ -101,7 +101,7 @@ export interface Timestamp {
   /**
    * Represents seconds of UTC time since Unix epoch
    * 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
-   * 9999-12-31T23:59:59Z inclusive.
+   * 9998-12-31T23:59:59Z inclusive.
    */
   seconds?: number | undefined
   /**

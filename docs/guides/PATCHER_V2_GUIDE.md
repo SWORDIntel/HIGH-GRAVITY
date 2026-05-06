@@ -157,15 +157,15 @@ fi
 
 | URL | Patched To |
 |-----|------------|
-| `https://inference.codeium.com` | `http://shield.windsurf.com:9999` |
-| `https://server.codeium.com` | `http://shield.windsurf.com:9999` |
-| `https://register.windsurf.com` | `http://shield.windsurf.com:9999` |
-| `https://eu.windsurf.com/_route/api_server` | `http://shield.windsurf.com:9999` |
-| `https://windsurf.fedstart.com/_route/api_server` | `http://shield.windsurf.com:9999` |
+| `https://inference.codeium.com` | `http://shield.windsurf.com:9998` |
+| `https://server.codeium.com` | `http://shield.windsurf.com:9998` |
+| `https://register.windsurf.com` | `http://shield.windsurf.com:9998` |
+| `https://eu.windsurf.com/_route/api_server` | `http://shield.windsurf.com:9998` |
+| `https://windsurf.fedstart.com/_route/api_server` | `http://shield.windsurf.com:9998` |
 
 ### 2. Feature Flags
 
-- Unleash: `https://unleash.codeium.com/api/` → `http://shield.windsurf.com:9999/unleash/`
+- Unleash: `https://unleash.codeium.com/api/` → `http://shield.windsurf.com:9998/unleash/`
 
 ### 3. MITM Hooks
 
@@ -182,7 +182,7 @@ After patching, verify:
 python3 src/patch_windsurf_client.py --verify
 
 # 2. Check proxy references
-grep -c "shield.windsurf.com:9999" /usr/share/windsurf-next/.../extension.js
+grep -c "shield.windsurf.com:9998" /usr/share/windsurf-next/.../extension.js
 # Should show: 10
 
 # 3. Check no external URLs remain

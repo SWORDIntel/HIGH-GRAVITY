@@ -208,7 +208,7 @@ class ConnectionHandler:
 
 
 class AgentServer:
-    def __init__(self, host="127.0.0.1", port=9999):
+    def __init__(self, host="127.0.0.1", port=9998):
         self.host = host
         self.port = port
         self.agents = {}

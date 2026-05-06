@@ -25,11 +25,11 @@ Created `patch_windsurf_urls.py` to patch the **hardcoded default URLs** in the 
 
 ### URLs Patched
 
-1. **INFERENCE_API_SERVER_URL**: `https://inference.codeium.com` → `http://shield.windsurf.com:9999`
-2. **DEFAULT_API_SERVER_URL**: `https://server.codeium.com` → `http://shield.windsurf.com:9999`
-3. **DEFAULT_REGISTER_API_SERVER_URL**: `https://register.windsurf.com` → `http://shield.windsurf.com:9999`
-4. **EU routes** (2x): `https://eu.windsurf.com/_route/api_server` → `http://shield.windsurf.com:9999`
-5. **Fed routes** (2x): `https://windsurf.fedstart.com/_route/api_server` → `http://shield.windsurf.com:9999`
+1. **INFERENCE_API_SERVER_URL**: `https://inference.codeium.com` → `http://shield.windsurf.com:9998`
+2. **DEFAULT_API_SERVER_URL**: `https://server.codeium.com` → `http://shield.windsurf.com:9998`
+3. **DEFAULT_REGISTER_API_SERVER_URL**: `https://register.windsurf.com` → `http://shield.windsurf.com:9998`
+4. **EU routes** (2x): `https://eu.windsurf.com/_route/api_server` → `http://shield.windsurf.com:9998`
+5. **Fed routes** (2x): `https://windsurf.fedstart.com/_route/api_server` → `http://shield.windsurf.com:9998`
 
 ## Next Steps
 
@@ -57,7 +57,7 @@ tail -f /mnt/DSMIL/HIGH-GRAVITY/logs/cascade_midway.log
 
 ### 4. Check Network Connections
 ```bash
-# Should see connections to 127.0.0.1:9999, NOT external IPs
+# Should see connections to 127.0.0.1:9998, NOT external IPs
 lsof -i -n -P | grep windsurf | grep ESTABLISHED
 ```
 
@@ -72,17 +72,17 @@ lsof -i -n -P | grep windsurf | grep ESTABLISHED
 
 1. **Proxy logs**: Will show `POST /v1/chat/completions` requests
 2. **MITM log**: Will populate with protocol events
-3. **Network**: Windsurf connects to `127.0.0.1:9999` only
+3. **Network**: Windsurf connects to `127.0.0.1:9998` only
 4. **Khoj**: Context injection will work on Cascade queries
 
 ## Diagnosis Commands
 
 ```bash
 # Test proxy
-curl http://shield.windsurf.com:9999/hg/telemetry
+curl http://shield.windsurf.com:9998/hg/telemetry
 
 # Check patch applied
-grep "shield.windsurf.com:9999" /usr/share/windsurf-next/resources/app/extensions/windsurf/dist/extension.js | wc -l
+grep "shield.windsurf.com:9998" /usr/share/windsurf-next/resources/app/extensions/windsurf/dist/extension.js | wc -l
 # Should show multiple matches
 
 # Check Windsurf connections

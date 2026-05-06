@@ -32,7 +32,7 @@ from src.pegasus.learning.learner import PegasusLearner
 from src.pegasus.khoj_integration import PegasusKhojBridge
 
 # --- Configuration ---
-PROXY_PORT = int(os.environ.get("HG_PROXY_PORT", 9999))
+PROXY_PORT = int(os.environ.get("HG_PROXY_PORT", 9998))
 REPO_ROOT = Path(__file__).resolve().parent.parent
 KEYS_FILE = REPO_ROOT / "config" / "gemini_keys.json"
 CLAUDE_KEYS_FILE = REPO_ROOT / "config" / "claude_keys.json"
@@ -528,6 +528,7 @@ async def get_upstream_session() -> aiohttp.ClientSession:
     if _upstream_session is None or _upstream_session.closed:
         _upstream_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=300),
+            auto_decompress=False,
             connector=aiohttp.TCPConnector(limit=100, limit_per_host=20, keepalive_timeout=30)
         )
     return _upstream_session
@@ -726,7 +727,9 @@ async def proxy_request(path: str, request: Request):
     logger.info(f"[{request_id}] CONNECTION: {request.method} /{path} host={incoming_host}")
     app.state.request_count = getattr(app.state, "request_count", 0) + 1
     body_bytes = await request.body(); is_json = False; raw_body_json = {}
-    if "application/json" in request.headers.get("Content-Type", ""):
+    is_grpc = request.headers.get("Content-Type", "").startswith("application/grpc")
+    
+    if not is_grpc and "application/json" in (request.headers.get("Content-Type", "") or ""):
         try: raw_body_json = json.loads(body_bytes); is_json = True
         except: pass
     # Per-session isolation: use client's session-id (or generate one) so
@@ -879,7 +882,7 @@ async def proxy_request(path: str, request: Request):
                 # Only default to Codeium servers if it's our custom proxy.windsurf.com patch.
                 if "windsurf.com" in incoming_host and "proxy.windsurf.com" not in incoming_host and "inferapi.windsurf.com" not in incoming_host:
                     target_base_url = f"https://{incoming_host}"
-                elif "codeium.com" in incoming_host:
+                elif "codeium.com" in incoming_host and "api.codeium.com" not in incoming_host:
                     target_base_url = f"https://{incoming_host}"
                 else:
                     target_base_url = "https://server.codeium.com"
@@ -945,7 +948,7 @@ async def proxy_request(path: str, request: Request):
 
             target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
             upstream_host = urlparse(target_url).netloc
-            strip_headers = ["host", "connection"]
+            strip_headers = ["host", "connection", "content-length", "te"]
             if not passthrough_auth:
                 strip_headers.extend(["authorization", "x-api-key"])
             fh = {k: v for k, v in request.headers.items() if k.lower() not in strip_headers}
@@ -954,6 +957,8 @@ async def proxy_request(path: str, request: Request):
                 shadow = pool.get_shadow_profile(active_key_str)
                 if is_json and not is_auth_flow:
                     meta = raw_body_json.setdefault("metadata", {})
+                    # Ensure api_key exists even if token resolution failed (prevents validation errors)
+                    meta.setdefault("api_key", resolved_api_key.replace("Bearer ", "").strip() if resolved_api_key != "NONE" else "HG_FALLBACK_TOKEN")
                     meta.update({"sessionId": shadow["sessionId"], "installationId": shadow["installationId"], "deviceFingerprint": shadow["deviceFingerprint"]})
                 
                 if passthrough_auth and request.headers.get("authorization"):
@@ -983,6 +988,12 @@ async def proxy_request(path: str, request: Request):
 
             async with _concurrency_sem:
                 session = await get_upstream_session()
+                if is_grpc:
+                    # Raw stream relay for gRPC
+                    async with session.request(method=request.method, url=target_url, data=body_bytes, headers=fh) as resp:
+                        upstream_first_byte_ms = (time.time() - req_started) * 1000.0
+                        return StreamingResponse(resp.body_iterator, status_code=resp.status, headers=dict(resp.headers))
+
                 async with session.request(method=request.method, url=target_url, json=raw_body_json if is_json else None, data=body_bytes if not is_json else None, headers=fh) as resp:
                     upstream_first_byte_ms = (time.time() - req_started) * 1000.0
                     if is_auth_flow:
@@ -1114,11 +1125,11 @@ if __name__ == "__main__":
                 port=443,
                 ssl_keyfile=str(KEY_FILE),
                 ssl_certfile=str(CERT_FILE),
-                log_level="error"
+                log_level="info"
             )
         else:
             logger.error("HTTPS certificates not found. Run: python3 add_https_to_proxy.py")
             sys.exit(1)
     else:
         # Default: HTTP on port 9999
-        uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="error")
+        uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="info")

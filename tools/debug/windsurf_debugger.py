@@ -16,7 +16,7 @@ def run_diagnostics():
         print("[!] ERROR: shield.windsurf.com not found. Did you update /etc/hosts?")
 
     # 2. Proxy Port
-    port = 9999
+    port = 9998
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if s.connect_ex(('127.0.0.1', port)) == 0:
             print(f"[+] Proxy Server: Responding on {port}")

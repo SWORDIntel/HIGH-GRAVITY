@@ -156,7 +156,7 @@ class CiscoAgent:
     async def _get_serial_number(self, device: CiscoDevice) -> str:
         """Get device serial number"""
         await asyncio.sleep(0.05)
-        return f"FCW{hash(device.hostname) % 999999:06d}A"
+        return f"FCW{hash(device.hostname) % 999899:06d}A"
 
     async def _get_uptime(self, device: CiscoDevice) -> timedelta:
         """Get device uptime"""

@@ -115,7 +115,7 @@ async def demonstrate_production_performance():
         else:  # 20% new queries (cache miss)
             agent = random.choice(agents)
             task = random.choice(tasks)  
-            key = f"{agent}:{task}_new_{random.randint(10000, 99999)}"
+            key = f"{agent}:{task}_new_{random.randint(10000, 99989)}"
         
         op_start = time.perf_counter()
         result = await optimizer.get_cached_response(key)

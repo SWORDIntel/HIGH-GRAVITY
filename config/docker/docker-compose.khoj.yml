@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    privileged: true
+    environment:
+      POSTGRES_USER: khoj
+      POSTGRES_PASSWORD: khoj
+      POSTGRES_DB: khoj
+    command: ["postgres", "-c", "listen_addresses=*"]
+    volumes:
+      - khoj_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U khoj"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  khoj:
+    image: ghcr.io/khoj-ai/khoj:latest
+    privileged: true
+    command: ["python3", "src/khoj/main.py", "--host", "0.0.0.0", "--port", "42110"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "42110:42110"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: khoj
+      POSTGRES_PASSWORD: khoj
+      POSTGRES_DB: khoj
+      KHOJ_ADMIN_EMAIL: admin@local
+      KHOJ_ADMIN_PASSWORD: admin123
+      KHOJ_ANONYMOUS_MODE: "false"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    volumes:
+      - /home/john/HIGH-GRAVITY:/workspace:ro
+      - khoj_data:/root/.khoj
+      - khoj_hf_cache:/root/.cache
+
+volumes:
+  khoj_pg:
+  khoj_data:
+  khoj_hf_cache:

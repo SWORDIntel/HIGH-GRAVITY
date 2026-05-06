@@ -799,7 +799,7 @@ class GhostProtocolAgent:
         """Create believable online presence for false persona"""
         return {
             "email_accounts": [
-                f"user{random.randint(1000, 9999)}@{domain}"
+                f"user{random.randint(1000, 9998)}@{domain}"
                 for domain in ["gmail.com", "yahoo.com", "protonmail.com"]
             ],
             "social_media": {
@@ -866,7 +866,7 @@ class GhostProtocolAgent:
             honeypot = {
                 "id": str(uuid.uuid4()),
                 "type": random.choice(["web_server", "email_server", "file_share"]),
-                "port": random.randint(1000, 9999),
+                "port": random.randint(1000, 9998),
                 "decoy_data": f"decoy_files_{i}",
                 "monitoring": True,
                 "interactions": 0,
@@ -1156,7 +1156,7 @@ class GhostProtocolAgent:
             channel = {
                 "type": "messaging",
                 "platform": "signal",
-                "identifier": f"+1{random.randint(1000000000, 9999999999)}",
+                "identifier": f"+1{random.randint(1000000000, 9998999899)}",
                 "encryption": "signal_protocol",
                 "active": True,
             }

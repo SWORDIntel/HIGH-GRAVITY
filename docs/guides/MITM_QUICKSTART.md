@@ -41,7 +41,7 @@ python hg.py
 
 Check telemetry:
 ```bash
-curl http://localhost:9999/hg/telemetry | jq
+curl http://localhost:9998/hg/telemetry | jq
 ```
 
 Look for:
@@ -63,7 +63,7 @@ python tests/test_mitm_bridge.py
 Or manually test with curl:
 ```bash
 # Test Gemini detection
-curl -X POST http://localhost:9999/v1/chat/completions \
+curl -X POST http://localhost:9998/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Host: generativelanguage.googleapis.com" \
   -d '{
@@ -72,7 +72,7 @@ curl -X POST http://localhost:9999/v1/chat/completions \
   }'
 
 # Check if detected
-curl http://localhost:9999/hg/telemetry | jq '.mitm_detected_services'
+curl http://localhost:9998/hg/telemetry | jq '.mitm_detected_services'
 # Should show: ["gemini"]
 ```
 
@@ -123,7 +123,7 @@ import requests
 
 # Point your client to the proxy
 response = requests.post(
-    "http://localhost:9999/v1/chat/completions",
+    "http://localhost:9998/v1/chat/completions",
     json={
         "model": "gemini-pro",  # Automatically upgraded!
         "messages": [{"role": "user", "content": "Hello"}]
@@ -136,7 +136,7 @@ response = requests.post(
 Set environment variables before launching Windsurf:
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:9999"
+export OPENAI_BASE_URL="http://localhost:9998"
 export GOOGLE_API_KEY="your-gemini-key"
 windsurf --new-window
 ```
@@ -163,7 +163,7 @@ MITM_BRIDGE: Rate limit hit on GEMINI, reduced cooldown=0.5s
 
 ```bash
 # Quick status check
-curl -s http://localhost:9999/hg/telemetry | jq '{
+curl -s http://localhost:9998/hg/telemetry | jq '{
   mitm_mode,
   mitm_detected_services,
   mitm_inject_premium,
@@ -320,7 +320,7 @@ self.premium_model_map = {
 Run separate proxies for different services:
 
 ```bash
-# Proxy 1: Gemini only (port 9999)
+# Proxy 1: Gemini only (port 9998)
 python tools/integration/highgravity_proxy.py
 
 # Proxy 2: Codex only (port 10000)
@@ -368,7 +368,7 @@ This is negligible compared to network latency (50-200ms) and API processing tim
 ## Getting Help
 
 - Check logs: `tail -f logs/proxy.log`
-- Run telemetry: `curl http://localhost:9999/hg/telemetry`
+- Run telemetry: `curl http://localhost:9998/hg/telemetry`
 - Test suite: `python tests/test_mitm_bridge.py`
 - Full docs: `docs/guides/MITM_BRIDGE.md`
 
@@ -381,7 +381,7 @@ This is negligible compared to network latency (50-200ms) and API processing tim
 python tools/integration/highgravity_proxy.py
 
 # Check status
-curl http://localhost:9999/hg/telemetry | jq
+curl http://localhost:9998/hg/telemetry | jq
 
 # Test detection
 python tests/test_mitm_bridge.py

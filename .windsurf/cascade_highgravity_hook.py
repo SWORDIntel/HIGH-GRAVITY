@@ -56,7 +56,7 @@ def build_payload(hook_input):
     if "provider" not in merged_variables:
         merged_variables["provider"] = "proxy"
     if "proxyUrl" not in merged_variables:
-        merged_variables["proxyUrl"] = "http://localhost:9999"
+        merged_variables["proxyUrl"] = "http://localhost:9998"
     if "dryRun" not in merged_variables:
         merged_variables["dryRun"] = True
 

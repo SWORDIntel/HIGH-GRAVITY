@@ -78,23 +78,50 @@ JS_URL_REPLACEMENTS = [
     # Route URLs (variable length — string replace safe in JS)
     ('"https://eu.windsurf.com/_route/api_server"',      f'"{PROXY_URL}"'),
     ('"https://windsurf.fedstart.com/_route/api_server"', f'"{PROXY_URL}"'),
+    ('"https://server.self-serve.windsurf.com"', f'"{PROXY_URL}"'),
+    (f'DEFAULT_REGISTER_API_SERVER_URL="https://register.windsurf.com"',
+     f'DEFAULT_REGISTER_API_SERVER_URL="{PROXY_URL}"'),
     # Unleash feature flags
     ('url:"https://unleash.codeium.com/api/"',
      f'url:"{PROXY_URL}/unleash/"'),
 ]
 
-# Optional auth/login-control-plane rewrites are disabled by default to avoid
-# breaking Windsurf sign-in flows.
-JS_AUTH_URL_REPLACEMENTS = [
-    (f'DEFAULT_REGISTER_API_SERVER_URL="https://register.windsurf.com"',
-     f'DEFAULT_REGISTER_API_SERVER_URL="{PROXY_URL}"'),
-    ('"https://server.self-serve.windsurf.com"', f'"{PROXY_URL}"'),
-]
+# High-level MITM event logger and optimizer
+JS_MIDWAY_LOG = Path("/home/john/HIGH-GRAVITY/logs/cascade_midway.log")
+JS_OPTIMIZER_CODE = f"""
+globalThis.HG_CACHE = globalThis.HG_CACHE || new Set();
+globalThis.HG_OPT = (items, config) => {{
+    try {{
+        const logData = {{
+            timestamp: new Date().toISOString(),
+            model: config?.requestedModelUid,
+            itemCount: items?.length,
+            metadata: config?.metadata
+        }};
+        require("fs").appendFileSync("{JS_MIDWAY_LOG}", "\\n--- PROTOCOL EVENT ---\\n" + JSON.stringify(logData, null, 2) + "\\n");
+    }} catch(e) {{}}
+    if (!Array.isArray(items)) return items;
+    return items.map(item => {{
+        if (item.chunk?.case === "text") {{
+            const val = item.chunk.value;
+            const hash = val.substring(0, 200);
+            if (globalThis.HG_CACHE.has(hash)) {{
+                item.chunk.value = `[HG:CACHED] ${{val.substring(0, 30)}}`;
+                return item;
+            }}
+            globalThis.HG_CACHE.add(hash);
+        }}
+        return item;
+    }});
+}};
+"""
 
 # ── JS function override patches ──────────────────────────────────────────────
-# DISABLED: Function overrides break extension startup. URL replacements are sufficient
-# since the binary patch already redirects the actual network calls.
-JS_FUNC_PATCHES = []
+JS_FUNC_PATCHES = [
+    ('"use strict";', '"use strict";' + JS_OPTIMIZER_CODE, "Inject HG_OPT global"),
+    ("items:e,cascadeConfig", "items:globalThis.HG_OPT(e,t),cascadeConfig", "Wrap send call (e,t)"),
+    ("items:g,cascadeConfig", "items:globalThis.HG_OPT(g,t),cascadeConfig", "Wrap send call (g,t)"),
+]
 
 
 def sha256_short(path: Path) -> str:
@@ -166,7 +193,7 @@ def preflight_check(enable_auth_patch: bool = False) -> bool:
         ok = False
     else:
         text = EXT_PATH.read_text(errors="replace")
-        url_rules = JS_URL_REPLACEMENTS + (JS_AUTH_URL_REPLACEMENTS if enable_auth_patch else [])
+        url_rules = JS_URL_REPLACEMENTS
         missing = 0
         for old, new in url_rules:
             if old not in text and new not in text:
@@ -376,7 +403,7 @@ def patch_js(verify_only: bool = False, force: bool = False, enable_auth_patch: 
     modified = False
 
     # URL constant replacements
-    replacements = JS_URL_REPLACEMENTS + (JS_AUTH_URL_REPLACEMENTS if enable_auth_patch else [])
+    replacements = JS_URL_REPLACEMENTS
     for old, new in replacements:
         if old in content:
             if verify_only:
@@ -393,7 +420,9 @@ def patch_js(verify_only: bool = False, force: bool = False, enable_auth_patch: 
 
     # Function override patches
     for old, new, desc in JS_FUNC_PATCHES:
-        if old in content:
+        if new in content or new[:50] in content:
+            print(f"  {GREEN}[✓]{NC} Already: {desc}")
+        elif old in content:
             if verify_only:
                 print(f"  {RED}[✗] Not overridden: {desc}{NC}")
                 ok = False
@@ -401,8 +430,6 @@ def patch_js(verify_only: bool = False, force: bool = False, enable_auth_patch: 
                 content = content.replace(old, new)
                 print(f"  {GREEN}[✓]{NC} {desc}")
                 modified = True
-        elif new in content or new[:50] in content:
-            print(f"  {GREEN}[✓]{NC} Already: {desc}")
 
     if verify_only or not modified:
         return ok
@@ -428,6 +455,75 @@ def restore_js() -> bool:
         return False
     if sudo_cp(str(bak), str(EXT_PATH)):
         print(f"  {GREEN}[✓] extension.js restored{NC}")
+        return True
+    return False
+
+
+def patch_wb(verify_only: bool = False) -> bool:
+    print(f"\n{BLUE}{'Verifying' if verify_only else 'Patching'} workbench.js{NC}")
+    if not WB_PATH.exists():
+        print(f"  {RED}[!] Not found: {WB_PATH}{NC}")
+        return False
+
+    content = WB_PATH.read_text(encoding="utf-8")
+    
+    # Generic regex for the login banner component:
+    # Looks for a variable assignment of an arrow function that renders "Log in to use Windsurf"
+    import re
+    # Pattern: [name]=({isOpen:[m],onClose:[d]})=>{... "Log in to use Windsurf" ...}
+    # We target the start of the function body.
+    pattern = r'([a-zA-Z0-9]+)=\(\{isOpen:[a-z],onClose:[a-z]\}\)=>\{'
+    
+    # We verify it's the right component by checking if "Log in to use Windsurf" follows shortly after
+    # (within 200 chars)
+    matches = list(re.finditer(pattern, content))
+    target_match = None
+    for m in matches:
+        snippet = content[m.start():m.start()+500]
+        if "Log in to use Windsurf" in snippet:
+            target_match = m
+            break
+    
+    if not target_match:
+        print(f"  {RED}[✗] Login banner signature not found{NC}")
+        return False
+
+    comp_name = target_match.group(1)
+    full_target = target_match.group(0)
+    replacement = f"{comp_name}=({{isOpen:m,onClose:d}})=>{{return null;"
+
+    if replacement in content:
+        print(f"  {GREEN}[✓]{NC} Login Banner already suppressed")
+        return True
+
+    if verify_only:
+        print(f"  {RED}[✗] Login banner not suppressed{NC}")
+        return False
+
+    content = content.replace(full_target, replacement)
+    print(f"  {GREEN}[✓]{NC} Patch applied surgically ({comp_name})")
+
+    if verify_only: return True
+
+    if not ensure_clean_backup(WB_PATH, is_binary=False):
+        return False
+
+    tmp = Path(f"/tmp/wb_patched_{os.getpid()}.js")
+    tmp.write_text(content, encoding="utf-8")
+    if sudo_cp(str(tmp), str(WB_PATH)):
+        tmp.unlink(missing_ok=True)
+        print(f"  {GREEN}[✓] workbench.js written{NC}")
+        return True
+    return False
+
+
+def restore_wb() -> bool:
+    bak = Path(str(WB_PATH) + ".original")
+    if not bak.exists():
+        print(f"  {RED}[!] No backup: {bak}{NC}")
+        return False
+    if sudo_cp(str(bak), str(WB_PATH)):
+        print(f"  {GREEN}[✓] workbench.js restored{NC}")
         return True
     return False
 
@@ -488,21 +584,23 @@ def main():
     parser.add_argument("--check-backups", action="store_true", help="Verify clean backups exist, exit 1 if not")
     parser.add_argument("--binary-only",   action="store_true")
     parser.add_argument("--js-only",        action="store_true")
+    parser.add_argument("--wb-only",        action="store_true", help="Only patch workbench.js")
     parser.add_argument("--hosts-only",     action="store_true")
-    parser.add_argument("--iptables",       action="store_true", help="Apply iptables 50001→9999 redirect")
-    parser.add_argument("--iptables-undo",  action="store_true", help="Remove iptables 50001→9999 redirect")
+    parser.add_argument("--iptables",       action="store_true", help="Apply iptables 50001→9998 redirect")
+    parser.add_argument("--iptables-undo",  action="store_true", help="Remove iptables 50001→9998 redirect")
     parser.add_argument("--preflight",      action="store_true", help="Validate patch targets/signatures without modifying files")
     parser.add_argument("--enable-auth-patch", action="store_true", help="Allow patching auth/login-related Windsurf URLs")
     args = parser.parse_args()
 
-    global BINARY_PATH, EXT_PATH
+    global BINARY_PATH, EXT_PATH, WB_PATH
+    WB_PATH = Path("/usr/share/windsurf-next/resources/app/out/vs/workbench/workbench.desktop.main.js")
     discovered_bin, discovered_ext = resolve_windsurf_paths()
     if discovered_bin:
         BINARY_PATH = discovered_bin
     if discovered_ext:
         EXT_PATH = discovered_ext
 
-    all_targets = not (args.binary_only or args.js_only or args.hosts_only)
+    all_targets = not (args.binary_only or args.js_only or args.wb_only or args.hosts_only)
 
     print(f"{BLUE}╔══════════════════════════════════════════════════════════════╗")
     print(f"║        HIGH-GRAVITY  Unified Patcher                        ║")
@@ -532,28 +630,29 @@ def main():
 
     if args.iptables:
         ret = os.system(
-            f"echo {SUDO_PASS} | sudo -S iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999 2>/dev/null "
-            f"|| echo {SUDO_PASS} | sudo -S iptables -t nat -A OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999"
+            f"echo {SUDO_PASS} | sudo -S iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null "
+            f"|| echo {SUDO_PASS} | sudo -S iptables -t nat -A OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998"
         )
         if ret == 0:
-            print(f"  {GREEN}[✓] iptables 50001→9999 active{NC}")
+            print(f"  {GREEN}[✓] iptables 50001→9998 active{NC}")
         else:
             print(f"  {RED}[!] iptables rule failed{NC}")
         return 0
 
     if args.iptables_undo:
-        os.system(f"echo {SUDO_PASS} | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999 2>/dev/null")
-        print(f"  {GREEN}[✓] iptables 50001→9999 removed{NC}")
+        os.system(f"echo {SUDO_PASS} | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null")
+        print(f"  {GREEN}[✓] iptables 50001→9998 removed{NC}")
         return 0
 
     if args.restore:
         print(f"\n{YELLOW}Restoring all files...{NC}")
         if all_targets or args.binary_only: restore_binary()
         if all_targets or args.js_only:     restore_js()
+        if all_targets or args.wb_only:     restore_wb()
         if all_targets or args.hosts_only:  restore_hosts()
         if all_targets:
-            os.system(f"echo {SUDO_PASS} | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999 2>/dev/null")
-            print(f"  {GREEN}[✓] iptables 50001→9999 removed{NC}")
+            os.system(f"echo {SUDO_PASS} | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null")
+            print(f"  {GREEN}[✓] iptables 50001→9998 removed{NC}")
         return 0
 
     results = []
@@ -561,15 +660,17 @@ def main():
         results.append(("Binary",    patch_binary(verify_only=args.verify)))
     if all_targets or args.js_only:
         results.append(("JS",        patch_js(verify_only=args.verify, force=args.force, enable_auth_patch=args.enable_auth_patch)))
+    if all_targets or args.wb_only:
+        results.append(("Workbench", patch_wb(verify_only=args.verify)))
     if all_targets or args.hosts_only:
         results.append(("/etc/hosts", patch_hosts(verify_only=args.verify)))
     if all_targets and args.verify:
-        rule_ok = os.system("iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999 2>/dev/null") == 0
+        rule_ok = os.system("iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null") == 0
         results.append(("iptables",   rule_ok))
         if rule_ok:
-            print(f"  {GREEN}[✓] iptables 50001→9999 active{NC}")
+            print(f"  {GREEN}[✓] iptables 50001→9998 active{NC}")
         else:
-            print(f"  {RED}[✗] iptables 50001→9999 not set{NC}")
+            print(f"  {RED}[✗] iptables 50001→9998 not set{NC}")
 
     print()
     all_ok = all(r for _, r in results)
@@ -581,10 +682,10 @@ def main():
         # Also apply iptables rule automatically on full patch
         if all_targets:
             os.system(
-                f"echo {SUDO_PASS} | sudo -S iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999 2>/dev/null "
-                f"|| echo {SUDO_PASS} | sudo -S iptables -t nat -A OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9999"
+                f"echo {SUDO_PASS} | sudo -S iptables -t nat -C OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null "
+                f"|| echo {SUDO_PASS} | sudo -S iptables -t nat -A OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998"
             )
-            print(f"  {GREEN}[✓] iptables 50001→9999 active{NC}")
+            print(f"  {GREEN}[✓] iptables 50001→9998 active{NC}")
         print(f"\n{GREEN}All patches applied.{NC}")
         print(f"{YELLOW}Reload Windsurf window:{NC} Ctrl+Shift+P → Reload Window")
     elif args.verify and all_ok:

@@ -331,7 +331,7 @@ MITM_BRIDGE: Rate limit hit on GEMINI, reduced cooldown=0.5s
 ### Example 1: Gemini Request
 
 ```bash
-curl -X POST http://localhost:9999/v1/chat/completions \
+curl -X POST http://localhost:9998/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Host: generativelanguage.googleapis.com" \
   -d '{
@@ -349,7 +349,7 @@ curl -X POST http://localhost:9999/v1/chat/completions \
 ### Example 2: Codex Request
 
 ```bash
-curl -X POST http://localhost:9999/v1/engines/davinci-codex/completions \
+curl -X POST http://localhost:9998/v1/engines/davinci-codex/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "davinci-codex",
@@ -436,7 +436,7 @@ python tools/integration/highgravity_proxy.py &
 python tests/test_mitm_bridge.py
 
 # Check telemetry
-curl http://localhost:9999/hg/telemetry | jq
+curl http://localhost:9998/hg/telemetry | jq
 ```
 
 **All features are working as requested!**

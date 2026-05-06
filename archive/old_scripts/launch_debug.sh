@@ -29,7 +29,7 @@ echo "[+] Proxy started (PID: ${PROXY_PID})" | tee -a "${DEBUG_LOG}"
 
 # Wait for proxy to be ready
 sleep 2
-if ! curl -s http://localhost:9999/hg/telemetry > /dev/null 2>&1; then
+if ! curl -s http://localhost:9998/hg/telemetry > /dev/null 2>&1; then
     echo "[!] Warning: Proxy may not be ready yet" | tee -a "${DEBUG_LOG}"
 fi
 
@@ -40,7 +40,7 @@ case "${MODE}" in
         python3 "${LAUNCHER}" \
             --mode windsurf \
             --provider proxy \
-            --proxy-url http://localhost:9999 \
+            --proxy-url http://localhost:9998 \
             --key-index "${KEY_INDEX}" \
             --dangerously-bypass-approvals-and-sandbox \
             >> "${DEBUG_LOG}" 2>&1 &
@@ -69,7 +69,7 @@ case "${MODE}" in
 esac
 
 echo "[✓] Debug session active. Watch logs with: tail -f ${DEBUG_LOG}"
-echo "[*] Proxy telemetry: curl http://localhost:9999/hg/telemetry | jq"
+echo "[*] Proxy telemetry: curl http://localhost:9998/hg/telemetry | jq"
 echo "[*] Waiting for traffic... (Ctrl+C to stop)"
 
 # Keep alive to see logs

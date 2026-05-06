@@ -2477,7 +2477,7 @@ function roundLayout(
 
 function isWholeNumber(v: number): boolean {
   const frac = v - Math.floor(v)
-  return frac < 0.0001 || frac > 0.9999
+  return frac < 0.0001 || frac > 0.9998
 }
 
 function roundValue(
@@ -2492,7 +2492,7 @@ function roundValue(
   // Float-epsilon tolerance matches upstream YGDoubleEqual (1e-4)
   if (frac < 0.0001) {
     scaled = Math.floor(scaled)
-  } else if (frac > 0.9999) {
+  } else if (frac > 0.9998) {
     scaled = Math.ceil(scaled)
   } else if (forceCeil) {
     scaled = Math.ceil(scaled)

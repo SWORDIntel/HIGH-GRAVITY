@@ -18,10 +18,10 @@ NC='\033[0m'
 echo -e "${CYAN}HIGH-GRAVITY Doctor${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if lsof -i:9999 >/dev/null 2>&1; then
-  echo -e "Proxy 9999: ${GREEN}UP${NC}"
+if lsof -i:9998 >/dev/null 2>&1; then
+  echo -e "Proxy 9998: ${GREEN}UP${NC}"
 else
-  echo -e "Proxy 9999: ${RED}DOWN${NC}"
+  echo -e "Proxy 9998: ${RED}DOWN${NC}"
 fi
 
 if lsof -i:443 >/dev/null 2>&1; then
@@ -30,7 +30,7 @@ else
   echo -e "Proxy 443:  ${RED}DOWN${NC}"
 fi
 
-if curl -s http://127.0.0.1:42110/api/health 2>/dev/null | grep -q OK; then
+if curl -fsS --max-time 3 http://127.0.0.1:42110/api/health >/dev/null 2>&1; then
   echo -e "Khoj:       ${GREEN}HEALTHY${NC}"
 else
   echo -e "Khoj:       ${YELLOW}WARMING/OFFLINE${NC}"
@@ -55,7 +55,7 @@ fi
 
 echo ""
 echo "Telemetry snapshot:"
-curl -s http://127.0.0.1:9999/hg/telemetry 2>/dev/null | jq -c '{active_keys,exhausted_keys,total_keys,total_requests,mitm_rate_limit_hits,latency_ms,slow_requests_recent,concurrent_requests,max_concurrent}' || echo "unavailable"
+curl -s http://127.0.0.1:9998/hg/telemetry 2>/dev/null | jq -c '{active_keys,exhausted_keys,total_keys,total_requests,mitm_rate_limit_hits,latency_ms,slow_requests_recent,concurrent_requests,max_concurrent}' || echo "unavailable"
 
 echo ""
 echo "Recent upstream errors:"

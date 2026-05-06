@@ -58,9 +58,11 @@ Commands:
   ${G}patch${NC}       Apply patches
   ${G}repatch${NC}     Clean repatch flow
   ${G}undo${NC}        Restore from backups and cleanup
+  ${G}dashboard-v3${NC}  Launch advanced Rich TUI dashboard
   ${G}khoj${NC}        Khoj controls (start/stop/status/reindex/logs)
   ${G}doctor${NC}      Deep diagnostics (health, routing, latency)
   ${G}trace${NC}       Watch prompt/completion logs
+  ${G}reauth${NC}      Reset local Windsurf auth/login state
   ${G}aliases${NC}     Print command to source aliases
 
 USAGE
@@ -76,42 +78,40 @@ cmd="${1:-dashboard}"
 
 case "$cmd" in
     dashboard)
-        if [ -f "hg_dashboard.py" ]; then
-            exec "$PYTHON" hg_dashboard.py
-        else
-            echo -e "${R}[!] hg_dashboard.py not found in $SCRIPT_DIR${NC}"
-            exit 1
-        fi
+        exec bash "$SCRIPTS_DIR/internal/hgmenu.sh"
+        ;;
+    dashboard-v3)
+        exec "$PYTHON" "$SCRIPT_DIR/src/hg_dashboard.py"
         ;;
     menu)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/hg_start.sh" menu
+        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" menu
         ;;
     start)
         print_sudo_notice "$cmd"
-        HG_NON_INTERACTIVE=1 bash "$SCRIPTS_DIR/hg_start.sh" patch
-        exec bash "$SCRIPTS_DIR/hg_start.sh" start
+        HG_NON_INTERACTIVE=1 bash "$SCRIPTS_DIR/internal/hg_start.sh" patch
+        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" start
         ;;
     stop)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/hg_stop.sh" --direct
+        exec bash "$SCRIPTS_DIR/internal/hg_stop.sh" --direct
         ;;
     restart)
         print_sudo_notice "$cmd"
-        bash "$SCRIPTS_DIR/hg_stop.sh" --direct
+        bash "$SCRIPTS_DIR/internal/hg_stop.sh" --direct
         exec bash "$SCRIPT_DIR/hg.sh" start
         ;;
     status)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/hg_status.sh" --direct
+        exec bash "$SCRIPTS_DIR/internal/hg_status.sh" --direct
         ;;
     shim)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/deploy_lsp_shim.sh"
+        exec bash "$SCRIPTS_DIR/internal/deploy_lsp_shim.sh"
         ;;
     verify|patch|repatch|undo)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/hg_start.sh" "$cmd"
+        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" "$cmd"
         ;;
     khoj)
         shift || true
@@ -125,10 +125,22 @@ case "$cmd" in
         shift || true
         exec bash "$SCRIPTS_DIR/hg_trace.sh" "$@"
         ;;
+    reauth)
+        echo -e "${Y}[!] This will reset your Windsurf login and local cache.${NC}"
+        read -p "Are you sure? (y/N) " confirm
+        if [[ $confirm == [yY] ]]; then
+            echo -e "${B}[*] Clearing authentication database...${NC}"
+            rm -rf "/home/john/.codeium/windsurf-next/database"
+            rm -f "/home/john/.codeium/windsurf-next/user_settings.pb"
+            echo -e "${G}[✓] Auth state reset. Please restart Windsurf to log in.${NC}"
+        else
+            echo "Cancelled."
+        fi
+        ;;
     kp14|re)
         print_sudo_notice "$cmd"
         shift || true
-        exec bash "$SCRIPTS_DIR/run_kp14_decompile.sh" "$@"
+        exec bash "$SCRIPT_DIR/tools/decompilers/run_kp14_decompile.sh" "$@"
         ;;
     aliases)
         echo "Run this command to load aliases:"

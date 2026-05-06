@@ -28,7 +28,7 @@ class WindsurfHookBridgeTests(unittest.TestCase):
         {
             "HIGHGRAVITY_API_KEY": "AIzaSyBridgeKey123456",
             "HIGHGRAVITY_PROVIDER": "proxy",
-            "HIGHGRAVITY_PROXY_URL": "http://localhost:9999",
+            "HIGHGRAVITY_PROXY_URL": "http://localhost:9998",
             "HIGHGRAVITY_DRY_RUN": "false",
         },
         clear=False,
@@ -47,7 +47,7 @@ class WindsurfHookBridgeTests(unittest.TestCase):
 
         self.assertEqual(variables["apiKey"], "AIzaSyBridgeKey123456")
         self.assertEqual(variables["provider"], "proxy")
-        self.assertEqual(variables["proxyUrl"], "http://localhost:9999")
+        self.assertEqual(variables["proxyUrl"], "http://localhost:9998")
         self.assertEqual(variables["mode"], "windsurf")
         self.assertEqual(variables["dryRun"], "false")
 
@@ -80,7 +80,7 @@ class WindsurfHookBridgeTests(unittest.TestCase):
                 "variables": {
                     "mode": "windsurf",
                     "provider": "proxy",
-                    "proxyUrl": "http://localhost:9999",
+                    "proxyUrl": "http://localhost:9998",
                     "windowName": "Cascade Window",
                     "dryRun": True,
                 },
@@ -97,7 +97,7 @@ class WindsurfHookBridgeTests(unittest.TestCase):
         self.assertEqual(record["command_line"], "echo hello")
         self.assertEqual(record["mode"], "windsurf")
         self.assertEqual(record["provider"], "proxy")
-        self.assertEqual(record["proxyUrl"], "http://localhost:9999")
+        self.assertEqual(record["proxyUrl"], "http://localhost:9998")
         self.assertEqual(record["windowName"], "Cascade Window")
         self.assertTrue(record["dryRun"])
         self.assertEqual(record["returncode"], 0)
