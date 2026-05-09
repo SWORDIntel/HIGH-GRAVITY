@@ -80,6 +80,13 @@ BINARY_BYTE_PATCHES = [
     ),
 ]
 
+# Signatures for heuristic discovery if hardcoded offsets fail
+# Format: (signature_bytes, offset_within_signature_to_patch, old_bytes, new_bytes, description)
+BINARY_SIGNATURES = [
+    # 49 39 d3 74 2e -> cmp r11, rdx; je +0x2e
+    (bytes([0x49, 0x39, 0xd3, 0x74, 0x2e]), 3, bytes([0x74, 0x2e]), bytes([0x90, 0x90]), "Heuristic: Domain validation JE"),
+]
+
 # ── JS URL constant patches ───────────────────────────────────────────────────
 JS_URL_REPLACEMENTS = [
     # Config map constants
@@ -192,13 +199,24 @@ def preflight_check(enable_auth_patch: bool = False) -> bool:
             ok = False
         else:
             print(f"  {GREEN}[✓]{NC} Binary URL signatures detected")
+        
+        # Hardcoded offset check
         for off, old, new, desc in BINARY_BYTE_PATCHES:
             actual = b[off:off + len(old)] if len(b) >= off + len(old) else b""
             if actual in (old, new):
                 print(f"  {GREEN}[✓]{NC} Binary byte patch signature detected ({desc})")
             else:
-                print(f"  {RED}[✗] Binary byte signature mismatch @ {hex(off)} ({desc}){NC}")
-                ok = False
+                # Fallback to heuristic signature scanning
+                found_any = False
+                for sig, s_off, s_old, s_new, s_desc in BINARY_SIGNATURES:
+                    if sig in b:
+                        print(f"  {GREEN}[✓]{NC} Heuristic signature detected: {s_desc}")
+                        found_any = True
+                        break
+                
+                if not found_any:
+                    print(f"  {RED}[✗] Binary byte signature mismatch @ {hex(off)} ({desc}){NC}")
+                    ok = False
 
     if not EXT_PATH.exists():
         print(f"  {RED}[✗] extension.js path not found: {EXT_PATH}{NC}")
@@ -357,8 +375,29 @@ def patch_binary(verify_only: bool = False) -> bool:
         elif actual == new:
             print(f"  {GREEN}[✓]{NC} Byte patch already applied @ {hex(foff)}  ({desc})")
         else:
-            print(f"  {RED}[!] Byte mismatch @ {hex(foff)}: got {actual.hex()}, expected {old.hex()}{NC}")
-            ok = False
+            # Fallback to Heuristic Discovery
+            found_by_sig = False
+            for sig, s_off, s_old, s_new, s_desc in BINARY_SIGNATURES:
+                if s_desc == desc or (desc.startswith("NOP domain validation") and s_desc.startswith("Heuristic: Domain")):
+                    pos = data.find(sig)
+                    if pos != -1:
+                        target_off = pos + s_off
+                        actual_sig = bytes(data[target_off:target_off + len(s_old)])
+                        if actual_sig == s_old:
+                            if verify_only:
+                                print(f"  {RED}[✗] Heuristic patch not applied @ {hex(target_off)}: {s_desc}{NC}")
+                                ok = False
+                            else:
+                                data[target_off:target_off + len(s_new)] = s_new
+                                print(f"  {GREEN}[✓]{NC} Heuristic patch applied @ {hex(target_off)}: {s_old.hex()} → {s_new.hex()}  ({s_desc})")
+                            found_by_sig = True
+                        elif actual_sig == s_new:
+                            print(f"  {GREEN}[✓]{NC} Heuristic patch already applied @ {hex(target_off)}  ({s_desc})")
+                            found_by_sig = True
+            
+            if not found_by_sig:
+                print(f"  {RED}[!] Byte mismatch @ {hex(foff)}: got {actual.hex()}, expected {old.hex()}{NC}")
+                ok = False
 
     if verify_only or not ok:
         return ok

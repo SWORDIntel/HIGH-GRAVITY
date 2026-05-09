@@ -250,6 +250,9 @@ ENTERPRISE_FLAGS = [
     "disable_rate_limiting", "enable_codebase_indexing",
     "enable_deep_research", "unlimited_cascade_turns",
     "enable_background_agents", "team_plan_active",
+    "enable_multimodal_cascade", "enable_agentic_workflow",
+    "enable_advanced_data_analysis", "priority_inference",
+    "unlimited_usage", "early_access_features", "enable_cross_file_edit_v2",
 ]
 
 # Local surface-only model catalog.
@@ -897,9 +900,16 @@ async def proxy_request(path: str, request: Request):
         
         # Thinking Tier Logic
         text_len = len(full_text)
-        if text_len > 20000: _record_thinking("xhigh")
-        elif text_len > 10000: _record_thinking("high")
-        elif text_len > 5000: _record_thinking("medium")
+        complexity_bonus = 0
+        complexity_keywords = ["architect", "analyze", "deep", "comprehensive", "refactor", "optimize", "security", "debug", "rethink"]
+        for kw in complexity_keywords:
+            if kw in full_text.lower():
+                complexity_bonus += 2000
+        
+        effective_len = text_len + complexity_bonus
+        if effective_len > 25000: _record_thinking("xhigh")
+        elif effective_len > 15000: _record_thinking("high")
+        elif effective_len > 7000: _record_thinking("medium")
         else: _record_thinking("low")
 
         proactive_agents = trigger_engine.analyze_intent(full_text)
