@@ -16,7 +16,7 @@ import hashlib
 from collections import deque
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Callable, Tuple
 
 import uvicorn
 import numpy as np
