@@ -41,6 +41,9 @@ _rng = np.random.default_rng(seed=0xDEADBEEF)
 # Johnson-Lindenstrauss random projection matrix  [_QJL_PROJ × _DIM]
 _JL_MATRIX: np.ndarray = (_rng.standard_normal((_QJL_PROJ, _DIM)) / math.sqrt(_QJL_PROJ)).astype(np.float32)
 
+# 8-bit population count lookup table for ultra-fast Hamming distance calculation
+_POPCNT_TABLE = np.array([bin(i).count('1') for i in range(256)], dtype=np.uint8)
+
 
 # ── QJL ───────────────────────────────────────────────────────────────────────
 
@@ -189,10 +192,9 @@ class TurboQuantIndex:
         # Bitwise XOR across all rows
         diff = np.bitwise_xor(codes, turbo_q)
         
-        # Fast bit count using NumPy population count logic
-        # Note: np.unpackbits is fast enough for medium indices; 
-        # for massive indices we'd use a C extension or lookup table.
-        hamming_distances = np.unpackbits(diff, axis=1).sum(axis=1)
+        # High-performance population count using precomputed lookup table.
+        # This replaces np.unpackbits(diff).sum(), reducing memory usage by 8x.
+        hamming_distances = _POPCNT_TABLE[diff].sum(axis=1)
         
         # Find best match
         best_idx = np.argmin(hamming_distances)
