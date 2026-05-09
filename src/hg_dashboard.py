@@ -119,15 +119,16 @@ class Dashboard:
     def action(self, name):
         try:
             requests.post(f"{PROXY_URL}/hg/manage", json={"action": name}, timeout=1)
-            self.status_msg = f"[green]{name} → OK[/green]"
+            self.status_msg = f"[green]{name} sent[/green]"
         except Exception:
-            self.status_msg = f"[red]{name} → failed[/red]"
+            self.status_msg = f"[red]{name} failed[/red]"
 
-    def run_cmd(self, label, cmd):
+    def run_cmd(self, label, cmd_str):
         self.status_msg = f"[yellow]{label}...[/yellow]"
         try:
-            # Run in background to avoid blocking the UI
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=REPO_ROOT)
+            # Use absolute path for hg.sh and ensure it runs in background via shell
+            full_cmd = cmd_str.replace("./hg.sh", f"bash {REPO_ROOT}/hg.sh")
+            subprocess.Popen(full_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=REPO_ROOT)
             self.status_msg = f"[green]{label} triggered[/green]"
         except Exception as e:
             self.status_msg = f"[red]{label} → {e}[/red]"
@@ -360,22 +361,22 @@ class Dashboard:
                     if c == "q":
                         break
                     elif c == "s":
-                        self.run_cmd("System Start", ["bash", "./hg.sh", "start"])
+                        self.run_cmd("System Start", "./hg.sh start")
                     elif c == "x":
-                        self.run_cmd("System Stop", ["bash", "./hg.sh", "stop"])
+                        self.run_cmd("System Stop", "./hg.sh stop")
                     elif c == "p":
-                        self.run_cmd("Apply Patches", ["bash", "./hg.sh", "patch"])
+                        self.run_cmd("Deep Patch", "./hg.sh patch")
                     elif c == "u":
-                        self.run_cmd("Undo Patches", ["bash", "./hg.sh", "undo"])
+                        self.run_cmd("Undo Patches", "./hg.sh undo")
                     elif c == "w":
+                        # Launch Windsurf as detached background process
                         subprocess.Popen(
-                            ["/usr/share/windsurf-next/windsurf-next"],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            start_new_session=True
+                            "nohup /usr/share/windsurf-next/windsurf-next > /dev/null 2>&1 &",
+                            shell=True, start_new_session=True, cwd=REPO_ROOT
                         )
                         self.status_msg = "[green]Launching Windsurf Next...[/green]"
                     elif c == "k":
-                        self.run_cmd("Khoj Reindex", ["bash", "./hg.sh", "khoj", "reindex"])
+                        self.run_cmd("Khoj Reindex", "./hg.sh khoj reindex")
                     elif c == "l":
                         self.view = "logs"
                         self.log_name = "proxy.log"
