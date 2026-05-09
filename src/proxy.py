@@ -410,6 +410,26 @@ def inject_local_rules(messages: List[Dict]):
         messages.insert(0, {"role": "system", "content": reminder.strip()})
     except: pass
 
+class CsecSentinel:
+    """Advanced OPSEC and Token Reduction pass."""
+    
+    @classmethod
+    def sanitize(cls, text: str) -> str:
+        if not isinstance(text, str): return text
+        # 1. Redact Absolute Paths (OPSEC)
+        home = str(Path.home())
+        text = text.replace(home, "~")
+        # Heuristic for other linux absolute paths
+        text = re.sub(r'/[a-z0-9._-]+/[a-z0-9._-]+/[a-z0-9._-]+/[a-z0-9._-]+', '[REDACTED_PATH]', text)
+        
+        # 2. Redact Usernames (OPSEC)
+        user = os.environ.get("USER", "john")
+        text = re.sub(rf'\b{user}\b', '[USER]', text, flags=re.IGNORECASE)
+        
+        # 3. Token Reduction: Collapse redundant whitespace
+        text = re.sub(r'[ \t]{3,}', '  ', text)
+        return text
+
 class AntiRejectionMutator:
     """Mutates prompts to bypass safety heuristics and reduce 429/rejection rates."""
     OBFUSCATION_MAP = {
@@ -964,10 +984,9 @@ async def proxy_request(path: str, request: Request):
         if AntiRejectionMutator.mutate(raw_body_json["messages"]):
             _record_event("mutation", "Prompt reframed to reduce upstream rejection")
 
-        # Global compression pass (now handled inside _update_content in the functions above, 
-        # but we do one final pass for any messages that weren't touched)
+        # Global compression & OPSEC pass
         for msg in raw_body_json["messages"]:
-            _update_content(msg, compress_context)
+            _update_content(msg, lambda c: CsecSentinel.sanitize(compress_context(c)))
         
         cr = ghost_cache.query(raw_body_json["messages"])
         if cr: 
@@ -1136,6 +1155,10 @@ async def proxy_request(path: str, request: Request):
                         bundle_key = None  # leader failed, fall through to own request
 
             async with _concurrency_sem:
+                # UPSTREAM JITTER: Defeat timing-based fingerprinting (OPSEC)
+                if not is_auth_flow:
+                    await asyncio.sleep(random.uniform(0.005, 0.045))
+                
                 session = await get_upstream_session()
                 if is_grpc:
                     # Raw stream relay for gRPC

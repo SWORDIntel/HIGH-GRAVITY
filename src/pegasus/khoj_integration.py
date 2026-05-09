@@ -236,8 +236,20 @@ class PegasusKhojBridge:
                     return " ".join(text_parts)[:200]
         return ""
     
+    def _minify_snippet(self, text: str) -> str:
+        """Heuristic code minification to save tokens."""
+        if not text: return text
+        # Remove single-line comments (Python, C, JS, etc.)
+        text = re.sub(r'#.*$', '', text, flags=re.MULTILINE)
+        text = re.sub(r'//.*$', '', text, flags=re.MULTILINE)
+        # Collapse multiple empty lines
+        text = re.sub(r'\n{2,}', '\n', text)
+        # Trim whitespace from lines
+        text = "\n".join([line.rstrip() for line in text.splitlines() if line.strip()])
+        return text
+
     def _to_snippets(self, results: Any, limit_chars: int = 800) -> List[str]:
-        """Convert Khoj results to formatted snippets"""
+        """Convert Khoj results to formatted snippets with distillation."""
         snippets = []
         snippet_sources = []
         
@@ -265,6 +277,14 @@ class PegasusKhojBridge:
             
             if not text:
                 continue
+            
+            # OPSEC: Redact common path identifiers from snippets
+            text = text.replace(str(Path.home()), "~")
+            
+            # Distillation pass (Token Reduction)
+            is_code = any(source.endswith(ext) for ext in [".py", ".c", ".h", ".js", ".ts", ".sh", ".rs", ".go"])
+            if is_code:
+                text = self._minify_snippet(text)
             
             # Format snippet with source
             key = f"{source}:{text[:120]}"
