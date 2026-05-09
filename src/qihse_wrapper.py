@@ -123,31 +123,31 @@ class QIHSE:
     def is_available(self) -> bool:
         return self.lib.qihse_available()
 
-    def search_int64(self, data: np.ndarray, query: int) -> int:
-        """High-performance search on sorted int64 array."""
-        if not isinstance(data, np.ndarray):
-            data = np.array(data, dtype=np.int64)
+    def search_sorted_int64(self, sorted_data: np.ndarray, query: int) -> int:
+        """Search on ALREADY SORTED int64 array for maximum throughput."""
+        if not isinstance(sorted_data, np.ndarray) or sorted_data.dtype != np.int64:
+            return -1
         
-        if data.dtype != np.int64:
-            data = data.astype(np.int64)
-            
         # Ensure contiguous
-        data = np.ascontiguousarray(data)
+        sorted_data = np.ascontiguousarray(sorted_data)
         
         config = QihseConfig()
-        self.lib.qihse_config_init(ctypes.byref(config), 0, len(data)) # 0 = QIHSE_TYPE_INT64
+        self.lib.qihse_config_init(ctypes.byref(config), 0, len(sorted_data))
         
         q_val = ctypes.c_int64(query)
         
         result = self.lib.qihse_search(
-            data.ctypes.data_as(ctypes.c_void_p),
-            len(data),
+            sorted_data.ctypes.data_as(ctypes.c_void_p),
+            len(sorted_data),
             ctypes.byref(q_val),
             None,
             ctypes.byref(config)
         )
         
-        return int(result)
+        idx = int(result)
+        if idx < len(sorted_data) and sorted_data[idx] == query:
+            return idx
+        return -1
 
     def search_binary(self, data: List[bytes], query: bytes) -> int:
         """

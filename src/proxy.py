@@ -93,9 +93,12 @@ class HilbertCache:
         self.tq_index = TurboQuantIndex()
         self.hash_to_payload = {}   # raw_hash -> zlib-compressed payload
 
-        # Legacy compat
+        # Performance-optimized indices
         self.vector_pool = []
         self.sorted_hashes = np.array([], dtype=np.int64)
+        self.sorted_indices = []
+        self._dirty_hashes = False
+        self._lock = threading.RLock()
 
         self._init_intelligence()
         threading.Thread(target=self._persistence_loop, daemon=True).start()
@@ -121,13 +124,21 @@ class HilbertCache:
         except: pass
 
     def _update_sorted_index(self):
-        """Maintains a sorted int64 prefix index for NOT_STISLA acceleration."""
-        if not self.vector_pool: return
-        prefixes = [int.from_bytes(h[:8], 'big', signed=True) for h in self.vector_pool]
-        self.sorted_hashes = np.sort(np.array(prefixes, dtype=np.int64))
+        """Maintains a sorted int64 prefix index with index mapping."""
+        with self._lock:
+            if not self.vector_pool: return
+            # Pair prefixes with original indices for lookup after sorting
+            pairs = [(int.from_bytes(h[:8], 'big', signed=True), i) 
+                     for i, h in enumerate(self.vector_pool)]
+            # Sort by prefix
+            pairs.sort(key=lambda x: x[0])
+            
+            self.sorted_hashes = np.array([p[0] for p in pairs], dtype=np.int64)
+            self.sorted_indices = [p[1] for p in pairs]
+            self._dirty_hashes = False
 
     def query(self, messages: List[Dict]) -> Optional[bytes]:
-        """Query cache: exact hash first, then TurboQuant ANN fallback."""
+        """Query cache: exact -> interpolation (NotStisla) -> SIMD (QIHSE) -> ANN (TurboQuant)."""
         norm_str = json.dumps(messages, sort_keys=True)
         query_hash = hashlib.sha384(norm_str.encode()).digest()
 
@@ -138,7 +149,31 @@ class HilbertCache:
             self.tokens_saved += (len(payload) + len(norm_str)) // 4
             return payload
 
-        # 2. TurboQuant ANN — catches semantically similar prompts
+        # 2. Acceleration Tier: High-speed exact prefix match
+        if not self._dirty_hashes and len(self.sorted_hashes) > 0:
+            query_prefix = int.from_bytes(query_hash[:8], 'big', signed=True)
+            
+            # 2a. NOT_STISLA (Interpolation search - Ultra fast for large indices)
+            idx = self.accelerator.search_hashes(self.sorted_hashes, query_prefix)
+            if idx != -1:
+                h = self.vector_pool[self.sorted_indices[idx]]
+                if h == query_hash: # Verify full hash
+                    self.cache_hits += 1
+                    payload = decompress_payload(self.hash_to_payload[h])
+                    self.tokens_saved += (len(payload) + len(norm_str)) // 4
+                    return payload
+            
+            # 2b. QIHSE SIMD search fallback (Parallel pipeline)
+            idx = self.engine.search_sorted_int64(self.sorted_hashes, query_prefix)
+            if idx != -1:
+                h = self.vector_pool[self.sorted_indices[idx]]
+                if h == query_hash:
+                    self.cache_hits += 1
+                    payload = decompress_payload(self.hash_to_payload[h])
+                    self.tokens_saved += (len(payload) + len(norm_str)) // 4
+                    return payload
+
+        # 3. TurboQuant ANN — catches semantically similar prompts (Fuzzy match)
         ann_hash = self.tq_index.search(query_hash)
         if ann_hash and ann_hash in self.hash_to_payload:
             self.cache_hits += 1
@@ -147,15 +182,6 @@ class HilbertCache:
             logger.debug(f"TQ_ANN_HIT: {query_hash[:8].hex()} ~ {ann_hash[:8].hex()}")
             return payload
 
-        # 3. Legacy QIHSE fallback
-        idx = self.engine.search_binary(self.vector_pool, query_hash)
-        if idx != -1:
-            h = self.vector_pool[idx]
-            if h in self.hash_to_payload:
-                self.cache_hits += 1
-                payload = decompress_payload(self.hash_to_payload[h])
-                self.tokens_saved += (len(payload) + len(norm_str)) // 4
-                return payload
         return None
 
     def store(self, messages: List[Dict], payload: bytes):
@@ -164,10 +190,16 @@ class HilbertCache:
 
         if artifact_hash not in self.hash_to_payload:
             compressed = compress_payload(payload)
-            self.vector_pool.append(artifact_hash)
-            self.hash_to_payload[artifact_hash] = compressed
-            self.tq_index.add(artifact_hash)
-            self._update_sorted_index()
+            with self._lock:
+                self.vector_pool.append(artifact_hash)
+                self.hash_to_payload[artifact_hash] = compressed
+                self.tq_index.add(artifact_hash)
+                self._dirty_hashes = True
+                
+                # Threshold-based re-indexing to avoid O(N log N) on every store
+                if len(self.vector_pool) % 10 == 0 or len(self.vector_pool) < 5:
+                    self._update_sorted_index()
+            
             ratio = len(compressed) / max(len(payload), 1)
             logger.debug(f"TQ_STORE: {artifact_hash[:8].hex()} payload={len(payload)}B → {len(compressed)}B ({ratio:.2f}x)")
             with sqlite3.connect(self.db_path) as conn:
@@ -301,16 +333,22 @@ PRIVATE_MODEL_SURFACE = [
     },
 ]
 
-def build_local_model_config_response() -> dict:
-    """Return the local JSON fallback model catalog.
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Windsurf/1.110.1 (Internal; Enterprise)",
+    "Codeium/1.8.44 (LanguageServer; Linux)",
+]
 
-    The upstream proto response already carries these models. This fallback keeps
-    the surface consistent when Windsurf asks for JSON-shaped config.
-    """
-    return {
-        "status": "ok",
-        "models": PRIVATE_MODEL_SURFACE,
-    }
+def detect_refusal(text: str) -> bool:
+    """Heuristic to detect safety refusals in LLM responses."""
+    refusal_keywords = [
+        "I cannot fulfill", "I am unable to", "against my safety",
+        "ethical guidelines", "policy prevents", "restricted task"
+    ]
+    t_lower = text.lower()
+    return any(kw in t_lower for kw in refusal_keywords)
 
 # --- Feature 2 & 5: Compression and Local RAG ---
 _rag_injection_counter = 0
@@ -1059,8 +1097,10 @@ async def proxy_request(path: str, request: Request):
             upstream_host = urlparse(target_url).netloc
             strip_headers = ["host", "connection", "content-length", "te"]
             if not passthrough_auth:
-                strip_headers.extend(["authorization", "x-api-key"])
+                strip_headers.extend(["authorization", "x-api-key", "user-agent"])
             fh = {k: v for k, v in request.headers.items() if k.lower() not in strip_headers}
+            fh["User-Agent"] = random.choice(USER_AGENTS)
+            
             active_key_str = resolved_api_key.replace("Bearer ", "").strip()
             if active_key_str != "NONE":
                 shadow = pool.get_shadow_profile(active_key_str)

@@ -316,10 +316,22 @@ class PegasusKhojBridge:
                 search_status=self.last_search_status,
             )
             return search_result
-        self.last_search_status = "ok"
         
         # Convert to snippets
         snippets = self._to_snippets(search_result.get("results", []))
+        
+        # Deep Intelligence Recovery: Try broad search if no results found
+        if not snippets and len(query.split()) > 2:
+            logger.info(f"KHOJ_RECOVERY: No results for {query!r}. Attempting broad search...")
+            # Broaden query by removing small words and symbols
+            broad_query = " ".join([w for w in re.sub(r'[^a-zA-Z0-9\s]', ' ', query).split() if len(w) > 3])
+            if broad_query and broad_query != query:
+                search_result = await self.search(broad_query, timeout_override=timeout_override)
+                if search_result.get("status") == "ok":
+                    snippets = self._to_snippets(search_result.get("results", []))
+                    if snippets:
+                        logger.info(f"KHOJ_RECOVERY_SUCCESS: Found {len(snippets)} snippets via broad query.")
+
         if not snippets:
             self.empty_result_count += 1
             self.last_snippet_count = 0

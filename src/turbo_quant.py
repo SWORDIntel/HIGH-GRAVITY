@@ -136,8 +136,9 @@ class TurboQuantIndex:
 
     def __init__(self):
         self._lock = threading.Lock()
-        # Compressed representations: list of (qjl_bits, polar_bytes, original_hash)
-        self._entries: List[Tuple[np.ndarray, bytes, bytes]] = []
+        # Vectorized storage for fast search
+        self.turbo_codes = np.array([], dtype=np.uint8).reshape(0, _QJL_PROJ // 8)
+        self.raw_hashes: List[bytes] = []
         self.ann_hits = 0
         self.exact_hits = 0
 
@@ -149,56 +150,78 @@ class TurboQuantIndex:
         approx = polar_quant_decode(polar, _DIM)
         residual = vec - approx
         qjl_residual = qjl_encode(residual / (np.linalg.norm(residual) + 1e-9))
+        
         # XOR the two QJL vectors as the TurboQuant combined code
-        turbo = qjl ^ qjl_residual
+        turbo = (qjl ^ qjl_residual).reshape(1, -1)
+        
         with self._lock:
-            self._entries.append((turbo, polar, raw_hash))
+            if self.turbo_codes.size == 0:
+                self.turbo_codes = turbo
+            else:
+                self.turbo_codes = np.vstack([self.turbo_codes, turbo])
+            self.raw_hashes.append(raw_hash)
 
     def search(self, query_hash: bytes, threshold: float = _ANN_THRESHOLD) -> Optional[bytes]:
         """
         Return the stored hash whose TurboQuant code is most similar to query,
-        if similarity >= threshold. Returns None if no match.
+        using vectorized bitwise operations for maximum throughput.
         """
-        if not self._entries:
+        if not self.raw_hashes:
             return None
+            
         vec = hash_to_vec(query_hash)
         qjl_q  = qjl_encode(vec)
         polar_q = polar_quant_encode(vec, bits=4)
         approx_q = polar_quant_decode(polar_q, _DIM)
         residual_q = vec - approx_q
         qjl_res_q  = qjl_encode(residual_q / (np.linalg.norm(residual_q) + 1e-9))
-        turbo_q = qjl_q ^ qjl_res_q
+        turbo_q = (qjl_q ^ qjl_res_q)
 
-        best_sim = -1.0
-        best_hash = None
         with self._lock:
-            entries = list(self._entries)
-        for (turbo, _, raw_hash) in entries:
-            sim = qjl_similarity(turbo_q, turbo)
-            if sim > best_sim:
-                best_sim = sim
-                best_hash = raw_hash
-        if best_sim >= threshold:
+            codes = self.turbo_codes
+            hashes = list(self.raw_hashes)
+
+        # Vectorized Hamming Similarity calculation:
+        # 1. XOR query with all stored codes
+        # 2. Count bits (Hamming distance)
+        # 3. Convert to cosine similarity estimate
+        
+        # Bitwise XOR across all rows
+        diff = np.bitwise_xor(codes, turbo_q)
+        
+        # Fast bit count using NumPy population count logic
+        # Note: np.unpackbits is fast enough for medium indices; 
+        # for massive indices we'd use a C extension or lookup table.
+        hamming_distances = np.unpackbits(diff, axis=1).sum(axis=1)
+        
+        # Find best match
+        best_idx = np.argmin(hamming_distances)
+        min_dist = hamming_distances[best_idx]
+        
+        # Estimate similarity
+        hamming_frac = min_dist / _QJL_PROJ
+        sim = math.cos(math.pi * hamming_frac)
+        
+        if sim >= threshold:
             self.ann_hits += 1
-            return best_hash
+            return hashes[best_idx]
+            
         return None
 
     def __len__(self):
-        return len(self._entries)
+        return len(self.raw_hashes)
 
     @property
     def memory_bytes(self) -> int:
         """Approximate RAM used by compressed index."""
-        if not self._entries:
+        if not self.raw_hashes:
             return 0
-        # Each entry: qjl (_QJL_PROJ/8 bytes) + polar (_DIM bytes) + hash (48 bytes)
-        per_entry = (_QJL_PROJ // 8) + _DIM + 48
-        return len(self._entries) * per_entry
+        return self.turbo_codes.nbytes + (len(self.raw_hashes) * 48)
 
     @property
     def raw_bytes(self) -> int:
         """RAM that would be used by raw hashes only."""
-        return len(self._entries) * 48
+        return len(self.raw_hashes) * 48
 
 
 # ── Payload compression ───────────────────────────────────────────────────────
