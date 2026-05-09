@@ -296,7 +296,8 @@ _launch_windsurf() {
     fi
 
     echo -e "${B}  [*] Launching Windsurf editor${NC}"
-    nohup /usr/share/windsurf-next/windsurf-next > "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
+    # Use sudo -u to launch as the regular user (Electron refuses to run as root)
+    nohup sudo -u "$TARGET_USER" /usr/share/windsurf-next/windsurf-next > "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
     echo $! > "$SCRIPT_DIR/logs/windsurf_launch.pid"
 
     local i
@@ -379,7 +380,7 @@ do_start() {
     echo -e "${G}  [+] Cleaned${NC}"
 
     mkdir -p logs
-    echo "$SUDO_PASS" | sudo -S chown -R $USER:$USER logs/
+    echo "$SUDO_PASS" | sudo -S chown -R "$TARGET_USER":"$TARGET_USER" logs/
 
     # ── iptables: redirect port 50001 → 9998 (language server fallback) ──
     # Clean up existing rule to prevent duplicates before adding

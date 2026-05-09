@@ -43,7 +43,7 @@ stop_pidfile() {
         echo -e "${GREEN}[✓] $label stopped (PID: $pid)${NC}"
     fi
 
-    rm -f "$pidfile"
+    echo "$SUDO_PASS" | sudo -S rm -f "$pidfile"
 }
 
 stop_windsurf() {
