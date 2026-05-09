@@ -241,7 +241,7 @@ _start_proxy_http() {
     mkdir -p logs
     local root_cmd
     local khoj_token="${HG_KHOJ_TOKEN:-}"
-    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" >> \"$SCRIPT_DIR/logs/proxy.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy.pid\""
+    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" >> \"$SCRIPT_DIR/logs/proxy.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy.pid\" && chown $USER:$USER \"$SCRIPT_DIR/logs/proxy.pid\" \"$SCRIPT_DIR/logs/proxy.log\""
     echo "$SUDO_PASS" | sudo -S bash -c "$root_cmd"
 }
 
@@ -249,7 +249,7 @@ _start_proxy_https() {
     mkdir -p logs
     local root_cmd
     local khoj_token="${HG_KHOJ_TOKEN:-}"
-    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" --https >> \"$SCRIPT_DIR/logs/proxy_https.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy_https.pid\""
+    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" --https >> \"$SCRIPT_DIR/logs/proxy_https.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy_https.pid\" && chown $USER:$USER \"$SCRIPT_DIR/logs/proxy_https.pid\" \"$SCRIPT_DIR/logs/proxy_https.log\""
     echo "$SUDO_PASS" | sudo -S bash -c "$root_cmd"
 }
 
@@ -370,22 +370,22 @@ do_start() {
 
     # ── Kill old instances ────────────────────────────────────────────
     echo -e "${B}  [*] Killing old processes${NC}"
-    pkill -f "src/proxy.py" 2>/dev/null || true
-    pkill -f "_watchdog_proxy" 2>/dev/null || true
-    pkill -f "_watchdog_khoj" 2>/dev/null || true
-    pkill -f "src/proxy.py" 2>/dev/null || true
-    pkill -f "gemini_session_launcher.py" 2>/dev/null || true
-    pkill -f "highgravity_proxy.py" 2>/dev/null || true
-    pkill -f "lsp_shim" 2>/dev/null || true
-    pkill -f "proxyt" 2>/dev/null || true
-    pkill -f "khoj.*--port.*42110" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "_watchdog_proxy" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "_watchdog_khoj" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "gemini_session_launcher.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "highgravity_proxy.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "lsp_shim" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "proxyt" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "khoj.*--port.*42110" 2>/dev/null || true
     bash scripts/internal/khoj_stop.sh >/dev/null 2>&1 || true
     docker stop khoj khoj-pg >/dev/null 2>&1 || true
-    rm -f logs/*.pid 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S rm -f logs/*.pid 2>/dev/null || true
     sleep 1
     echo -e "${G}  [+] Cleaned${NC}"
 
     mkdir -p logs
+    echo "$SUDO_PASS" | sudo -S chown -R $USER:$USER logs/
 
     # ── iptables: redirect port 50001 → 9998 (language server fallback) ──
     # Clean up existing rule to prevent duplicates before adding

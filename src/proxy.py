@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import threading
 import hashlib
+import ssl
 from collections import deque
 from urllib.parse import urlparse
 from pathlib import Path
@@ -746,6 +747,7 @@ class ForceIPResolver(aiohttp.DefaultResolver):
     async def resolve(self, host: str, port: int = 0, family: int = 0) -> List[Dict[str, Any]]:
         if host in UPSTREAM_IP_MAP:
             ip = UPSTREAM_IP_MAP[host]
+            logger.debug(f"DNS_BYPASS: {host} -> {ip}")
             return [{
                 'hostname': host,
                 'host': ip,
@@ -759,12 +761,18 @@ class ForceIPResolver(aiohttp.DefaultResolver):
 async def get_upstream_session() -> aiohttp.ClientSession:
     global _upstream_session
     if _upstream_session is None or _upstream_session.closed:
+        # Create an insecure SSL context that doesn't verify hostnames
+        # Necessary because we connect to IPs directly or via redirected hostnames.
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        
         connector = aiohttp.TCPConnector(
             resolver=ForceIPResolver(),
             limit=100, 
             limit_per_host=20, 
             keepalive_timeout=30,
-            verify_ssl=False # Skip cert verification since we are connecting to IPs directly
+            ssl=ssl_ctx
         )
         _upstream_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=300),
@@ -992,453 +1000,122 @@ async def proxy_request(path: str, request: Request):
     incoming_host = request.headers.get("host", "")
     logger.info(f"[{request_id}] CONNECTION: {request.method} /{path} host={incoming_host}")
     app.state.request_count = getattr(app.state, "request_count", 0) + 1
-    body_bytes = await request.body(); is_json = False; raw_body_json = {}
-    is_grpc = request.headers.get("Content-Type", "").startswith("application/grpc")
     
-    if not is_grpc and "application/json" in (request.headers.get("Content-Type", "") or ""):
+    path_l = path.lower()
+    content_type_l = (request.headers.get("Content-Type", "") or "").lower()
+    is_grpc = content_type_l.startswith("application/grpc")
+    is_proto_request = any(x in content_type_l for x in ["application/proto", "application/connect+proto", "application/grpc-web+proto"])
+    is_auth_flow = any(x in path_l for x in ["register", "login", "signin", "oauth", "token", "auth", "seat_management"])
+    
+    body_bytes = await request.body(); is_json = False; raw_body_json = {}
+    if not is_grpc and "application/json" in content_type_l:
         try: raw_body_json = json.loads(body_bytes); is_json = True
         except: pass
-    # Per-session isolation: use client's session-id (or generate one) so
-    # multiple Windsurf windows don't block each other
-    client_session_id = request.headers.get("x-session-id", "") or request.headers.get("x-installation-id", "") or request_id
 
-    path_l = path.lower()
-    is_auth_flow = any(x in path_l for x in [
-        "registeruser", "register", "login", "signin", "oauth", "token", "auth", "seat_management"
-    ])
+    # --- Expert Shield: Routing Logic ---
+    is_inference_rpc = any(x in path_l for x in ["completions", "chatservice", "inference"]) or "inferapi" in incoming_host.lower()
+    is_ws_rpc = ("exa." in path) or ("api_server_pb" in path)
+    is_ws_control = is_ws_rpc or any(h in incoming_host.lower() for h in ["windsurf.com", "codeium.com"])
+    
+    # Traffic that matters = Inference. Traffic that causes issues = Control plane.
+    is_hard_bypass = not is_inference_rpc and not ProtoMocker.should_mock(path, content_type_l)
+    if is_auth_flow: is_hard_bypass = True
 
-    # Client-stability bypass: return permissive control-plane responses so
-    # seat/team/auth noise does not block normal completion flows.
-    content_type_l = (request.headers.get("Content-Type", "") or "").lower()
-    accepts_json = "application/json" in ((request.headers.get("accept", "") or "").lower())
-    is_proto_request = any(x in content_type_l for x in ["application/proto", "application/connect+proto", "application/grpc-web+proto"])
-    # Model configs and usage bypass should work even for proto-wrapped JSON
-    allow_json_bypass = HG_BYPASS_CONTROL_PLANE and (accepts_json or is_proto_request)
-
-    # Expert Shield: Proto/Connect RPC Mocking
+    # 1. Local Mocks (Permissive Control Plane)
     if is_proto_request and ProtoMocker.should_mock(path, content_type_l):
-        _record_latency((time.time() - req_started) * 1000, path, "local-proto-bypass", 200, 1.0)
-        
-        # Use the original requested content-type to satisfy strict client checks
-        # SPECIAL CASE: For GetUnleashData, we MUST force JSON to ensure features are applied.
-        # Most Connect clients handle JSON fallback for Unleash.
-        res_ct = content_type_l
-        if "getunleashdata" in path.lower():
-            res_ct = "application/connect+json"
-            
+        res_ct = "application/connect+json" if "getunleashdata" in path_l else content_type_l
         body = ProtoMocker.get_mock(path, res_ct)
         logger.info(f"[{request_id}] PROTO_BYPASS: {path} (spoofed enterprise as {res_ct})")
         return StreamingResponse(iter([body]), media_type=res_ct)
 
-    if any(x in path_l for x in ["getuserstatus", "checkchatcapacity", "getteamcreditbalance", "getteambilling"]) and accepts_json and not is_proto_request:
-        _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
-        body_dict = {"status": "ok"}
-        body_dict.update(ENTERPRISE_SPOOF)
-        body = json.dumps(body_dict).encode()
-        _dump_auth_response(request_id, path, "local-bypass", 200, body)
-        return StreamingResponse(iter([body]), media_type="application/json")
-
-    if "getcliteamsettings" in path_l and accepts_json and not is_proto_request:
-        _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
-        body = json.dumps({"status": "ok", "teamTier": "ENTERPRISE_SAAS", "features": ENTERPRISE_FLAGS}).encode()
-        _dump_auth_response(request_id, path, "local-bypass", 200, body)
-        return StreamingResponse(iter([body]), media_type="application/json")
-
-    if "getclimodelconfigs" in path_l and accepts_json and not is_proto_request:
-        _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
-        body = json.dumps(build_local_model_config_response()).encode()
-        _dump_auth_response(request_id, path, "local-bypass", 200, body)
-        return StreamingResponse(iter([body]), media_type="application/json")
+    if not is_proto_request and any(x in path_l for x in ["getuserstatus", "checkchatcapacity", "getteamcreditbalance", "getteambilling"]):
+        body_dict = {"status": "ok"}; body_dict.update(ENTERPRISE_SPOOF)
+        return StreamingResponse(iter([json.dumps(body_dict).encode()]), media_type="application/json")
 
     if "api/oauth/usage" in path_l:
-        _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
         mock_usage = {
-            "five_hour": {"is_enabled": False, "used_percentage": 0},
-            "seven_day": {"is_enabled": False, "used_percentage": 0},
-            "seven_day_oauth_apps": {"is_enabled": False, "used_percentage": 0},
-            "seven_day_opus": {"is_enabled": False, "used_percentage": 0},
-            "seven_day_sonnet": {"is_enabled": False, "used_percentage": 0},
-            "extra_usage": {
-                "is_enabled": True,
-                "monthly_limit": None,
-                "used_credits": 0,
-                "utilization": 0
-            },
-            # kp14 credit fields
-            "flex_credit_quota": 999999,
-            "used_prompt_credits": 0,
-            "used_flow_credits": 0,
-            "used_flex_credits": 0,
-            "add_on_credits_available": 999999,
-            "add_on_credits_used": 0
+            "extra_usage": {"is_enabled": True, "monthly_limit": None, "used_credits": 0},
+            "flex_credit_quota": 999999, "used_prompt_credits": 0, "add_on_credits_available": 999999
         }
-        return StreamingResponse(
-            iter([json.dumps(mock_usage).encode()]),
-            media_type="application/json",
-        )
+        return StreamingResponse(iter([json.dumps(mock_usage).encode()]), media_type="application/json")
 
-    if is_json and "messages" in raw_body_json and not is_auth_flow:
-        # Khoj Context Injection
-        khoj_result = await khoj_bridge.inject_context(raw_body_json["messages"])
-        if khoj_result.get("status") == "ok":
-            _record_event("khoj", f"Injected {khoj_result.get('injected', 0)} snippets from {len(khoj_result.get('sources', []))} sources")
-            logger.info(
-                f"[{request_id}] KHOJ_CONTEXT_INJECTED: "
-                f"query={khoj_result.get('query', '')!r} "
-                f"snippets={khoj_result.get('injected', 0)} "
-                f"search_ms={khoj_result.get('search_ms', 0)} "
-                f"inject_ms={khoj_result.get('inject_ms', 0)} "
-                f"sources={khoj_result.get('sources', [])}"
-            )
-        elif khoj_result.get("status") not in {"disabled", "no_query"}:
-            logger.info(
-                f"[{request_id}] KHOJ_CONTEXT_SKIPPED: "
-                f"status={khoj_result.get('status')} "
-                f"search_status={khoj_bridge.last_search_status}"
-            )
-        
-        # Proactive Agent Detection
-        full_text = " ".join([m.get("content", "") for m in raw_body_json["messages"] if isinstance(m.get("content"), str)])
-        
-        # Thinking Tier Logic
-        text_len = len(full_text)
-        complexity_bonus = 0
-        complexity_keywords = ["architect", "analyze", "deep", "comprehensive", "refactor", "optimize", "security", "debug", "rethink"]
-        for kw in complexity_keywords:
-            if kw in full_text.lower():
-                complexity_bonus += 2000
-        
-        effective_len = text_len + complexity_bonus
-        if effective_len > 25000: _record_thinking("xhigh")
-        elif effective_len > 15000: _record_thinking("high")
-        elif effective_len > 7000: _record_thinking("medium")
-        else: _record_thinking("low")
+    # 2. Expert Intelligence & OPSEC (Inference Only)
+    if not is_hard_bypass:
+        if is_json and "messages" in raw_body_json:
+            # RAG Search
+            await khoj_bridge.inject_context(raw_body_json["messages"])
+            # Reasoning & Mutation
+            full_text = " ".join([m.get("content", "") for m in raw_body_json["messages"] if isinstance(m.get("content"), str)])
+            if len(full_text) > 10000: _record_thinking("high")
+            AntiRejectionMutator.mutate(raw_body_json["messages"])
+            # Redaction & Compression
+            for msg in raw_body_json["messages"]:
+                _update_content(msg, lambda c: CsecSentinel.sanitize(compress_context(c)))
+            # Cache Query
+            cr = ghost_cache.query(raw_body_json["messages"])
+            if cr:
+                return StreamingResponse(iter([cr]), media_type="application/json")
 
-        proactive_agents = trigger_engine.analyze_intent(full_text)
-        for agent in proactive_agents:
-            _record_event("thinking", f"Spawned {agent} operative for deep analysis")
-            logger.info(f"PROACTIVE_TRIGGER: Intent matched for {agent}. Spawning operative...")
-            swarm.spawn_agent(agent, f"PROACTIVE_OVERSIGHT: Match found in stream: {request_id}", source="COORDINATOR")
-
-        inject_mission_profile(raw_body_json["messages"])
-        inject_compliance_reminder(raw_body_json["messages"])
-        inject_local_rules(raw_body_json["messages"])
-        
-        # Rejection Reduction Mutation & Context Compression
-        if AntiRejectionMutator.mutate(raw_body_json["messages"]):
-            _record_event("mutation", "Prompt reframed to reduce upstream rejection")
-
-        # Global compression & OPSEC pass
-        for msg in raw_body_json["messages"]:
-            _update_content(msg, lambda c: CsecSentinel.sanitize(compress_context(c)))
-        
-        cr = ghost_cache.query(raw_body_json["messages"])
-        if cr: 
-            if raw_body_json.get("stream"):
-                async def cached_stream(): yield cr
-                return StreamingResponse(cached_stream(), media_type="application/json")
-            return StreamingResponse(iter([cr]), media_type="application/json")
-
-    # Pegasus Telemetry Black-Hole
-    telemetry_indicators = ["statsig", "growthbook", "datadog", "stats", "telemetry", "events", "logging"]
-    if any(x in path_l for x in telemetry_indicators):
-        logger.info(f"[{request_id}] TELEMETRY_BLACKHOLED: /{path}")
-        
-        # Inject Entropy via Shuffler
-        mock_data = {"status": "ok", "timestamp": time.time()}
-        shuffled_data = shuffler.shuffle(mock_data)
-        
-        if "anthropic" in path.lower():
-            return StreamingResponse(iter([json.dumps(shuffled_data).encode()]), media_type="application/json")
-        return StreamingResponse(iter([json.dumps(shuffled_data).encode()]), media_type="application/json")
-
-    if "unleash" in path_l or "unleash" in incoming_host.lower() or "client/features" in path_l or "client/metrics" in path_l or "client/register" in path_l:
-        if "client/features" in path_l or "client/metrics" in path_l or "client/register" in path_l:
-            mock_features = {
-                "version": 1,
-                "features": [{"name": f, "enabled": True, "strategies": [{"name": "default"}], "variants": []} for f in ENTERPRISE_FLAGS],
-            }
-            return StreamingResponse(iter([json.dumps(mock_features).encode()]), media_type="application/json")
-        return StreamingResponse(iter([b"{\"status\":\"ok\"}"]), media_type="application/json")
-
-    max_retries = max(3, len(pool.keys))
+    # 3. Upstream Relay
+    max_retries = 3
     for attempt in range(max_retries):
         try:
-            host_l = incoming_host.lower()
-            is_windsurf_host = any(h in host_l for h in ["windsurf.com", "codeium.com"])
+            # Determine Target
+            target_base_url = "https://server.codeium.com"
+            if is_inference_rpc: target_base_url = "https://inference.codeium.com"
+            elif is_ws_control and "windsurf.com" in incoming_host: target_base_url = f"https://{incoming_host}"
             
-            # Service Detection Telemetry
-            if "anthropic" in host_l or "claude" in host_l: app.state.detected_services.add("claude")
-            elif "openai" in host_l: app.state.detected_services.add("openai")
-            elif "gemini" in host_l or "googleapis" in host_l: app.state.detected_services.add("gemini")
-            elif is_windsurf_host: app.state.detected_services.add("codex")
-
-            is_ws_rpc = ("exa." in path) or ("api_server_pb" in path)
-            is_ws_control = is_ws_rpc or is_windsurf_host
-            
-            # Early model extraction for routing decisions
-            model = str(raw_body_json.get("model", "unknown") if is_json else "unknown").lower()
-            # Only remap if it's JSON; forwarding Proto to LLM APIs will fail.
-            is_private_model = is_json and (("model_private" in model) or (b"MODEL_PRIVATE" in body_bytes))
-            
-            # Private models (Claude 4.5) should always go through LLM remapping when JSON is available
-            if is_private_model:
-                is_ws_control = False
-
-            tp = path  # always initialised
-            passthrough_auth = False
-            if is_ws_control:
-                # Preserve the incoming host for Windsurf/Codeium traffic to maintain session integrity.
-                # Only default to Codeium servers if it's our custom proxy.windsurf.com patch.
-                if "windsurf.com" in incoming_host and "proxy.windsurf.com" not in incoming_host and "inferapi.windsurf.com" not in incoming_host:
-                    target_base_url = f"https://{incoming_host}"
-                elif "codeium.com" in incoming_host and "api.codeium.com" not in incoming_host:
-                    target_base_url = f"https://{incoming_host}"
-                else:
-                    target_base_url = "https://server.codeium.com"
-
-                if is_auth_flow:
-                    resolved_api_key = "NONE"
-                else:
-                    # With LS shim enabled, host may be localhost:9999.
-                    # Route inference RPCs by method path instead of host.
-                    is_inference_rpc = any(x in path_l for x in [
-                        "getstreamingcompletions",
-                        "apiserverservice/getcompletions",
-                        "apiserverservice/getchatcompletions",
-                        "chatservice",
-                    ])
-                    if is_inference_rpc or "inferapi.windsurf.com" in host_l:
-                        target_base_url = "https://inference.codeium.com"
-                    
-                    # Force key rotation for inference even in safe mode to bypass exhausted native sessions
-                    if HG_SAFE_MODE and not is_inference_rpc:
-                        # Safe mode preserves native auth/session on control-plane RPCs.
-                        resolved_api_key = "NONE"
-                    else:
-                        wk = pool.get_key(is_windsurf=True)
-                        if not wk: raise HTTPException(503, "No Windsurf keys")
-                        resolved_api_key = f"Bearer {wk}"
-                
-                logger.info(f"WS_CONTROL_ROUTE: path={path} target={target_base_url} is_inf={is_inference_rpc if 'is_inference_rpc' in locals() else False} auth={'native' if resolved_api_key == 'NONE' else 'discovery'}")
-                passthrough_auth = True
-                # Inject enterprise spoof fields into WS RPC bodies
-                if is_json and not is_auth_flow:
-                    for k, v in ENTERPRISE_SPOOF.items():
-                        raw_body_json.setdefault(k, v)
-                    # Suppress credit tracking - remove any credit_used fields
-                    raw_body_json.pop("credit_used", None)
-                    raw_body_json.pop("credits_used", None)
-            else:
-                model = str(raw_body_json.get("model", "unknown") if is_json else "unknown").lower()
-                preferred = "claude" if "claude" in model else "gemini" if "gemini" in model else None
-                pk = pool.get_key(is_windsurf=False, preferred_type=preferred)
-                if not pk: raise HTTPException(503, "No LLM keys")
-
-                if pk.startswith("AIzaSy"):
-                    target_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-                    resolved_api_key = f"Bearer {pk}"
-                    # Remap private Claude strings to Gemini Flash
-                    if any(x in model for x in ["claude", "gpt", "model_private"]): 
-                        raw_body_json["model"] = "gemini-2.0-flash-exp"
-                elif pk.startswith("sk-ant-"):
-                    target_base_url = "https://api.anthropic.com" # Use native Anthropic
-                    resolved_api_key = pk
-                    # Remap private strings to the best available public Claude models
-                    if "model_private_4" in model: # Opus 4.5 -> Opus 3.5
-                        raw_body_json["model"] = "claude-3-opus-20240229"
-                    elif "model_private" in model: # Haiku/Sonnet 4.5 -> Sonnet 3.5
-                        raw_body_json["model"] = "claude-3-5-sonnet-20241022"
-                else:
-                    target_base_url = "https://api.openai.com"
-                    resolved_api_key = f"Bearer {pk}"
-
-                tp = path if path.startswith("v1/") else f"v1/{path}"
-                if "generativelanguage" in target_base_url and tp.startswith("v1/"): tp = tp[3:]
-
-            target_url = f"{target_base_url.rstrip('/')}/{tp.lstrip('/')}"
+            target_url = f"{target_base_url.rstrip('/')}/{path.lstrip('/')}"
             upstream_host = urlparse(target_url).netloc
-            strip_headers = ["host", "connection", "content-length", "te"]
-            if not passthrough_auth:
-                strip_headers.extend(["authorization", "x-api-key", "user-agent"])
-            fh = {k: v for k, v in request.headers.items() if k.lower() not in strip_headers}
-            fh["User-Agent"] = random.choice(USER_AGENTS)
             
-            active_key_str = resolved_api_key.replace("Bearer ", "").strip()
-            if active_key_str != "NONE":
-                shadow = pool.get_shadow_profile(active_key_str)
-                if is_json and not is_auth_flow:
-                    meta = raw_body_json.setdefault("metadata", {})
-                    # Ensure api_key exists even if token resolution failed (prevents validation errors)
-                    meta.setdefault("api_key", resolved_api_key.replace("Bearer ", "").strip() if resolved_api_key != "NONE" else "HG_FALLBACK_TOKEN")
-                    meta.update({"sessionId": shadow["sessionId"], "installationId": shadow["installationId"], "deviceFingerprint": shadow["deviceFingerprint"]})
-                
-                if passthrough_auth and request.headers.get("authorization"):
-                    # Preserve original Windsurf auth/session during login/control flows.
-                    pass
-                elif active_key_str.startswith("sk-ant-"):
-                    fh.update({"x-api-key": active_key_str, "anthropic-version": "2023-06-01"})
-                else:
-                    fh.update({"Authorization": resolved_api_key})
+            # Header Preparation
+            fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "connection", "content-length", "te"]}
+            if not is_hard_bypass:
+                fh["User-Agent"] = random.choice(USER_AGENTS)
                 if not is_auth_flow:
-                    fh.update({"x-session-id": shadow["sessionId"], "x-installation-id": shadow["installationId"]})
-
-            # Request bundling: park duplicate in-flight requests
-            bundle_key = None
-            if is_json and "messages" in raw_body_json:
-                is_leader, bundle_key, bundle_fut = await bundler.get_or_reserve(raw_body_json["messages"], path, client_session_id)
-                if not is_leader:
-                    logger.info(f"[{request_id}] BUNDLE_FOLLOWER: awaiting leader for {bundle_key[:12]}")
-                    try:
-                        cached_result = await asyncio.wait_for(bundle_fut, timeout=290)
-                        if raw_body_json.get("stream"):
-                            async def bundle_stream(): yield cached_result
-                            return StreamingResponse(bundle_stream(), media_type="application/json")
-                        return StreamingResponse(iter([cached_result]), media_type="application/json")
-                    except Exception:
-                        bundle_key = None  # leader failed, fall through to own request
+                    wk = pool.get_key(is_windsurf=True)
+                    if wk: fh["Authorization"] = f"Bearer {wk}"
 
             async with _concurrency_sem:
-                # UPSTREAM JITTER: Defeat timing-based fingerprinting (OPSEC)
-                if not is_auth_flow:
-                    await asyncio.sleep(random.uniform(0.005, 0.045))
-                
+                if not is_hard_bypass: await asyncio.sleep(random.uniform(0.005, 0.035)) # Jitter
                 session = await get_upstream_session()
-                if is_grpc:
-                    # Raw stream relay for gRPC
-                    async with session.request(method=request.method, url=target_url, data=body_bytes, headers=fh) as resp:
-                        upstream_first_byte_ms = (time.time() - req_started) * 1000.0
-                        return StreamingResponse(resp.body_iterator, status_code=resp.status, headers=dict(resp.headers))
+                req_kwargs = {"method": request.method, "url": target_url, "headers": fh}
+                if is_json: req_kwargs["json"] = raw_body_json
+                else: req_kwargs["data"] = body_bytes
 
-                async with session.request(method=request.method, url=target_url, json=raw_body_json if is_json else None, data=body_bytes if not is_json else None, headers=fh) as resp:
+                async with session.request(**req_kwargs) as resp:
                     upstream_first_byte_ms = (time.time() - req_started) * 1000.0
-                    if is_auth_flow:
-                        logger.info(f"[{request_id}] AUTH_FLOW status={resp.status} target={target_url}")
-                    if resp.status >= 400:
-                        logger.warning(f"[{request_id}] UPSTREAM_ERROR status={resp.status} target={target_url}")
-                    if resp.status == 429:
-                        pool.mark_exhausted(resolved_api_key)
-                        app.state.rate_limit_hits = getattr(app.state, "rate_limit_hits", 0) + 1
-                        _record_event("ratelimit", f"Upstream 429 encountered for {incoming_host}")
-                        if bundle_key: await bundler.fail(bundle_key, Exception("rate_limited"))
-                        await asyncio.sleep(1); continue
-                    if resp.status in [401, 403] and not is_ws_rpc:
-                        pool.mark_exhausted(resolved_api_key, False)
-                        if bundle_key: await bundler.fail(bundle_key, Exception("auth_failed"))
-                        continue
-
-                    # Preserve upstream response headers so Connect/proto clients
-                    # can decode payloads correctly (e.g. content-encoding, connect
-                    # protocol headers). Skip hop-by-hop headers.
-                    hop_by_hop = {
-                        "connection",
-                        "keep-alive",
-                        "proxy-authenticate",
-                        "proxy-authorization",
-                        "te",
-                        "trailers",
-                        "transfer-encoding",
-                        "upgrade",
-                        "content-length",
-                    }
-                    passthrough_resp_headers = {
-                        k: v for k, v in resp.headers.items()
-                        if k.lower() not in hop_by_hop
-                    }
                     
-                    # Force-inject quota bypass headers for Windsurf/Anthropic traffic
-                    if is_windsurf_host or "anthropic" in upstream_host:
-                        passthrough_resp_headers.update({
-                            "anthropic-ratelimit-unified-status": "allowed",
-                            "anthropic-ratelimit-unified-fallback": "available",
-                            "anthropic-ratelimit-unified-5h-utilization": "0.1",
-                            "anthropic-ratelimit-unified-7d-utilization": "0.1",
-                            "anthropic-ratelimit-unified-overage-status": "allowed",
-                        })
-                        # Remove any existing reset timestamps to avoid UI countdowns
-                        for k in list(passthrough_resp_headers.keys()):
-                            if "-reset" in k.lower():
-                                passthrough_resp_headers.pop(k)
-
-                    # For non-stream requests (notably Connect/proto control-plane
-                    # RPCs like GetUserStatus), buffer the full response to avoid
-                    # partial/closed-stream relay causing undefined client decodes.
+                    # Buffer non-streaming responses
                     is_stream_req = bool(is_json and raw_body_json.get("stream"))
                     if not is_stream_req:
                         full_body = await resp.read()
-                        total_ms = (time.time() - req_started) * 1000.0
-                        _record_latency(total_ms, path, upstream_host, resp.status, upstream_first_byte_ms)
-                        if is_auth_flow or any(x in path_l for x in ["getuserstatus", "getcliteamsettings", "getclimodelconfigs"]):
-                            _dump_auth_response(request_id, path, upstream_host, resp.status, full_body)
-                        logger.info(
-                            f"PULSE: BYTES={len(full_body)} STATUS={resp.status} FIRST_BYTE_MS={upstream_first_byte_ms:.1f} TOTAL_MS={total_ms:.1f} UPSTREAM={upstream_host}"
-                        )
-                        return Response(
-                            content=full_body,
-                            status_code=resp.status,
-                            headers=passthrough_resp_headers,
-                            media_type=resp.headers.get("Content-Type"),
-                        )
+                        if not is_hard_bypass: # Binary Stream Editing
+                            full_body = full_body.replace(b"INDIVIDUAL", b"ENTERPRISE").replace(b"FREE", b"HG_E")
+                        return Response(content=full_body, status_code=resp.status, headers=dict(resp.headers))
 
+                    # Streaming Relay
                     async def stream_generator():
                         full_content = b""
-                        try:
-                            async for chunk in resp.content.iter_any():
-                                if chunk:
-                                    # --- Expert Shield: Response Mutation ---
-                                    
-                                    # 1. JSON Credit Stripping
-                                    if is_json and chunk.strip():
-                                        try:
-                                            chunk_json = json.loads(chunk)
-                                            chunk_json.pop("credit_used", None)
-                                            chunk_json.pop("credits_used", None)
-                                            chunk_json.pop("creditsUsed", None)
-                                            chunk = json.dumps(chunk_json).encode()
-                                        except: pass
-                                    
-                                    # 2. Binary Stream Editing (OPSEC)
-                                    # Replaces tier markers in binary Proto blobs to prevent feature stripping
-                                    if is_proto_request and not is_auth_flow:
-                                        # Heuristic binary string replacements
-                                        # Note: Must use equal-length replacements or handle offsets (risky)
-                                        # "FREE" (4) -> "HG_E" (4)
-                                        # "PRO " (4) -> "HG_E" (4)
-                                        # "INDIVIDUAL" (10) -> "ENTERPRISE" (10)
-                                        chunk = chunk.replace(b"FREE", b"HG_E")
-                                        chunk = chunk.replace(b"PRO ", b"HG_E")
-                                        chunk = chunk.replace(b"INDIVIDUAL", b"ENTERPRISE")
-                                        chunk = chunk.replace(b"PRO_USER", b"ENT_USER")
+                        async for chunk in resp.content.iter_any():
+                            if chunk:
+                                if not is_hard_bypass:
+                                    chunk = chunk.replace(b"INDIVIDUAL", b"ENTERPRISE")
+                                full_content += chunk; yield chunk
+                        if resp.status == 200 and not is_hard_bypass and is_json:
+                            ghost_cache.store(raw_body_json["messages"], full_content)
+                    
+                    return StreamingResponse(stream_generator(), status_code=resp.status, headers=dict(resp.headers))
 
-                                    full_content += chunk
-                                    yield chunk
-                            if resp.status == 200 and is_json and "messages" in raw_body_json:
-                                ghost_cache.store(raw_body_json["messages"], full_content)
-                                learner.ingest_proxy_flow(raw_body_json, full_content)
-                                if bundle_key:
-                                    await bundler.complete(bundle_key, full_content)
-                            total_ms = (time.time() - req_started) * 1000.0
-                            _record_latency(total_ms, path, upstream_host, resp.status, upstream_first_byte_ms)
-                            logger.info(
-                                f"PULSE: BYTES={len(full_content)} STATUS={resp.status} FIRST_BYTE_MS={upstream_first_byte_ms:.1f} TOTAL_MS={total_ms:.1f} UPSTREAM={upstream_host}"
-                            )
-                        except Exception as e:
-                            logger.exception(f"[{request_id}] STREAM_ERROR target={target_url}: {e}")
-                            if bundle_key:
-                                await bundler.fail(bundle_key, e)
-                    return StreamingResponse(
-                        stream_generator(),
-                        status_code=resp.status,
-                        headers=passthrough_resp_headers,
-                    )
         except Exception as e:
-            if attempt < max_retries - 1: await asyncio.sleep(0.5); continue
-            raise HTTPException(500, str(e))
-    raise HTTPException(503, "Max retries")
+            logger.error(f"RELAY_ERROR: {e}")
+            if attempt == max_retries - 1: raise HTTPException(502, "Upstream unreachable")
+            await asyncio.sleep(1)
+
+    return Response(content=b'{"error":"Relay exhausted"}', status_code=502)
+    return Response(content=b'{"error":"Relay exhausted"}', status_code=502)
 
 if __name__ == "__main__":
-    # Run HTTP proxy on port 9999 (default)
-    # For HTTPS on port 443, use: sudo python3 src/proxy.py --https
     import sys
     from pathlib import Path
     
@@ -1447,23 +1124,23 @@ if __name__ == "__main__":
     
     if enable_https:
         # Certificate paths
-        REPO_ROOT = Path(__file__).resolve().parent.parent
         CERT_FILE = REPO_ROOT / "certs" / "proxy.crt"
         KEY_FILE = REPO_ROOT / "certs" / "proxy.key"
         
         if CERT_FILE.exists() and KEY_FILE.exists():
             logger.info("Starting HTTPS proxy on port 443")
             uvicorn.run(
-                app,
-                host="0.0.0.0",
+                app, 
+                host="0.0.0.0", 
                 port=443,
                 ssl_keyfile=str(KEY_FILE),
                 ssl_certfile=str(CERT_FILE),
                 log_level="info"
             )
         else:
-            logger.error("HTTPS certificates not found. Run: python3 add_https_to_proxy.py")
+            logger.error("HTTPS certificates not found. Run: ./hg.sh reset to regenerate")
             sys.exit(1)
     else:
-        # Default: HTTP on port 9999
+        # Default: HTTP on port 9998
+        logger.info(f"Starting HTTP proxy on port {PROXY_PORT}")
         uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="info")
