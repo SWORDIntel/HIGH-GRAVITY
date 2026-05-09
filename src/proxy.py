@@ -524,8 +524,15 @@ class ProtoMocker:
     """Specialized engine for intercepting and spoofing Connect/gRPC RPCs."""
     
     @staticmethod
-    def should_mock(path: str) -> bool:
+    def should_mock(path: str, content_type: str) -> bool:
         p = path.lower()
+        ct = content_type.lower()
+        
+        # NEVER mock binary proto - we cannot generate valid wire format without .proto defs.
+        # Sending JSON to a binary unmarshaler causes "invalid wire-format data" errors.
+        if "application/proto" in ct:
+            return False
+            
         targets = [
             "getunleashdata", "getuserstatus", "checkchatcapacity", 
             "getteamcreditbalance", "getteambilling", "getcliteamsettings"
@@ -1009,12 +1016,16 @@ async def proxy_request(path: str, request: Request):
     allow_json_bypass = HG_BYPASS_CONTROL_PLANE and (accepts_json or is_proto_request)
 
     # Expert Shield: Proto/Connect RPC Mocking
-    if is_proto_request and ProtoMocker.should_mock(path):
+    if is_proto_request and ProtoMocker.should_mock(path, content_type_l):
         _record_latency((time.time() - req_started) * 1000, path, "local-proto-bypass", 200, 1.0)
         
-        # Determine the safest JSON-compatible content type for the client
-        res_ct = "application/connect+json" if "connect" in content_type_l else "application/json"
-        
+        # Use the original requested content-type to satisfy strict client checks
+        # SPECIAL CASE: For GetUnleashData, we MUST force JSON to ensure features are applied.
+        # Most Connect clients handle JSON fallback for Unleash.
+        res_ct = content_type_l
+        if "getunleashdata" in path.lower():
+            res_ct = "application/connect+json"
+            
         body = ProtoMocker.get_mock(path, res_ct)
         logger.info(f"[{request_id}] PROTO_BYPASS: {path} (spoofed enterprise as {res_ct})")
         return StreamingResponse(iter([body]), media_type=res_ct)
@@ -1374,16 +1385,33 @@ async def proxy_request(path: str, request: Request):
                         try:
                             async for chunk in resp.content.iter_any():
                                 if chunk:
-                                    # Strip credit tracking from response chunks
-                                    try:
-                                        if is_json and chunk.strip():
+                                    # --- Expert Shield: Response Mutation ---
+                                    
+                                    # 1. JSON Credit Stripping
+                                    if is_json and chunk.strip():
+                                        try:
                                             chunk_json = json.loads(chunk)
                                             chunk_json.pop("credit_used", None)
                                             chunk_json.pop("credits_used", None)
                                             chunk_json.pop("creditsUsed", None)
                                             chunk = json.dumps(chunk_json).encode()
-                                    except: pass
-                                    full_content += chunk; yield chunk
+                                        except: pass
+                                    
+                                    # 2. Binary Stream Editing (OPSEC)
+                                    # Replaces tier markers in binary Proto blobs to prevent feature stripping
+                                    if is_proto_request and not is_auth_flow:
+                                        # Heuristic binary string replacements
+                                        # Note: Must use equal-length replacements or handle offsets (risky)
+                                        # "FREE" (4) -> "HG_E" (4)
+                                        # "PRO " (4) -> "HG_E" (4)
+                                        # "INDIVIDUAL" (10) -> "ENTERPRISE" (10)
+                                        chunk = chunk.replace(b"FREE", b"HG_E")
+                                        chunk = chunk.replace(b"PRO ", b"HG_E")
+                                        chunk = chunk.replace(b"INDIVIDUAL", b"ENTERPRISE")
+                                        chunk = chunk.replace(b"PRO_USER", b"ENT_USER")
+
+                                    full_content += chunk
+                                    yield chunk
                             if resp.status == 200 and is_json and "messages" in raw_body_json:
                                 ghost_cache.store(raw_body_json["messages"], full_content)
                                 learner.ingest_proxy_flow(raw_body_json, full_content)
