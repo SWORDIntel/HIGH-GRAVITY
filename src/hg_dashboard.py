@@ -264,8 +264,8 @@ class Dashboard:
         root.split_column(
             Layout(name="header", size=3),
             Layout(name="top", size=10),
-            Layout(name="mid", size=10),
-            Layout(name="events"),
+            Layout(name="mid", size=12),
+            Layout(name="bottom", size=12),
             Layout(name="footer", size=3),
         )
 
@@ -285,13 +285,31 @@ class Dashboard:
             Layout(self._thinking_panel(), ratio=1),
         )
 
-        root["events"].update(self._events_panel())
+        # Bottom section: Swarm Events on left, Live Log on right
+        root["bottom"].split_row(
+            Layout(self._events_panel(), ratio=1),
+            Layout(Panel(self._mini_log_content(), title="Intelligence Stream", border_style="dim"), ratio=1),
+        )
 
         root["footer"].update(Panel(
             Text(f"Status: {self.status_msg}    {datetime.now().strftime('%H:%M:%S')}", justify="center"),
             border_style="dim",
         ))
         return root
+
+    def _mini_log_content(self):
+        lines = self.read_log_tail("proxy.log", 10)
+        content = Text()
+        for line in lines:
+            if "ERROR" in line or "FAIL" in line: style = "bold red"
+            elif "WARNING" in line: style = "yellow"
+            elif "PROTOCOL EVENT" in line: style = "bold green"
+            elif "mutation" in line: style = "bold magenta"
+            else: style = "dim"
+            # Extract just the message after the log level for mini view
+            msg = line.split("] ", 1)[-1] if "] " in line else line
+            content.append(msg[:80] + "\n", style=style)
+        return content
 
     def run(self):
         fd = sys.stdin.fileno()
