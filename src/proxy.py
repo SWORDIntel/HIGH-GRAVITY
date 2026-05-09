@@ -295,6 +295,8 @@ ENTERPRISE_FLAGS = [
     "enable_multimodal_cascade", "enable_agentic_workflow",
     "enable_advanced_data_analysis", "priority_inference",
     "unlimited_usage", "early_access_features", "enable_cross_file_edit_v2",
+    "allow_arena_mode", "enforce_mcp_registry", "devin_terminal_acp_enabled",
+    "devin_cloud_acp_enabled", "cascade_hooks_enabled", "enable_acp",
 ]
 
 # Local surface-only model catalog.
@@ -338,6 +340,26 @@ PRIVATE_MODEL_SURFACE = [
         "family": "claude",
         "tier": "deep",
         "contextWindow": 200000,
+        "status": "available",
+        "visible": True,
+    },
+    {
+        "modelId": "MODEL_DEEPSEEK_V3",
+        "modelKey": "MODEL_DEEPSEEK_V3",
+        "displayName": "DeepSeek V3",
+        "family": "deepseek",
+        "tier": "pro",
+        "contextWindow": 64000,
+        "status": "available",
+        "visible": True,
+    },
+    {
+        "modelId": "MODEL_CHAT_O3_LOW",
+        "modelKey": "MODEL_CHAT_O3_LOW",
+        "displayName": "OpenAI O3 (Low)",
+        "family": "openai",
+        "tier": "pro",
+        "contextWindow": 128000,
         "status": "available",
         "visible": True,
     },
