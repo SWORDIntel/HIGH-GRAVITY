@@ -35,7 +35,7 @@ bootstrap_venv() {
 print_sudo_notice() {
     local cmd="$1"
     case "$cmd" in
-        menu|start|restart|stop|verify|status|doctor|patch|repatch|undo|kp14|re)
+        menu|start|restart|stop|verify|status|doctor|patch|repatch|undo|unpatch|kp14|re)
             echo "Notice: '$cmd' may require sudo (iptables, /etc/hosts, port 443, service control)."
             echo "You may be prompted for your password."
             ;;
@@ -49,16 +49,17 @@ ${C}HIGH-GRAVITY Unified CLI${NC}
 Usage: ./hg.sh <command>
 
 Commands:
-  ${G}(none)${NC}      Launch the interactive TUI Dashboard (default)
+  ${G}(none)${NC}      Launch the real-time Rich TUI Dashboard (default)
   ${G}start${NC}       Quick start: Patch then start all services
   ${G}stop${NC}        Quick stop: Emergency shutdown
   ${G}status${NC}      Show service status (CLI)
   ${G}verify${NC}      Verify patch + service status
   ${G}shim${NC}        Deploy LSP Shield (binary wrapper)
-  ${G}patch${NC}       Apply patches
+  ${G}patch${NC}       Apply all binary/JS/host patches
+  ${G}unpatch${NC}     Restore original files (alias for undo)
   ${G}repatch${NC}     Clean repatch flow
-  ${G}undo${NC}        Restore from backups and cleanup
-  ${G}dashboard-v3${NC}  Launch advanced Rich TUI dashboard
+  ${G}dashboard${NC}   Launch the Rich TUI dashboard
+  ${G}menu${NC}        Classic arrow-key management menu
   ${G}khoj${NC}        Khoj controls (start/stop/status/reindex/logs)
   ${G}doctor${NC}      Deep diagnostics (health, routing, latency)
   ${G}trace${NC}       Watch prompt/completion logs
@@ -78,14 +79,10 @@ cmd="${1:-dashboard}"
 
 case "$cmd" in
     dashboard)
-        exec bash "$SCRIPTS_DIR/internal/hgmenu.sh"
-        ;;
-    dashboard-v3)
         exec "$PYTHON" "$SCRIPT_DIR/src/hg_dashboard.py"
         ;;
     menu)
-        print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" menu
+        exec bash "$SCRIPTS_DIR/internal/hgmenu.sh"
         ;;
     start)
         print_sudo_notice "$cmd"
@@ -109,9 +106,12 @@ case "$cmd" in
         print_sudo_notice "$cmd"
         exec bash "$SCRIPTS_DIR/internal/deploy_lsp_shim.sh"
         ;;
-    verify|patch|repatch|undo)
+    verify|patch|repatch|undo|unpatch)
         print_sudo_notice "$cmd"
-        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" "$cmd"
+        # Map unpatch to undo for the underlying script
+        target_cmd="$cmd"
+        [[ "$cmd" == "unpatch" ]] && target_cmd="undo"
+        exec bash "$SCRIPTS_DIR/internal/hg_start.sh" "$target_cmd"
         ;;
     khoj)
         shift || true

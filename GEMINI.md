@@ -50,7 +50,7 @@ bash tools/integration/deploy_lsp_shim.sh
 To launch the Pegasus Dashboard, run the following command:
 
 ```bash
-python3 hg.py
+./hg.sh
 ```
 
 The dashboard provides a real-time view of the system's status, including metrics on requests, cache hits, and active agents.

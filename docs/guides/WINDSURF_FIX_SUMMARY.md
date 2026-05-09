@@ -87,9 +87,11 @@ export HTTPS_PROXY=http://127.0.0.1:9998
 
 - ✅ Extension patches applied (8 patches)
 - ✅ MITM hooks installed (HG_OPT)
-- ❌ Language server still bypassing proxy
-- ❌ MITM log empty (0 Cascade calls)
-- ⚠️  /etc/hosts redirect removed (caused failures)
+- ✅ Language server binary patched (v1.110.1-next support)
+- ✅ MITM log operational (`logs/cascade_midway.log`)
+- ✅ /etc/hosts redirect active for TLS intercept
+
+**Latest Version Support**: v1.110.1-next (See [WINDSURF_v1.110.1_PATCH_NOTES.md](WINDSURF_v1.110.1_PATCH_NOTES.md))
 
 ## Recommended Next Steps
 

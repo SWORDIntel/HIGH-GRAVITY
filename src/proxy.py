@@ -543,6 +543,32 @@ def _ensure_metrics():
         app.state.latency_samples = deque(maxlen=500)
     if not hasattr(app.state, "slow_requests_recent"):
         app.state.slow_requests_recent = deque(maxlen=50)
+    if not hasattr(app.state, "recent_events"):
+        app.state.recent_events = deque(maxlen=100)
+    if not hasattr(app.state, "thinking_by_level"):
+        app.state.thinking_by_level = {"low": 0, "medium": 0, "high": 0, "xhigh": 0}
+    if not hasattr(app.state, "detected_services"):
+        app.state.detected_services = set()
+    if not hasattr(app.state, "request_count"):
+        app.state.request_count = 0
+    if not hasattr(app.state, "rate_limit_hits"):
+        app.state.rate_limit_hits = 0
+
+
+def _record_event(kind: str, detail: str):
+    _ensure_metrics()
+    event = {
+        "ts": int(time.time()),
+        "kind": kind, # detect, upgrade, thinking, ratelimit, khoj
+        "detail": detail
+    }
+    app.state.recent_events.append(event)
+    logger.info(f"[EVENT:{kind.upper()}] {detail}")
+
+
+def _record_thinking(level: str):
+    _ensure_metrics()
+    app.state.thinking_by_level[level] = app.state.thinking_by_level.get(level, 0) + 1
 
 
 def _record_latency(total_ms: float, path: str, upstream_host: str, status: int, first_byte_ms: float = None):
@@ -793,6 +819,7 @@ async def proxy_request(path: str, request: Request):
         # Khoj Context Injection
         khoj_result = await khoj_bridge.inject_context(raw_body_json["messages"])
         if khoj_result.get("status") == "ok":
+            _record_event("khoj", f"Injected {khoj_result.get('injected', 0)} snippets from {len(khoj_result.get('sources', []))} sources")
             logger.info(
                 f"[{request_id}] KHOJ_CONTEXT_INJECTED: "
                 f"query={khoj_result.get('query', '')!r} "
@@ -810,8 +837,17 @@ async def proxy_request(path: str, request: Request):
         
         # Proactive Agent Detection
         full_text = " ".join([m.get("content", "") for m in raw_body_json["messages"] if isinstance(m.get("content"), str)])
+        
+        # Thinking Tier Logic
+        text_len = len(full_text)
+        if text_len > 20000: _record_thinking("xhigh")
+        elif text_len > 10000: _record_thinking("high")
+        elif text_len > 5000: _record_thinking("medium")
+        else: _record_thinking("low")
+
         proactive_agents = trigger_engine.analyze_intent(full_text)
         for agent in proactive_agents:
+            _record_event("thinking", f"Spawned {agent} operative for deep analysis")
             logger.info(f"PROACTIVE_TRIGGER: Intent matched for {agent}. Spawning operative...")
             swarm.spawn_agent(agent, f"PROACTIVE_OVERSIGHT: Match found in stream: {request_id}", source="COORDINATOR")
 
@@ -859,10 +895,14 @@ async def proxy_request(path: str, request: Request):
     for attempt in range(max_retries):
         try:
             host_l = incoming_host.lower()
-            is_windsurf_host = any(h in host_l for h in [
-                "windsurf.com",
-                "codeium.com",
-            ])
+            is_windsurf_host = any(h in host_l for h in ["windsurf.com", "codeium.com"])
+            
+            # Service Detection Telemetry
+            if "anthropic" in host_l or "claude" in host_l: app.state.detected_services.add("claude")
+            elif "openai" in host_l: app.state.detected_services.add("openai")
+            elif "gemini" in host_l or "googleapis" in host_l: app.state.detected_services.add("gemini")
+            elif is_windsurf_host: app.state.detected_services.add("codex")
+
             is_ws_rpc = ("exa." in path) or ("api_server_pb" in path)
             is_ws_control = is_ws_rpc or is_windsurf_host
             
@@ -1003,6 +1043,7 @@ async def proxy_request(path: str, request: Request):
                     if resp.status == 429:
                         pool.mark_exhausted(resolved_api_key)
                         app.state.rate_limit_hits = getattr(app.state, "rate_limit_hits", 0) + 1
+                        _record_event("ratelimit", f"Upstream 429 encountered for {incoming_host}")
                         if bundle_key: await bundler.fail(bundle_key, Exception("rate_limited"))
                         await asyncio.sleep(1); continue
                     if resp.status in [401, 403] and not is_ws_rpc:

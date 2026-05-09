@@ -57,14 +57,26 @@ BINARY_URL_REPLACEMENTS = [
 ]
 
 # Raw byte patches: NOP the domain validation branch (fcn.0818ef40 @ file offset).
-# RE finding: JE at 0x818e12d jumps to error path if host not *.codeium.com or *.windsurf.com.
+# RE finding: JE at 0x818b87d (previously 0x818e12d) jumps to error path if host not *.codeium.com or *.windsurf.com.
 # NOP it so any URL passes. (r2 VA = file_offset + 0x1000 for this PIE binary.)
 BINARY_BYTE_PATCHES = [
     (
-        0x818e12d,
+        0x818b87d,
         bytes([0x74, 0x2E]),  # JE +0x2e → error path
         bytes([0x90, 0x90]),  # NOP NOP  → always passes
-        "NOP domain validation branch",
+        "NOP domain validation branch #1",
+    ),
+    (
+        0x818ba9d,
+        bytes([0x74, 0x2E]),
+        bytes([0x90, 0x90]),
+        "NOP domain validation branch #2",
+    ),
+    (
+        0x81973fd,
+        bytes([0x74, 0x2E]),
+        bytes([0x90, 0x90]),
+        "NOP domain validation branch #3",
     ),
 ]
 
@@ -536,6 +548,12 @@ def patch_hosts(verify_only: bool = False) -> bool:
     needed = {
         "proxy.windsurf.com":    "127.0.0.1  proxy.windsurf.com",
         "inferapi.windsurf.com": "127.0.0.1  inferapi.windsurf.com",
+        "server.codeium.com":    "127.0.0.1  server.codeium.com",
+        "inference.codeium.com": "127.0.0.1  inference.codeium.com",
+        "server.self-serve.windsurf.com": "127.0.0.1  server.self-serve.windsurf.com",
+        "unleash.codeium.com":   "127.0.0.1  unleash.codeium.com",
+        "southcentral-lb.codeium.com": "127.0.0.1  southcentral-lb.codeium.com",
+        "api.codeium.com":       "127.0.0.1  api.codeium.com",
     }
     missing = [line for host, line in needed.items() if host not in content]
 

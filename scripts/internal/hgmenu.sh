@@ -19,7 +19,7 @@ show_menu() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-options=("Patch" "Undo" "Start" "Dashboard" "Stop" "Exit")
+options=("Patch" "Unpatch" "Start" "Dashboard" "Stop" "Exit")
 current_idx=0
 
 while true; do
@@ -36,9 +36,9 @@ while true; do
         "") 
             case "${options[$current_idx]}" in
                 "Patch") bash ./hg.sh patch ;;
-                "Undo") bash ./hg.sh undo ;;
+                "Unpatch") bash ./hg.sh unpatch ;;
                 "Start") bash ./hg.sh start ;;
-                "Dashboard") bash ./hg.sh dashboard-v3 ;;
+                "Dashboard") bash ./hg.sh dashboard ;;
                 "Stop") bash ./hg.sh stop ;;
                 "Exit") clear; exit 0 ;;
             esac

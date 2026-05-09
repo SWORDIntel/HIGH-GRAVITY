@@ -38,8 +38,11 @@ listener_pid() {
 }
 
 binary_patched() {
-    local bin="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64.real"
-    [ -f "$bin" ] && strings "$bin" 2>/dev/null | grep -q "https://proxy.windsurf.com"
+    local bin_real="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64.real"
+    local bin_std="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64"
+    local target="$bin_real"
+    [ ! -f "$target" ] && target="$bin_std"
+    [ -f "$target" ] && strings "$target" 2>/dev/null | grep -q "https://proxy.windsurf.com"
 }
 
 js_patched() {

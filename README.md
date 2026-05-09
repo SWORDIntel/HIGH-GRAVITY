@@ -24,23 +24,25 @@ Intercept, enhance, and optimize Windsurf AI completions with local caching, key
 ```bash
 git clone <repo-url> HIGH-GRAVITY
 cd HIGH-GRAVITY
-./hg.sh dashboard
+./hg.sh  # Launches dashboard
 ```
 
 ### 2. Control (Hotkeys)
 Once the dashboard is open:
 *   Press **`S`** to Start All (Patch + Proxies + Windsurf)
 *   Press **`X`** to Stop All
-*   Press **`H`** to Deploy LSP Shield
+*   Press **`P`** to Deep Patch
+*   Press **`U`** to Undo Patch (Unpatch)
 *   Press **`L`** to View Live Logs
 
 ### 3. CLI Usage
 ```bash
 ./hg.sh start       # Quick start all services
 ./hg.sh stop        # Emergency shutdown
+./hg.sh patch       # Apply all binary/JS/host patches
+./hg.sh unpatch     # Restore original files
 ./hg.sh status      # CLI status check
 ./hg.sh trace       # Watch AI completion routing
-./hg.sh khoj status # Khoj integration status
 ```
 
 ---
