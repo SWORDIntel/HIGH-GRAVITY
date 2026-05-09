@@ -76,6 +76,17 @@ logger = logging.getLogger("HG-Proxy")
 
 app = FastAPI(title="HIGHGRAVITY Optimization Proxy")
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    method = request.method
+    path = request.url.path
+    if method == "CONNECT":
+        logger.warning(f"CONNECT_ATTEMPT: host={request.headers.get('host')} path={path}")
+        return Response(content=b'{"code":"unimplemented","message":"Forward proxying not supported"}', status_code=405, media_type="application/json")
+    
+    response = await call_next(request)
+    return response
+
 HG_SAFE_MODE = os.environ.get("HG_SAFE_MODE", "1") == "1"
 HG_BYPASS_CONTROL_PLANE = os.environ.get("HG_BYPASS_CONTROL_PLANE", "1") == "1"
 
@@ -736,10 +747,10 @@ _upstream_session: Optional[aiohttp.ClientSession] = None
 UPSTREAM_IP_MAP = {
     "server.codeium.com": "35.223.238.178",
     "inference.codeium.com": "192.34.20.166",
-    "unleash.codeium.com": "34.49.14.144",
+    "unleash.codeium.com": "35.223.238.178",
     "southcentral-lb.codeium.com": "216.86.162.108",
     "api.codeium.com": "35.223.238.178",
-    "server.self-serve.windsurf.com": "35.223.238.178",
+    "server.self-serve.windsurf.com": "34.49.14.144",
 }
 
 class ForceIPResolver(aiohttp.DefaultResolver):
@@ -993,11 +1004,16 @@ async def hg_khoj_progress():
         "progress": stats.get("reindex_progress"),
     }
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "CONNECT"])
 async def proxy_request(path: str, request: Request):
     req_started = time.time()
     request_id = secrets.token_hex(4)
     incoming_host = request.headers.get("host", "")
+    
+    if request.method == "CONNECT":
+        logger.warning(f"[{request_id}] FORWARD_PROXY_ATTEMPT: Client tried to CONNECT to {path or incoming_host}. This is a reverse proxy.")
+        return Response(content=b'{"error":"Direct connection required. Disable HTTP_PROXY env var."}', status_code=405)
+
     logger.info(f"[{request_id}] CONNECTION: {request.method} /{path} host={incoming_host}")
     app.state.request_count = getattr(app.state, "request_count", 0) + 1
     

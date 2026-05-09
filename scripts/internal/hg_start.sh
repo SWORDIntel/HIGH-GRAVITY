@@ -296,13 +296,7 @@ _launch_windsurf() {
     fi
 
     echo -e "${B}  [*] Launching Windsurf editor${NC}"
-    nohup python3 "$launcher" \
-        --mode windsurf \
-        --provider proxy \
-        --proxy-url http://localhost:9998 \
-        --key-index "${HG_WINDSURF_KEY_INDEX:-1}" \
-        --windsurf-binary "${HG_WINDSURF_BINARY:-windsurf-next}" \
-        >> "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
+    nohup /usr/share/windsurf-next/windsurf-next > "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
     echo $! > "$SCRIPT_DIR/logs/windsurf_launch.pid"
 
     local i
