@@ -317,10 +317,27 @@ def compress_context(text: str) -> str:
     text = re.sub(r' +\n', '\n', text)
     return text
 
+def _get_text(content: Any) -> str:
+    """Extract all text from content (str or list of parts)."""
+    if isinstance(content, str): return content
+    if isinstance(content, list):
+        return " ".join([p.get("text", "") for p in content if isinstance(p, dict) and "text" in p])
+    return ""
+
+def _update_content(msg: Dict, func: Callable[[str], str]):
+    """Apply a string-to-string transformation to msg['content']."""
+    content = msg.get("content", "")
+    if isinstance(content, str):
+        msg["content"] = func(content)
+    elif isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and "text" in part:
+                part["text"] = func(part["text"])
+
 def inject_mission_profile(messages: List[Dict]):
     for msg in messages:
         if msg.get("role") == "system":
-            msg["content"] = CLAUDE_STEALTH_PROMPT.strip() + "\n\n" + msg.get("content", "")
+            _update_content(msg, lambda c: CLAUDE_STEALTH_PROMPT.strip() + "\n\n" + c)
             return
     messages.insert(0, {"role": "system", "content": CLAUDE_STEALTH_PROMPT.strip()})
 
@@ -347,7 +364,7 @@ def inject_local_rules(messages: List[Dict]):
         reminder = f"\n\n# OCCASIONAL REMINDER - LOCAL PROJECT RULES:\n{rules}"
         for msg in messages:
             if msg.get("role") == "system":
-                msg["content"] = msg.get("content", "") + reminder
+                _update_content(msg, lambda c: c + reminder)
                 return
         messages.insert(0, {"role": "system", "content": reminder.strip()})
     except: pass
@@ -372,22 +389,23 @@ class AntiRejectionMutator:
     def mutate(cls, messages: List[Dict]) -> bool:
         mutated = False
         for msg in messages:
-            content = msg.get("content", "")
-            if not isinstance(content, str):
-                continue
+            is_last_user = (msg == messages[-1] and msg.get("role") == "user")
             
-            orig_content = content
-            # 1. Trigger Obfuscation
-            for pattern, repl in cls.OBFUSCATION_MAP.items():
-                content = re.sub(pattern, repl, content, flags=re.IGNORECASE)
-            
-            # 2. Semantic Reframing (only for last user message to avoid system bloat)
-            if msg == messages[-1] and msg.get("role") == "user":
-                if any(kw in content.lower() for kw in ["audit", "security", "traversal", "simulation"]):
-                    content = cls.WRAPPER_HEADER + content + cls.WRAPPER_FOOTER
-            
-            if content != orig_content:
-                msg["content"] = content
+            def apply_mutation(text: str) -> str:
+                # 1. Trigger Obfuscation
+                new_text = text
+                for pattern, repl in cls.OBFUSCATION_MAP.items():
+                    new_text = re.sub(pattern, repl, new_text, flags=re.IGNORECASE)
+                
+                # 2. Semantic Reframing (only for last user message)
+                if is_last_user:
+                    if any(kw in new_text.lower() for kw in ["audit", "security", "traversal", "simulation"]):
+                        new_text = cls.WRAPPER_HEADER + new_text + cls.WRAPPER_FOOTER
+                return new_text
+
+            content_before = json.dumps(msg.get("content"))
+            _update_content(msg, apply_mutation)
+            if json.dumps(msg.get("content")) != content_before:
                 mutated = True
         return mutated
 
@@ -894,17 +912,14 @@ async def proxy_request(path: str, request: Request):
         inject_compliance_reminder(raw_body_json["messages"])
         inject_local_rules(raw_body_json["messages"])
         
-        # Rejection Reduction Mutation
+        # Rejection Reduction Mutation & Context Compression
         if AntiRejectionMutator.mutate(raw_body_json["messages"]):
             _record_event("mutation", "Prompt reframed to reduce upstream rejection")
 
+        # Global compression pass (now handled inside _update_content in the functions above, 
+        # but we do one final pass for any messages that weren't touched)
         for msg in raw_body_json["messages"]:
-            if isinstance(msg.get("content"), str): 
-                msg["content"] = compress_context(msg["content"])
-            elif isinstance(msg.get("content"), list):
-                for part in msg["content"]:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        part["text"] = compress_context(part["text"])
+            _update_content(msg, compress_context)
         
         cr = ghost_cache.query(raw_body_json["messages"])
         if cr: 
