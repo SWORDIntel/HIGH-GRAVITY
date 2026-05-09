@@ -266,7 +266,7 @@ _start_khoj_async() {
     if [ -f "$launcher" ]; then
         rotate_log_if_large "$logfile" 10485760 5
         nohup bash "$launcher" >> "$logfile" 2>&1 &
-        echo $! > "$pidfile"
+        echo "$SUDO_PASS" | sudo -S bash -c "echo $! > \"$pidfile\" && chown $USER:$USER \"$pidfile\""
     fi
 }
 
