@@ -270,6 +270,16 @@ ENTERPRISE_SPOOF = {
         "webSearch": True,
         "codebaseIndexing": True,
     },
+    # New credit fields identified via kp14 analysis
+    "flex_credit_quota": 999999,
+    "used_prompt_credits": 0,
+    "used_flow_credits": 0,
+    "used_flex_credits": 0,
+    "user_prompt_credit_cap": 999999,
+    "user_flow_credit_cap": 999999,
+    "add_on_credits_available": 999999,
+    "add_on_credits_used": 0,
+    "is_capable": True,
 }
 
 # Expanded unleash feature flag list for enterprise capabilities
@@ -893,7 +903,7 @@ async def proxy_request(path: str, request: Request):
     # Model configs and usage bypass should work even for proto-wrapped JSON
     allow_json_bypass = HG_BYPASS_CONTROL_PLANE and (accepts_json or is_proto_request)
 
-    if "getuserstatus" in path_l and accepts_json and not is_proto_request:
+    if any(x in path_l for x in ["getuserstatus", "checkchatcapacity", "getteamcreditbalance", "getteambilling"]) and accepts_json and not is_proto_request:
         _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
         body_dict = {"status": "ok"}
         body_dict.update(ENTERPRISE_SPOOF)
@@ -926,7 +936,14 @@ async def proxy_request(path: str, request: Request):
                 "monthly_limit": None,
                 "used_credits": 0,
                 "utilization": 0
-            }
+            },
+            # kp14 credit fields
+            "flex_credit_quota": 999999,
+            "used_prompt_credits": 0,
+            "used_flow_credits": 0,
+            "used_flex_credits": 0,
+            "add_on_credits_available": 999999,
+            "add_on_credits_used": 0
         }
         return StreamingResponse(
             iter([json.dumps(mock_usage).encode()]),
