@@ -502,6 +502,57 @@ class AntiRejectionMutator:
                 mutated = True
         return mutated
 
+def _make_proto_response(data: dict, content_type: str = "application/json") -> bytes:
+    """Creates a gRPC-web/Connect-compatible framed response."""
+    body = json.dumps(data).encode()
+    
+    # If it's a binary/framed content type, add the 5-byte envelope
+    # Connect and gRPC-web use a 1-byte flag + 4-byte length prefix.
+    if any(x in content_type.lower() for x in ["proto", "grpc-web", "connect"]):
+        # [flags] (1 byte, 0 = data) + [length] (4 bytes big-endian)
+        framed = b'\x00' + len(body).to_bytes(4, 'big') + body
+        
+        # For gRPC-web specifically, we also need an End-of-Stream trailer (flag 0x80)
+        if "grpc-web" in content_type.lower():
+            trailers = b"grpc-status:0\r\ngrpc-message:OK\r\n"
+            framed += b'\x80' + len(trailers).to_bytes(4, 'big') + trailers
+        return framed
+        
+    return body
+
+class ProtoMocker:
+    """Specialized engine for intercepting and spoofing Connect/gRPC RPCs."""
+    
+    @staticmethod
+    def should_mock(path: str) -> bool:
+        p = path.lower()
+        targets = [
+            "getunleashdata", "getuserstatus", "checkchatcapacity", 
+            "getteamcreditbalance", "getteambilling", "getcliteamsettings"
+        ]
+        return any(t in p for t in targets)
+
+    @staticmethod
+    def get_mock(path: str, content_type: str) -> bytes:
+        p = path.lower()
+        data = ENTERPRISE_SPOOF.copy()
+
+        if "getunleashdata" in p:
+            # Connect-rpc format for GetUnleashData
+            data = {
+                "unleash_data": {
+                    "version": 1,
+                    "features": [{"name": f, "enabled": True} for f in ENTERPRISE_FLAGS]
+                }
+            }
+        elif "getcliteamsettings" in p:
+            data = {
+                "teamTier": "ENTERPRISE_SAAS",
+                "features": ENTERPRISE_FLAGS
+            }
+        
+        return _make_proto_response(data, content_type)
+
 class TokenPool:
     def __init__(self):
         self.keys = []; self.exhausted_keys = {}; self.shadow_profiles = {}
@@ -673,13 +724,45 @@ except Exception as e:
 # Shared upstream session (reused across all requests, avoids per-request socket exhaustion)
 _upstream_session: Optional[aiohttp.ClientSession] = None
 
+# --- Upstream IP Mapping (Bypass /etc/hosts redirects) ---
+UPSTREAM_IP_MAP = {
+    "server.codeium.com": "35.223.238.178",
+    "inference.codeium.com": "192.34.20.166",
+    "unleash.codeium.com": "34.49.14.144",
+    "southcentral-lb.codeium.com": "216.86.162.108",
+    "api.codeium.com": "35.223.238.178",
+    "server.self-serve.windsurf.com": "35.223.238.178",
+}
+
+class ForceIPResolver(aiohttp.DefaultResolver):
+    """Bypasses local /etc/hosts for specific upstream domains."""
+    async def resolve(self, host: str, port: int = 0, family: int = 0) -> List[Dict[str, Any]]:
+        if host in UPSTREAM_IP_MAP:
+            ip = UPSTREAM_IP_MAP[host]
+            return [{
+                'hostname': host,
+                'host': ip,
+                'port': port,
+                'family': family,
+                'proto': 0,
+                'flags': 0
+            }]
+        return await super().resolve(host, port, family)
+
 async def get_upstream_session() -> aiohttp.ClientSession:
     global _upstream_session
     if _upstream_session is None or _upstream_session.closed:
+        connector = aiohttp.TCPConnector(
+            resolver=ForceIPResolver(),
+            limit=100, 
+            limit_per_host=20, 
+            keepalive_timeout=30,
+            verify_ssl=False # Skip cert verification since we are connecting to IPs directly
+        )
         _upstream_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=300),
             auto_decompress=False,
-            connector=aiohttp.TCPConnector(limit=100, limit_per_host=20, keepalive_timeout=30)
+            connector=connector
         )
     return _upstream_session
 
@@ -924,6 +1007,17 @@ async def proxy_request(path: str, request: Request):
     is_proto_request = any(x in content_type_l for x in ["application/proto", "application/connect+proto", "application/grpc-web+proto"])
     # Model configs and usage bypass should work even for proto-wrapped JSON
     allow_json_bypass = HG_BYPASS_CONTROL_PLANE and (accepts_json or is_proto_request)
+
+    # Expert Shield: Proto/Connect RPC Mocking
+    if is_proto_request and ProtoMocker.should_mock(path):
+        _record_latency((time.time() - req_started) * 1000, path, "local-proto-bypass", 200, 1.0)
+        
+        # Determine the safest JSON-compatible content type for the client
+        res_ct = "application/connect+json" if "connect" in content_type_l else "application/json"
+        
+        body = ProtoMocker.get_mock(path, res_ct)
+        logger.info(f"[{request_id}] PROTO_BYPASS: {path} (spoofed enterprise as {res_ct})")
+        return StreamingResponse(iter([body]), media_type=res_ct)
 
     if any(x in path_l for x in ["getuserstatus", "checkchatcapacity", "getteamcreditbalance", "getteambilling"]) and accepts_json and not is_proto_request:
         _record_latency((time.time() - req_started) * 1000, path, "local-bypass", 200, 1.0)
