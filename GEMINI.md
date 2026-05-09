@@ -1,64 +1,44 @@
-# HIGH-GRAVITY Project
+# HIGH-GRAVITY Project Architecture
 
-## Project Overview
+## Overview
+HIGH-GRAVITY is a high-performance identity proxy, optimization shield, and intelligence gateway designed for the Windsurf editor. It provides a secure and efficient way to interact with AI models while maintaining total user privacy and unlocking enterprise-tier capabilities.
 
-HIGH-GRAVITY is a sophisticated local identity proxy, optimization shield, and cyber-intelligence gateway for Windsurf. It is designed to provide a secure and efficient way to interact with various AI models while maintaining user privacy and control.
+## Expert-Tier Systems (v3.2)
 
-The project is built with Python and utilizes a modular architecture with several key components:
+### 1. The Expert Shield
+The shield operates at multiple layers to ensure maximum OPSEC and reliability:
+*   **DNS Redirection**: Forces all Codeium and Windsurf telemetry/feature-flag domains to `127.0.0.1`, sealing all traffic leaks.
+*   **CSEC Sentinel**: A real-time sanitization engine that redacts system paths, usernames, and local identifiers from AI prompts.
+*   **Upstream Jitter**: Randomized micro-delays (5-45ms) that defeat timing-based proxy detection and traffic fingerprinting.
+*   **Shadow Profiles**: Per-key isolation of sessions, installation IDs, and device fingerprints to prevent account cross-linking by upstream providers.
 
-*   **Pegasus Dashboard:** A terminal-based dashboard (`hg.py`) for monitoring and controlling the system.
-*   **High-Performance Proxy:** A FastAPI-based proxy (`src/proxy.py`) that handles request routing, response streaming, and model remapping.
-*   **Pegasus Swarm:** A collection of specialized agents that perform tasks such as security auditing, research, and context optimization.
-*   **Quantum Infrastructure (QIHSE):** An advanced search and acceleration engine.
-*   **Claude Interface:** A unified interface for interacting with Claude models.
+### 2. Multi-Stage Intelligence (AMI)
+The intelligence layer uses a tiered acceleration pipeline for sub-millisecond lookups:
+*   **Tier 1: NOT_STISLA**: Ultra-fast interpolation search on sorted hash prefixes.
+*   **Tier 2: QIHSE**: SIMD-parallel search fallback for large-scale exact matching.
+*   **Tier 3: TurboQuant**: A NumPy-vectorized ANN engine using bitwise XOR and popcount for semantic similarity matching.
+*   **Deep RAG**: The Khoj bridge now features **Deep Intelligence Recovery**, automatically broadening queries and minifying code snippets to maximize token efficiency.
 
-The system is designed to be self-contained and high-performance, with features like:
-
-*   **True Response Streaming:** Zero-buffer architecture for low-latency responses.
-*   **Smart Model Remapping:** Dynamic fallback to available models.
-*   **Shadow Profiles:** Session spoofing for enhanced anonymity.
-*   **Unleash Shield:** Local mocking of enterprise SaaS features.
-*   **Stealth Hardening:** Techniques to defeat TLS/timing fingerprinting.
+### 3. Anti-Rejection Engine
+To prevent upstream models from refusing technical objectives:
+*   **Trigger Obfuscation**: Replaces risky keywords (e.g., `bypass` → `traversal`) with benign technical synonyms.
+*   **Semantic Reframing**: Automatically wraps sensitive prompts in an authorized "Security and Architectural Audit" context.
 
 ## Building and Running
 
-### Dependencies
+### Commands
+*   **Launch Dashboard**: `./hg.sh` (defaults to menu, or use `./hg.sh dashboard`).
+*   **Full Start**: `./hg.sh start` (patches, starts proxy, starts RAG).
+*   **Deep Audit**: `./hg.sh doctor` (verifies DNS, patches, and routing).
 
-*   Python 3
-*   `rich`
-*   `fastapi`
-*   `uvicorn`
-*   `aiohttp`
-*   `requests`
+### Components
+*   **Pegasus Dashboard**: Terminal-based Rich TUI for real-time control.
+*   **FastAPI Proxy**: Zero-buffer streaming architecture for low-latency relay.
+*   **Pegasus Swarm**: Collection of proactive agents monitoring the AI stream.
 
-You can install the dependencies using pip:
+## Engineering Standards
+*   **OPSEC First**: No identifiers or system data should ever leave the local proxy unmasked.
+*   **Token Efficiency**: Technical context must be minified and whitespace-collapsed before injection.
+*   **Heuristic Resilience**: All binary patches must support automated offset discovery to survive editor updates.
 
-```bash
-pip install rich fastapi uvicorn aiohttp requests
-```
-
-### Deploy Shield
-
-To deploy the process-level Bash shield for the language server, run the following command:
-
-```bash
-bash tools/integration/deploy_lsp_shim.sh
-```
-
-### Launch Dashboard
-
-To launch the Pegasus Dashboard, run the following command:
-
-```bash
-./hg.sh
-```
-
-The dashboard provides a real-time view of the system's status, including metrics on requests, cache hits, and active agents.
-
-## Development Conventions
-
-*   **Code Style:** The Python code follows standard PEP 8 conventions.
-*   **Testing:** The project includes a `tests` directory, but the specific testing practices are not immediately clear from the file list.
-*   **Configuration:** Configuration files are located in the `config` directory.
-*   **Logging:** The system uses a central logging file at `logs/proxy.log`.
-*   **Modularity:** The project is highly modular, with different components organized into separate directories.
+**Latest Verified Version**: Windsurf Next v1.110.1-next
