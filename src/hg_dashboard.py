@@ -149,7 +149,7 @@ class Dashboard:
         tbl.add_row("Jitter/Entropy", shuffler)
         tbl.add_row("Redactor", "[green]WATERTIGHT[/green]" if t else "[dim]--[/dim]")
 
-        # Binary Patch Check
+        # Binary Patch Check (v1.110.1 Multi-Point)
         bin_target = None
         for p in ["language_server_linux_x64.real", "language_server_linux_x64"]:
             full_p = Path(f"/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/{p}")
@@ -158,9 +158,19 @@ class Dashboard:
                 break
         
         if bin_target:
+            patched_points = 0
             with open(bin_target, "rb") as f:
-                f.seek(0x818b87d); b = f.read(2)
-            tbl.add_row("Bin Patch", "[green]PATCHED[/green]" if b == b'\x90\x90' else "[red]ORIGINAL[/red]")
+                for off in [0x818b87d, 0x818ba9d, 0x81973fd]:
+                    f.seek(off); b = f.read(2)
+                    if b == b'\x90\x90': patched_points += 1
+            
+            if patched_points == 3:
+                status = "[green]PATCHED[/green]"
+            elif patched_points > 0:
+                status = f"[yellow]PARTIAL ({patched_points}/3)[/yellow]"
+            else:
+                status = "[red]ORIGINAL[/red]"
+            tbl.add_row("Bin Patch", status)
         else:
             tbl.add_row("Bin Patch", "[red]NOT FOUND[/red]")
 
