@@ -975,6 +975,36 @@ async def proxy_request(path: str, request: Request):
             raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=503, detail="Max retries.")
 
+def _run_canonical_proxy() -> None:
+    """Run the canonical proxy implementation from `src/proxy.py`.
+
+    The legacy integration script is intentionally retained for compatibility with
+    tests/docs, but runtime traffic should use the canonical implementation that
+    carries the current binary reasoning and telemetry improvements.
+    """
+    import runpy
+
+    repo_root = Path(__file__).resolve().parent.parent
+    core_proxy = repo_root / "src" / "proxy.py"
+
+    if not core_proxy.exists():
+        logger.error("HG_PROXY_BOOTSTRAP: canonical proxy not found: %s", core_proxy)
+        raise SystemExit(1)
+
+    sys.path.insert(0, str(repo_root))
+    # Keep behavior consistent when launched directly from this wrapper.
+    if "HG_PROXY_PORT" not in os.environ:
+        os.environ["HG_PROXY_PORT"] = str(PROXY_PORT)
+
+    logger.info("HG_PROXY_BOOTSTRAP: launching canonical %s", core_proxy)
+    runpy.run_path(str(core_proxy), run_name="__main__")
+
+
 if __name__ == "__main__":
-    logger.info("HG_PROXY_ONLINE: High-Gravity Gateway is listening.")
-    uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT, log_level="error")
+    use_legacy = os.environ.get("HG_LEGACY_INTEGRATION", "0").lower() in {"1", "true", "yes", "on"}
+    if use_legacy:
+        logger.info("HG_PROXY_LEGACY: High-Gravity integration proxy is listening.")
+        uvicorn.run(app, host="127.0.0.1", port=PROXY_PORT, log_level="error")
+    else:
+        logger.info("HG_PROXY_COMPAT: dispatching legacy wrapper to canonical src/proxy.py")
+        _run_canonical_proxy()

@@ -10,6 +10,49 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
 SUDO_PASS="1786"
+HG_PROXY_MODE="${HG_PROXY_MODE:-full}"
+HG_MICROPROXY_FRONT="${HG_MICROPROXY_FRONT:-1}"
+HG_PROXY_HTTPS_PORT="${HG_PROXY_HTTPS_PORT:-443}"
+HG_PROXY_INTERNAL_HTTPS_PORT="${HG_PROXY_INTERNAL_HTTPS_PORT:-9443}"
+HG_KHOJ_BINARY_INJECT="${HG_KHOJ_BINARY_INJECT:-1}"
+HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS="${HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS:-0}"
+HG_BINARY_REASONING_INJECT_MAX_BYTES="${HG_BINARY_REASONING_INJECT_MAX_BYTES:-32768}"
+HG_EXACT_RESPONSE_CACHE="${HG_EXACT_RESPONSE_CACHE:-1}"
+HG_EXACT_RESPONSE_CACHE_TTL_SECONDS="${HG_EXACT_RESPONSE_CACHE_TTL_SECONDS:-600}"
+HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES="${HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES:-64}"
+HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES="${HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES:-1048576}"
+HG_CANONICAL_RESPONSE_CACHE="${HG_CANONICAL_RESPONSE_CACHE:-1}"
+HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS="${HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS:-80}"
+HG_LOCAL_ACK_TELEMETRY="${HG_LOCAL_ACK_TELEMETRY:-1}"
+HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES="${HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES:-1048576}"
+HG_UPSTREAM_INFERENCE_MODE="${HG_UPSTREAM_INFERENCE_MODE:-cache-first}"
+HG_BINARY_FAIL_OPEN="${HG_BINARY_FAIL_OPEN:-1}"
+HG_BINARY_FAIL_OPEN_BYTES="${HG_BINARY_FAIL_OPEN_BYTES:-65536}"
+HG_BINARY_FAIL_OPEN_CONCURRENT="${HG_BINARY_FAIL_OPEN_CONCURRENT:-2}"
+HG_QUOTA_PROBE="${HG_QUOTA_PROBE:-0}"
+HG_BILLING_GUARD="${HG_BILLING_GUARD:-0}"
+HG_BILLING_GUARD_WINDOW_SECONDS="${HG_BILLING_GUARD_WINDOW_SECONDS:-60}"
+HG_BILLING_GUARD_MAX_INFERENCE="${HG_BILLING_GUARD_MAX_INFERENCE:-3}"
+HG_BILLING_GUARD_MODE="${HG_BILLING_GUARD_MODE:-queue}"
+HG_BILLING_GUARD_MAX_WAIT_SECONDS="${HG_BILLING_GUARD_MAX_WAIT_SECONDS:-90}"
+HG_PEGASUS_SWARM_TRIGGER="${HG_PEGASUS_SWARM_TRIGGER:-1}"
+HG_PEGASUS_SWARM_HOT_PATH="${HG_PEGASUS_SWARM_HOT_PATH:-0}"
+HG_PEGASUS_SWARM_TRIGGER_LEVELS="${HG_PEGASUS_SWARM_TRIGGER_LEVELS:-high,xhigh}"
+HG_PEGASUS_SWARM_COOLDOWN_SECONDS="${HG_PEGASUS_SWARM_COOLDOWN_SECONDS:-90}"
+HG_PEGASUS_MAX_ACTIVE_AGENTS="${HG_PEGASUS_MAX_ACTIVE_AGENTS:-3}"
+HG_PEGASUS_AGENT_MAX_SECONDS="${HG_PEGASUS_AGENT_MAX_SECONDS:-900}"
+HG_MICROPROXY_FRONT_LISTEN="${HG_MICROPROXY_FRONT_LISTEN:-0.0.0.0:443}"
+HG_MICROPROXY_FRONT_UPSTREAM="${HG_MICROPROXY_FRONT_UPSTREAM:-127.0.0.1:${HG_PROXY_INTERNAL_HTTPS_PORT}}"
+HG_MICROPROXY_FRONT_IDLE_TIMEOUT="${HG_MICROPROXY_FRONT_IDLE_TIMEOUT:-180}"
+HG_MICROPROXY_FRONT_MAX_STREAM_SECONDS="${HG_MICROPROXY_FRONT_MAX_STREAM_SECONDS:-600}"
+HG_MICROPROXY_FRONT_MAX_ACTIVE_STREAMS="${HG_MICROPROXY_FRONT_MAX_ACTIVE_STREAMS:-96}"
+HG_EGRESS_SHIELD="${HG_EGRESS_SHIELD:-1}"
+HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS="${HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS:-900}"
+HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS="${HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS:-15}"
+HG_UPSTREAM_READ_TIMEOUT_SECONDS="${HG_UPSTREAM_READ_TIMEOUT_SECONDS:-900}"
+HG_MICROPROXY_FRONT_PID="$SCRIPT_DIR/logs/microproxy_front.pid"
+HG_MICROPROXY_FRONT_LOG="$SCRIPT_DIR/logs/microproxy_front.log"
+HG_MICROPROXY_FRONT_EVENTS="$SCRIPT_DIR/logs/microproxy_events.jsonl"
 PROXY_PYTHON_BIN="$SCRIPT_DIR/.hg_proxy_venv/bin/python"
 if [ ! -x "$PROXY_PYTHON_BIN" ]; then
     PROXY_PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
@@ -19,6 +62,9 @@ if [ ! -x "$PROXY_PYTHON_BIN" ]; then
 fi
 TARGET_USER="${SUDO_USER:-$(whoami)}"
 TARGET_HOME="$(eval echo "~${TARGET_USER}")"
+HG_CA_CERT="$SCRIPT_DIR/certs/proxy.ca.crt"
+HG_SYSTEM_CA="/usr/local/share/ca-certificates/hg-proxy.crt"
+HG_WINDSURF_WRAPPER="/usr/local/bin/hg-windsurf-next"
 PY_MAJOR_MINOR="$(python3 - <<'PY'
 import sys
 print(f"{sys.version_info.major}.{sys.version_info.minor}")
@@ -92,8 +138,9 @@ rotate_log_if_large() {
 ITEMS=(
     "Patch               apply all patches"
     "Repatch (clean)     stop > restore > repatch"
-    "Undo                restore originals + clean hosts"
+    "Undo                restore files; keep hosts"
     "Start all           patch + proxy + Windsurf"
+    "C proxy mode        restart proxy only with selected inference mode"
     "Dashboard           rich TUI monitor"
     "Verify              services + patch status"
     "Quit"
@@ -127,7 +174,7 @@ draw_menu() {
         i=$((i+1))
     done
 
-    printf "\n  ${D}↑↓ / 1-6 to select  •  0 = repatch+start  •  q quit${NC}\n"
+    printf "\n  ${D}↑↓ / 1-7 to select  •  0 = repatch+start  •  q quit${NC}\n"
 }
 
 read_key() {
@@ -183,13 +230,13 @@ do_repatch() {
     echo -e "${Y}  This will: stop Windsurf, restore binary, re-patch all layers.${NC}\n"
 
     # Check backups — abort if not clean
-    echo -e "${B}  [*] Checking clean backup exists...${NC}"
+    echo -e "${B}  [*] Checking clean backups exist...${NC}"
     local bak_out
-    bak_out=$(python3 src/patch_all.py --check-backups --binary-only 2>&1)
+    bak_out=$(python3 src/patch_all.py --check-backups 2>&1)
     echo "$bak_out" | sed 's/^/  /'
-    if ! echo "$bak_out" | grep -q 'Clean backup verified'; then
-        echo -e "${R}  [!] No clean binary backup — cannot repatch safely.${NC}"
-        echo -e "${Y}      Reinstall Windsurf or place clean .original manually.${NC}"
+    if ! echo "$bak_out" | grep -q 'All backups are clean'; then
+        echo -e "${R}  [!] Not all backups are clean — cannot repatch safely.${NC}"
+        echo -e "${Y}      Reinstall Windsurf or place clean .original files manually.${NC}"
         pause; return
     fi
 
@@ -203,9 +250,9 @@ do_repatch() {
     fi
     echo -e "${G}  [+] Windsurf stopped${NC}"
 
-    # Restore binary
-    echo -e "${B}  [*] Restoring binary...${NC}"
-    python3 src/patch_all.py --restore --binary-only 2>&1 | sed 's/^/  /'
+    # Restore all layers
+    echo -e "${B}  [*] Restoring all patched files...${NC}"
+    python3 src/patch_all.py --restore 2>&1 | sed 's/^/  /'
 
     # Patch all
     echo -e "${B}  [*] Patching all layers...${NC}"
@@ -213,7 +260,7 @@ do_repatch() {
 
     # Verify
     echo ""
-    python3 src/patch_all.py --verify 2>&1 | grep -E '✓|✗|OK|FAIL' | sed 's/^/  /'
+    python3 src/patch_all.py --verify 2>&1 | grep -E '✓|✗|OK|FAIL|Binary|JS|Workbench|hosts|iptables' | sed 's/^/  /'
 
     echo -e "\n${G}  Done. Restart Windsurf:${NC}"
     echo -e "  ${D}/usr/share/windsurf-next/windsurf-next &${NC}"
@@ -224,16 +271,20 @@ do_undo() {
     printf "${CLR}"
     echo -e "${BOLD}${C}  Undoing all patches...${NC}\n"
 
-    echo -e "${B}  [1/2] Restoring files from backups...${NC}"
+    echo -e "${B}  [0/3] Removing LSP shield if active...${NC}"
+    "$SCRIPT_DIR/scripts/internal/deploy_lsp_shim.sh" --undo >/tmp/hg_lsp_undo.log 2>&1 || true
+    sed 's/^/  /' /tmp/hg_lsp_undo.log | tail -n 20
+
+    echo -e "${B}  [1/3] Restoring files from backups...${NC}"
     python3 src/patch_all.py --restore 2>&1 | sed 's/^/  /'
     echo ""
 
-    echo -e "${B}  [2/3] Removing /etc/hosts entries...${NC}"
-    do_hosts_clean_silent
-    echo -e "  ${G}[+] /etc/hosts cleaned${NC}"
+    echo -e "${B}  [2/3] Preserving redirected /etc/hosts domains${NC}"
+    echo -e "  ${G}[+] Hosts left intact for local HTTPS routing${NC}"
+    echo -e "${B}  [3/3] LSP shield cleanup complete${NC}"
     echo ""
 
-    echo -e "${G}  All patches undone. Restart Windsurf to apply.${NC}"
+    echo -e "${G}  File patches undone. Redirected domains remain active.${NC}"
     pause
 }
 
@@ -241,7 +292,7 @@ _start_proxy_http() {
     mkdir -p logs
     local root_cmd
     local khoj_token="${HG_KHOJ_TOKEN:-}"
-    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" >> \"$SCRIPT_DIR/logs/proxy.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy.pid\" && chown $USER:$USER \"$SCRIPT_DIR/logs/proxy.pid\" \"$SCRIPT_DIR/logs/proxy.log\""
+    root_cmd="cd \"$SCRIPT_DIR\" || exit 1; export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" HG_KHOJ_BINARY_INJECT=\"$HG_KHOJ_BINARY_INJECT\" HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS=\"$HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS\" HG_BINARY_REASONING_INJECT_MAX_BYTES=\"$HG_BINARY_REASONING_INJECT_MAX_BYTES\" HG_EXACT_RESPONSE_CACHE=\"$HG_EXACT_RESPONSE_CACHE\" HG_EXACT_RESPONSE_CACHE_TTL_SECONDS=\"$HG_EXACT_RESPONSE_CACHE_TTL_SECONDS\" HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES=\"$HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES\" HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES=\"$HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES\" HG_CANONICAL_RESPONSE_CACHE=\"$HG_CANONICAL_RESPONSE_CACHE\" HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS=\"$HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS\" HG_LOCAL_ACK_TELEMETRY=\"$HG_LOCAL_ACK_TELEMETRY\" HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES=\"$HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES\" HG_UPSTREAM_INFERENCE_MODE=\"$HG_UPSTREAM_INFERENCE_MODE\" HG_BINARY_FAIL_OPEN=\"$HG_BINARY_FAIL_OPEN\" HG_BINARY_FAIL_OPEN_BYTES=\"$HG_BINARY_FAIL_OPEN_BYTES\" HG_BINARY_FAIL_OPEN_CONCURRENT=\"$HG_BINARY_FAIL_OPEN_CONCURRENT\" HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS=\"$HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS\" HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS=\"$HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS\" HG_UPSTREAM_READ_TIMEOUT_SECONDS=\"$HG_UPSTREAM_READ_TIMEOUT_SECONDS\" HG_QUOTA_PROBE=\"$HG_QUOTA_PROBE\" HG_BILLING_GUARD=\"$HG_BILLING_GUARD\" HG_BILLING_GUARD_WINDOW_SECONDS=\"$HG_BILLING_GUARD_WINDOW_SECONDS\" HG_BILLING_GUARD_MAX_INFERENCE=\"$HG_BILLING_GUARD_MAX_INFERENCE\" HG_BILLING_GUARD_MODE=\"$HG_BILLING_GUARD_MODE\" HG_BILLING_GUARD_MAX_WAIT_SECONDS=\"$HG_BILLING_GUARD_MAX_WAIT_SECONDS\" HG_PEGASUS_SWARM_TRIGGER=\"$HG_PEGASUS_SWARM_TRIGGER\" HG_PEGASUS_SWARM_HOT_PATH=\"$HG_PEGASUS_SWARM_HOT_PATH\" HG_PEGASUS_SWARM_TRIGGER_LEVELS=\"$HG_PEGASUS_SWARM_TRIGGER_LEVELS\" HG_PEGASUS_SWARM_COOLDOWN_SECONDS=\"$HG_PEGASUS_SWARM_COOLDOWN_SECONDS\" HG_PEGASUS_MAX_ACTIVE_AGENTS=\"$HG_PEGASUS_MAX_ACTIVE_AGENTS\" HG_PEGASUS_AGENT_MAX_SECONDS=\"$HG_PEGASUS_AGENT_MAX_SECONDS\"; nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" >> \"$SCRIPT_DIR/logs/proxy.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy.pid\"; chown $USER:$USER \"$SCRIPT_DIR/logs/proxy.pid\" \"$SCRIPT_DIR/logs/proxy.log\""
     echo "$SUDO_PASS" | sudo -S bash -c "$root_cmd"
 }
 
@@ -249,7 +300,71 @@ _start_proxy_https() {
     mkdir -p logs
     local root_cmd
     local khoj_token="${HG_KHOJ_TOKEN:-}"
-    root_cmd="cd \"$SCRIPT_DIR\" && export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" && nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" --https >> \"$SCRIPT_DIR/logs/proxy_https.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy_https.pid\" && chown $USER:$USER \"$SCRIPT_DIR/logs/proxy_https.pid\" \"$SCRIPT_DIR/logs/proxy_https.log\""
+    root_cmd="cd \"$SCRIPT_DIR\" || exit 1; export PYTHONNOUSERSITE=1 PYTHONPATH=\"$SCRIPT_DIR\" HG_KHOJ_ENABLED=true HG_KHOJ_TOKEN=\"$khoj_token\" HG_KHOJ_BINARY_INJECT=\"$HG_KHOJ_BINARY_INJECT\" HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS=\"$HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS\" HG_BINARY_REASONING_INJECT_MAX_BYTES=\"$HG_BINARY_REASONING_INJECT_MAX_BYTES\" HG_EXACT_RESPONSE_CACHE=\"$HG_EXACT_RESPONSE_CACHE\" HG_EXACT_RESPONSE_CACHE_TTL_SECONDS=\"$HG_EXACT_RESPONSE_CACHE_TTL_SECONDS\" HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES=\"$HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES\" HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES=\"$HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES\" HG_CANONICAL_RESPONSE_CACHE=\"$HG_CANONICAL_RESPONSE_CACHE\" HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS=\"$HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS\" HG_LOCAL_ACK_TELEMETRY=\"$HG_LOCAL_ACK_TELEMETRY\" HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES=\"$HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES\" HG_UPSTREAM_INFERENCE_MODE=\"$HG_UPSTREAM_INFERENCE_MODE\" HG_BINARY_FAIL_OPEN=\"$HG_BINARY_FAIL_OPEN\" HG_BINARY_FAIL_OPEN_BYTES=\"$HG_BINARY_FAIL_OPEN_BYTES\" HG_BINARY_FAIL_OPEN_CONCURRENT=\"$HG_BINARY_FAIL_OPEN_CONCURRENT\" HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS=\"$HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS\" HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS=\"$HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS\" HG_UPSTREAM_READ_TIMEOUT_SECONDS=\"$HG_UPSTREAM_READ_TIMEOUT_SECONDS\" HG_QUOTA_PROBE=\"$HG_QUOTA_PROBE\" HG_BILLING_GUARD=\"$HG_BILLING_GUARD\" HG_BILLING_GUARD_WINDOW_SECONDS=\"$HG_BILLING_GUARD_WINDOW_SECONDS\" HG_BILLING_GUARD_MAX_INFERENCE=\"$HG_BILLING_GUARD_MAX_INFERENCE\" HG_BILLING_GUARD_MODE=\"$HG_BILLING_GUARD_MODE\" HG_BILLING_GUARD_MAX_WAIT_SECONDS=\"$HG_BILLING_GUARD_MAX_WAIT_SECONDS\" HG_PEGASUS_SWARM_TRIGGER=\"$HG_PEGASUS_SWARM_TRIGGER\" HG_PEGASUS_SWARM_HOT_PATH=\"$HG_PEGASUS_SWARM_HOT_PATH\" HG_PEGASUS_SWARM_TRIGGER_LEVELS=\"$HG_PEGASUS_SWARM_TRIGGER_LEVELS\" HG_PEGASUS_SWARM_COOLDOWN_SECONDS=\"$HG_PEGASUS_SWARM_COOLDOWN_SECONDS\" HG_PEGASUS_MAX_ACTIVE_AGENTS=\"$HG_PEGASUS_MAX_ACTIVE_AGENTS\" HG_PEGASUS_AGENT_MAX_SECONDS=\"$HG_PEGASUS_AGENT_MAX_SECONDS\" HG_PROXY_HTTPS_PORT=\"$HG_PROXY_HTTPS_PORT\"; nohup \"$PROXY_PYTHON_BIN\" \"$SCRIPT_DIR/src/proxy.py\" --https >> \"$SCRIPT_DIR/logs/proxy_https.log\" 2>&1 & echo \$! > \"$SCRIPT_DIR/logs/proxy_https.pid\"; chown $USER:$USER \"$SCRIPT_DIR/logs/proxy_https.pid\" \"$SCRIPT_DIR/logs/proxy_https.log\""
+    echo "$SUDO_PASS" | sudo -S bash -c "$root_cmd"
+}
+
+_microproxy_front_enabled() {
+    [ "$HG_MICROPROXY_FRONT" = "1" ] || [ "$HG_MICROPROXY_FRONT" = "true" ]
+}
+
+_microproxy_direct_enabled() {
+    [ -n "${HG_MICROPROXY_DIRECT_UPSTREAM:-}" ]
+}
+
+_microproxy_direct_hot_enabled() {
+    case "${HG_MICROPROXY_DIRECT_HOT_PATH:-0}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    esac
+    return 1
+}
+
+_microproxy_direct_banner() {
+    if _microproxy_direct_enabled; then
+        if _microproxy_direct_hot_enabled; then
+            echo -e "${B}  [*] Direct fast-path configured: ${HG_MICROPROXY_DIRECT_UPSTREAM} (hot-path enabled)${NC}"
+        else
+            echo -e "${B}  [*] Direct fast-path configured: ${HG_MICROPROXY_DIRECT_UPSTREAM} (hot-path disabled)${NC}"
+        fi
+    else
+        echo -e "${D}  [~] Direct fast-path disabled${NC}"
+    fi
+}
+
+_start_microproxy_front() {
+    local bin="$SCRIPT_DIR/src/microproxy/build/hg-edge"
+    local root_cmd
+    local hot_path_arg=""
+    local direct_args=""
+
+    if [ ! -f "$SCRIPT_DIR/src/microproxy/Makefile" ]; then
+        echo -e "${Y}  [~] Microproxy source missing; C front disabled${NC}"
+        return 1
+    fi
+
+    echo -e "${B}  [*] Building C microproxy front${NC}"
+    if ! make -C "$SCRIPT_DIR/src/microproxy" >/tmp/hg_microproxy_build.log 2>&1; then
+        echo -e "${R}  [-] C microproxy build failed${NC}"
+        tail -20 /tmp/hg_microproxy_build.log | sed 's/^/      /'
+        return 1
+    fi
+
+    if [ ! -x "$bin" ]; then
+        echo -e "${R}  [-] C microproxy binary missing after build: $bin${NC}"
+        return 1
+    fi
+
+    rotate_log_if_large "$HG_MICROPROXY_FRONT_LOG" 10485760 5
+    case "${HG_MICROPROXY_HOT_PATH_OBSERVE:-1}" in
+        1|true|TRUE|yes|YES|on|ON) hot_path_arg=" --hot-path-observe" ;;
+    esac
+    if [ -n "${HG_MICROPROXY_DIRECT_UPSTREAM:-}" ]; then
+        direct_args=" --direct-upstream \"${HG_MICROPROXY_DIRECT_UPSTREAM}\""
+        case "${HG_MICROPROXY_DIRECT_HOT_PATH:-0}" in
+            1|true|TRUE|yes|YES|on|ON) direct_args="$direct_args --direct-hot-path" ;;
+        esac
+    fi
+    root_cmd="cd \"$SCRIPT_DIR\" || exit 1; nohup \"$bin\" --relay --listen \"$HG_MICROPROXY_FRONT_LISTEN\" --upstream \"$HG_MICROPROXY_FRONT_UPSTREAM\"$direct_args --idle-timeout \"${HG_MICROPROXY_FRONT_IDLE_TIMEOUT}\" --max-stream-seconds \"${HG_MICROPROXY_FRONT_MAX_STREAM_SECONDS}\" --max-active-streams \"${HG_MICROPROXY_FRONT_MAX_ACTIVE_STREAMS}\" --event-log \"$HG_MICROPROXY_FRONT_EVENTS\"$hot_path_arg >> \"$HG_MICROPROXY_FRONT_LOG\" 2>&1 & echo \$! > \"$HG_MICROPROXY_FRONT_PID\"; chown $USER:$USER \"$HG_MICROPROXY_FRONT_PID\" \"$HG_MICROPROXY_FRONT_LOG\" \"$HG_MICROPROXY_FRONT_EVENTS\" 2>/dev/null || true"
     echo "$SUDO_PASS" | sudo -S bash -c "$root_cmd"
 }
 
@@ -260,7 +375,13 @@ _start_khoj_async() {
     local logfile="$SCRIPT_DIR/logs/khoj_docker.log"
 
     if pidfile_alive "$pidfile"; then
-        return 0
+        if is_khoj_healthy || docker ps --format '{{.Names}}' | grep -qx "khoj"; then
+            return 0
+        fi
+        local old_pid
+        old_pid="$(pidfile_read "$pidfile" 2>/dev/null || true)"
+        [ -n "$old_pid" ] && kill "$old_pid" 2>/dev/null || true
+        rm -f "$pidfile"
     fi
 
     if [ -f "$launcher" ]; then
@@ -270,17 +391,73 @@ _start_khoj_async() {
     fi
 }
 
+_ensure_lsp_shim() {
+    local mode="${HG_PROXY_MODE}"
+    if [ "${HG_ENFORCE_SHIM:-1}" != "1" ]; then
+        return 0
+    fi
+
+    if [ "$mode" != "full" ] && [ "$mode" != "inference-only" ]; then
+        echo -e "${Y}  [~] Unsupported HG_PROXY_MODE '$mode', falling back to full${NC}"
+        mode="full"
+    fi
+
+    echo -e "${B}  [*] Enforcing LSP shield (mode=${mode})${NC}"
+    HG_PROXY_MODE="$mode" bash "$SCRIPT_DIR/scripts/internal/deploy_lsp_shim.sh" --mode "$mode"
+}
+
 _stop_windsurf() {
     echo -e "${B}  [*] Stopping Windsurf...${NC}"
     echo "$SUDO_PASS" | sudo -S pkill -f "language_server_linux_x64.real" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "windsurf-next --new-window" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "/usr/share/windsurf-next/windsurf-next" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "codeium.windsurf" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "/extensions/windsurf/devin/bin/devin acp" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "/extensions/windsurf/devin/bin/devin summarizer" 2>/dev/null || true
     sleep 2
-    if pgrep -f "language_server_linux_x64.real\|windsurf-next --new-window\|codeium.windsurf" >/dev/null 2>&1; then
+    if pgrep -f "language_server_linux_x64.real\|windsurf-next --new-window\|codeium.windsurf\|/extensions/windsurf/devin/bin/devin acp" >/dev/null 2>&1; then
         echo -e "${Y}  [~] Windsurf still present after stop attempt${NC}"
     else
         echo -e "${G}  [+] Windsurf stopped${NC}"
+    fi
+}
+
+_install_proxy_ca() {
+    if [ ! -f "$HG_CA_CERT" ]; then
+        echo -e "${Y}  [~] CA cert missing: $HG_CA_CERT${NC}"
+        return 1
+    fi
+
+    echo -e "${B}  [*] Installing HIGH-GRAVITY CA into trust stores${NC}"
+    if [ -f "$HG_SYSTEM_CA" ] && cmp -s "$HG_CA_CERT" "$HG_SYSTEM_CA"; then
+        echo -e "${D}  [~] CA already installed${NC}"
+    else
+        echo "$SUDO_PASS" | sudo -S cp "$HG_CA_CERT" "$HG_SYSTEM_CA"
+        echo "$SUDO_PASS" | sudo -S chmod 0644 "$HG_SYSTEM_CA"
+        if command -v timeout >/dev/null 2>&1; then
+            echo "$SUDO_PASS" | sudo -S timeout 20 update-ca-certificates 2>/dev/null | tail -1 | sed 's/^/  /'
+        else
+            echo "$SUDO_PASS" | sudo -S update-ca-certificates 2>/dev/null | tail -1 | sed 's/^/  /'
+        fi
+    fi
+
+    if [ -x "scripts/internal/update_nss.sh" ]; then
+        echo "$SUDO_PASS" | sudo -S -u "$TARGET_USER" env HOME="$TARGET_HOME" bash scripts/internal/update_nss.sh >/dev/null 2>&1 || true
+    fi
+}
+
+_install_windsurf_wrapper() {
+    local wrapper_src="$SCRIPT_DIR/scripts/internal/hg_windsurf_next.sh"
+    if [ -f "$wrapper_src" ]; then
+        echo "$SUDO_PASS" | sudo -S install -m 0755 "$wrapper_src" "$HG_WINDSURF_WRAPPER"
+        echo "$SUDO_PASS" | sudo -S sed -i \
+            -e "s|^Exec=/usr/share/windsurf-next/windsurf-next --open-url %U|Exec=$HG_WINDSURF_WRAPPER --open-url %U|" \
+            -e "s|^Exec=/usr/share/windsurf-next/windsurf-next --new-window %F|Exec=$HG_WINDSURF_WRAPPER --new-window %F|" \
+            -e "s|^Exec=/usr/share/windsurf-next/windsurf-next %F|Exec=$HG_WINDSURF_WRAPPER %F|" \
+            /usr/share/applications/windsurf-next.desktop \
+            /usr/share/applications/windsurf-next-url-handler.desktop 2>/dev/null || true
+        command -v update-desktop-database >/dev/null 2>&1 \
+            && echo "$SUDO_PASS" | sudo -S update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
     fi
 }
 
@@ -297,7 +474,8 @@ _launch_windsurf() {
 
     echo -e "${B}  [*] Launching Windsurf editor${NC}"
     # Use sudo -u to launch as the regular user (Electron refuses to run as root)
-    nohup sudo -u "$TARGET_USER" /usr/share/windsurf-next/windsurf-next > "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
+    # NODE_EXTRA_CA_CERTS is required for the Node extension host HTTP/2 client.
+    nohup sudo -u "$TARGET_USER" env HOME="$TARGET_HOME" "$HG_WINDSURF_WRAPPER" > "$SCRIPT_DIR/logs/windsurf_launch.log" 2>&1 &
     echo $! > "$SCRIPT_DIR/logs/windsurf_launch.pid"
 
     local i
@@ -315,9 +493,13 @@ _launch_windsurf() {
 }
 
 _watchdog_khoj() {
+    echo "$(date): khoj watchdog started pid=$$" >> "$SCRIPT_DIR/logs/khoj_watchdog.log"
     while true; do
         sleep 15
         is_khoj_healthy && continue
+        if docker ps --format '{{.Names}}' | grep -qx "khoj"; then
+            continue
+        fi
         echo "$(date): khoj health down, restarting docker launcher" >> "$SCRIPT_DIR/logs/khoj_watchdog.log"
         _start_khoj_async
     done
@@ -325,6 +507,7 @@ _watchdog_khoj() {
 
 _watchdog_proxy() {
     # Background watchdog: restart HTTP/HTTPS proxies if they die
+    echo "$(date): proxy watchdog started pid=$$ mode=${HG_UPSTREAM_INFERENCE_MODE:-unknown}" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
     while true; do
         sleep 10
         if ! check_port 9998; then
@@ -336,7 +519,9 @@ _watchdog_proxy() {
             fi
         fi
         if [ -f "$SCRIPT_DIR/certs/proxy.crt" ] && [ -f "$SCRIPT_DIR/certs/proxy.key" ]; then
-            if ! check_port 443; then
+            local tls_port="$HG_PROXY_HTTPS_PORT"
+            _microproxy_front_enabled && tls_port="$HG_PROXY_INTERNAL_HTTPS_PORT"
+            if ! check_port "$tls_port"; then
                 if pidfile_alive "$SCRIPT_DIR/logs/proxy_https.pid"; then
                     echo "$(date): https proxy port down but process still alive; waiting" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
                 else
@@ -344,8 +529,153 @@ _watchdog_proxy() {
                     _start_proxy_https
                 fi
             fi
+            if _microproxy_front_enabled && ! check_port 443; then
+                if pidfile_alive "$HG_MICROPROXY_FRONT_PID"; then
+                    echo "$(date): microproxy front port down but process still alive; waiting" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
+                else
+                    echo "$(date): microproxy front down, restarting" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
+                    _start_microproxy_front
+                fi
+            fi
         fi
     done
+}
+
+_launch_watchdog_processes() {
+    local scope="${1:-full}"
+    local pid
+    local daemon_prefix=()
+    if command -v setsid >/dev/null 2>&1; then
+        daemon_prefix=(setsid)
+    else
+        daemon_prefix=(nohup)
+    fi
+    pid="$(pidfile_read "$SCRIPT_DIR/logs/proxy_watchdog.pid" 2>/dev/null || true)"
+    if [ -n "$pid" ] && ps -p "$pid" -o pid= >/dev/null 2>&1; then
+        echo "$(date): proxy watchdog already running pid=$pid" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
+    else
+        rm -f "$SCRIPT_DIR/logs/proxy_watchdog.pid"
+        (
+            export HG_START_SOURCE_ONLY=1
+            export HG_MICROPROXY_FRONT HG_PROXY_HTTPS_PORT HG_PROXY_INTERNAL_HTTPS_PORT
+            export HG_MICROPROXY_FRONT_LISTEN HG_MICROPROXY_FRONT_UPSTREAM
+            export HG_MICROPROXY_FRONT_IDLE_TIMEOUT HG_MICROPROXY_FRONT_MAX_STREAM_SECONDS HG_MICROPROXY_FRONT_MAX_ACTIVE_STREAMS
+            export HG_MICROPROXY_DIRECT_UPSTREAM HG_MICROPROXY_DIRECT_HOT_PATH
+            export HG_KHOJ_BINARY_INJECT HG_KHOJ_BINARY_INLINE_TIMEOUT_SECONDS HG_BINARY_REASONING_INJECT_MAX_BYTES
+            export HG_EXACT_RESPONSE_CACHE HG_EXACT_RESPONSE_CACHE_TTL_SECONDS HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES
+            export HG_CANONICAL_RESPONSE_CACHE HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS
+            export HG_LOCAL_ACK_TELEMETRY HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES
+            export HG_UPSTREAM_INFERENCE_MODE HG_BINARY_FAIL_OPEN HG_BINARY_FAIL_OPEN_BYTES HG_BINARY_FAIL_OPEN_CONCURRENT
+            export HG_UPSTREAM_TOTAL_TIMEOUT_SECONDS HG_UPSTREAM_CONNECT_TIMEOUT_SECONDS HG_UPSTREAM_READ_TIMEOUT_SECONDS
+            export HG_QUOTA_PROBE HG_BILLING_GUARD HG_BILLING_GUARD_WINDOW_SECONDS HG_BILLING_GUARD_MAX_INFERENCE HG_BILLING_GUARD_MODE HG_BILLING_GUARD_MAX_WAIT_SECONDS
+            export HG_PEGASUS_SWARM_TRIGGER HG_PEGASUS_SWARM_HOT_PATH HG_PEGASUS_SWARM_TRIGGER_LEVELS HG_PEGASUS_SWARM_COOLDOWN_SECONDS
+            export HG_PEGASUS_MAX_ACTIVE_AGENTS HG_PEGASUS_AGENT_MAX_SECONDS
+            "${daemon_prefix[@]}" bash -c 'cd "$1" || exit 1; source scripts/internal/hg_start.sh; _watchdog_proxy' hg-proxy-watchdog "$SCRIPT_DIR" >> "$SCRIPT_DIR/logs/proxy_watchdog.log" 2>&1 &
+            echo $! > "$SCRIPT_DIR/logs/proxy_watchdog.pid"
+        )
+        sleep 0.2
+        pid="$(pidfile_read "$SCRIPT_DIR/logs/proxy_watchdog.pid" 2>/dev/null || true)"
+        if [ -z "$pid" ] || ! ps -p "$pid" -o pid= >/dev/null 2>&1; then
+            echo "$(date): proxy watchdog failed to stay running pid=${pid:-none}" >> "$SCRIPT_DIR/logs/proxy_watchdog.log"
+            rm -f "$SCRIPT_DIR/logs/proxy_watchdog.pid"
+        fi
+    fi
+
+    if [ "$scope" = "proxy-only" ] && [ "${HG_KHOJ_WATCHDOG:-0}" != "1" ]; then
+        return 0
+    fi
+
+    pid="$(pidfile_read "$SCRIPT_DIR/logs/khoj_watchdog.pid" 2>/dev/null || true)"
+    if [ -n "$pid" ] && ps -p "$pid" -o pid= >/dev/null 2>&1; then
+        echo "$(date): khoj watchdog already running pid=$pid" >> "$SCRIPT_DIR/logs/khoj_watchdog.log"
+        return 0
+    fi
+    rm -f "$SCRIPT_DIR/logs/khoj_watchdog.pid"
+    "${daemon_prefix[@]}" env HG_START_SOURCE_ONLY=1 bash -c 'cd "$1" || exit 1; source scripts/internal/hg_start.sh; _watchdog_khoj' hg-khoj-watchdog "$SCRIPT_DIR" >> "$SCRIPT_DIR/logs/khoj_watchdog.log" 2>&1 &
+    echo $! > "$SCRIPT_DIR/logs/khoj_watchdog.pid"
+    sleep 0.2
+    pid="$(pidfile_read "$SCRIPT_DIR/logs/khoj_watchdog.pid" 2>/dev/null || true)"
+    if [ -z "$pid" ] || ! ps -p "$pid" -o pid= >/dev/null 2>&1; then
+        echo "$(date): khoj watchdog failed to stay running pid=${pid:-none}" >> "$SCRIPT_DIR/logs/khoj_watchdog.log"
+        rm -f "$SCRIPT_DIR/logs/khoj_watchdog.pid"
+    fi
+}
+
+do_start_proxy() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Starting proxy stack only...${NC}\n"
+
+    # ── Kill old proxy-only instances ───────────────────────────────
+    echo -e "${B}  [*] Stopping old proxy components${NC}"
+    local pidfile pid
+    for pidfile in logs/proxy.pid logs/proxy_https.pid logs/microproxy_front.pid logs/proxy_watchdog.pid; do
+        pid="$(pidfile_read "$pidfile" 2>/dev/null || true)"
+        if [ -n "$pid" ]; then
+            echo "$SUDO_PASS" | sudo -S kill "$pid" 2>/dev/null || true
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+    echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py|src\\.proxy|highgravity_proxy.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "src/microproxy/build/hg-edge|hg-edge --relay" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "proxyt" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S rm -f logs/proxy.pid logs/proxy_https.pid logs/microproxy_front.pid logs/proxy_watchdog.pid 2>/dev/null || true
+    sleep 1
+
+    mkdir -p logs
+    echo "$SUDO_PASS" | sudo -S chown -R "$TARGET_USER":"$TARGET_USER" logs/
+
+    # ── iptables: redirect port 50001 → 9998 ───────────────────────
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -A OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998
+    echo -e "${G}  [+] iptables 50001→9998 active${NC}"
+
+    # ── HTTP proxy (always) ───────────────────────────────────────
+    echo -e "${B}  [*] Starting HTTP proxy (9998)${NC}"
+    _start_proxy_http
+    if wait_for_port 9998 15 1; then
+        echo -e "${G}  [+] HTTP proxy online (pid $(cat logs/proxy.pid 2>/dev/null))${NC}"
+    else
+        echo -e "${R}  [-] HTTP proxy failed — check logs/proxy.log${NC}"
+        tail -5 logs/proxy.log | sed 's/^/      /'
+    fi
+
+    # ── HTTPS proxy (if certs present) ───────────────────────────
+    _microproxy_direct_banner
+    if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
+        _install_proxy_ca
+        _install_windsurf_wrapper
+        if _microproxy_front_enabled; then
+            HG_PROXY_HTTPS_PORT="$HG_PROXY_INTERNAL_HTTPS_PORT"
+            HG_MICROPROXY_FRONT_UPSTREAM="${HG_MICROPROXY_FRONT_UPSTREAM:-127.0.0.1:${HG_PROXY_INTERNAL_HTTPS_PORT}}"
+            echo -e "${B}  [*] Starting Python HTTPS proxy (${HG_PROXY_HTTPS_PORT}, internal)${NC}"
+        else
+            HG_PROXY_HTTPS_PORT="${HG_PROXY_HTTPS_PORT:-443}"
+            echo -e "${B}  [*] Starting HTTPS proxy (${HG_PROXY_HTTPS_PORT})${NC}"
+        fi
+        _start_proxy_https
+        if ! wait_for_port "$HG_PROXY_HTTPS_PORT" 15 1; then
+            echo -e "${Y}  [~] HTTPS starting (logs/proxy_https.log)${NC}"
+        fi
+        if _microproxy_front_enabled; then
+            echo -e "${B}  [*] Starting C microproxy front (443 → ${HG_MICROPROXY_FRONT_UPSTREAM})${NC}"
+            if _start_microproxy_front && wait_for_port 443 10 1; then
+                echo -e "${G}  [+] C microproxy front online (443)${NC}"
+            else
+                echo -e "${R}  [-] C microproxy front failed; check ${HG_MICROPROXY_FRONT_LOG}${NC}"
+            fi
+        fi
+    else
+        echo -e "${D}  [~] No certs — HTTPS proxy skipped${NC}"
+        echo -e "${D}     (run: bash scripts/internal/hg_start.sh from menu to generate)${NC}"
+    fi
+
+    if [ "$HG_EGRESS_SHIELD" = "1" ] || [ "$HG_EGRESS_SHIELD" = "true" ]; then
+        bash "$SCRIPT_DIR/scripts/internal/hg_egress.sh" on >/tmp/hg_egress_start.log 2>&1 || true
+        tail -n 1 /tmp/hg_egress_start.log | sed 's/^/  /'
+    fi
+
+    _launch_watchdog_processes proxy-only
+    echo -e "${G}  [+] Proxy stack restart complete${NC}"
 }
 
 do_start() {
@@ -365,11 +695,17 @@ do_start() {
 
     # ── Kill old instances ────────────────────────────────────────────
     echo -e "${B}  [*] Killing old processes${NC}"
-    echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py" 2>/dev/null || true
-    echo "$SUDO_PASS" | sudo -S pkill -f "_watchdog_proxy" 2>/dev/null || true
-    echo "$SUDO_PASS" | sudo -S pkill -f "_watchdog_khoj" 2>/dev/null || true
+    local pidfile pid
+    for pidfile in logs/proxy.pid logs/proxy_https.pid logs/microproxy_front.pid logs/proxy_watchdog.pid logs/khoj_watchdog.pid logs/khoj_docker.pid; do
+        pid="$(pidfile_read "$pidfile" 2>/dev/null || true)"
+        if [ -n "$pid" ]; then
+            echo "$SUDO_PASS" | sudo -S kill "$pid" 2>/dev/null || true
+        fi
+    done
+    echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py|src\\.proxy" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "gemini_session_launcher.py" 2>/dev/null || true
-    echo "$SUDO_PASS" | sudo -S pkill -f "highgravity_proxy.py" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "highgravity_proxy.py|src\\.proxy" 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S pkill -f "src/microproxy/build/hg-edge|hg-edge --relay" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "lsp_shim" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "proxyt" 2>/dev/null || true
     echo "$SUDO_PASS" | sudo -S pkill -f "khoj.*--port.*42110" 2>/dev/null || true
@@ -393,30 +729,42 @@ do_start() {
     _start_proxy_http
     if wait_for_port 9998 15 1; then
         echo -e "${G}  [+] HTTP proxy online (pid $(cat logs/proxy.pid 2>/dev/null))${NC}"
-        # Launch watchdog in background
-        ( _watchdog_proxy ) &
-        echo $! > logs/proxy_watchdog.pid
-        # Launch Khoj watchdog in background
-        ( _watchdog_khoj ) &
-        echo $! > logs/khoj_watchdog.pid
+        _launch_watchdog_processes
     else
         echo -e "${R}  [-] HTTP proxy failed — check logs/proxy.log${NC}"
         tail -5 logs/proxy.log | sed 's/^/      /'
     fi
 
     # ── HTTPS proxy (if certs present) ───────────────────────────────
+    _microproxy_direct_banner
     if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
-        # Install CA cert into system trust store (idempotent)
-        if [ ! -f "/usr/local/share/ca-certificates/hg-proxy.crt" ]; then
-            echo -e "${B}  [*] Installing CA cert into system trust store${NC}"
-            echo "$SUDO_PASS" | sudo -S cp certs/proxy.crt /usr/local/share/ca-certificates/hg-proxy.crt
-            echo "$SUDO_PASS" | sudo -S update-ca-certificates 2>/dev/null | tail -1 | sed 's/^/  /'
+        _install_proxy_ca
+        _install_windsurf_wrapper
+        if _microproxy_front_enabled; then
+            HG_PROXY_HTTPS_PORT="$HG_PROXY_INTERNAL_HTTPS_PORT"
+            HG_MICROPROXY_FRONT_UPSTREAM="${HG_MICROPROXY_FRONT_UPSTREAM:-127.0.0.1:${HG_PROXY_INTERNAL_HTTPS_PORT}}"
+            echo -e "${B}  [*] Starting Python HTTPS proxy (${HG_PROXY_HTTPS_PORT}, internal)${NC}"
+        else
+            HG_PROXY_HTTPS_PORT="${HG_PROXY_HTTPS_PORT:-443}"
+            echo -e "${B}  [*] Starting HTTPS proxy (${HG_PROXY_HTTPS_PORT})${NC}"
         fi
-        echo -e "${B}  [*] Starting HTTPS proxy (443)${NC}"
         _start_proxy_https
-        wait_for_port 443 15 1 \
-            && echo -e "${G}  [+] HTTPS proxy online${NC}" \
+        wait_for_port "$HG_PROXY_HTTPS_PORT" 15 1 \
+            && echo -e "${G}  [+] HTTPS proxy online (${HG_PROXY_HTTPS_PORT})${NC}" \
             || echo -e "${Y}  [~] HTTPS starting (logs/proxy_https.log)${NC}"
+        if _microproxy_front_enabled; then
+            echo -e "${B}  [*] Starting C microproxy front (443 → ${HG_MICROPROXY_FRONT_UPSTREAM})${NC}"
+            if _start_microproxy_front && wait_for_port 443 10 1; then
+                echo -e "${G}  [+] C microproxy front online (443)${NC}"
+            else
+                echo -e "${R}  [-] C microproxy front failed; check ${HG_MICROPROXY_FRONT_LOG}${NC}"
+        fi
+    fi
+
+    if [ "$HG_EGRESS_SHIELD" = "1" ] || [ "$HG_EGRESS_SHIELD" = "true" ]; then
+        bash "$SCRIPT_DIR/scripts/internal/hg_egress.sh" on >/tmp/hg_egress_start.log 2>&1 || true
+        tail -n 1 /tmp/hg_egress_start.log | sed 's/^/  /'
+    fi
     else
         echo -e "${D}  [~] No certs — HTTPS proxy skipped${NC}"
         echo -e "${D}     (run: bash scripts/internal/hg_start.sh from menu to generate)${NC}"
@@ -428,26 +776,26 @@ do_start() {
         _start_khoj_async
         if is_khoj_healthy; then
             echo -e "${G}  [+] Khoj already healthy${NC}"
-            curl -s -X POST http://127.0.0.1:9998/hg/khoj/reindex >/dev/null 2>&1 \
-                && echo -e "${D}  [~] Khoj reindex triggered${NC}"
+            ( curl -s -X POST http://127.0.0.1:9998/hg/khoj/reindex >/dev/null 2>&1 && echo -e "\n${D}  [~] Khoj reindex triggered${NC}" ) &
         else
-            echo -e "${Y}  [~] Khoj warming up, waiting for readiness...${NC}"
-            local wait_i
-            for wait_i in {1..45}; do
-                if is_khoj_healthy; then
-                    echo -e "${G}  [+] Khoj healthy${NC}"
-                    curl -s -X POST http://127.0.0.1:9998/hg/khoj/reindex >/dev/null 2>&1 \
-                        && echo -e "${D}  [~] Khoj reindex triggered${NC}"
-                    break
-                fi
-                sleep 1
-            done
-            if ! is_khoj_healthy; then
-                echo -e "${Y}  [~] Khoj still warming in background (logs/khoj_docker.log)${NC}"
-            fi
+            echo -e "${Y}  [~] Khoj warming up in background (logs/khoj_docker.log)...${NC}"
+            (
+                local wait_i
+                for wait_i in {1..45}; do
+                    if is_khoj_healthy; then
+                        curl -s -X POST http://127.0.0.1:9998/hg/khoj/reindex >/dev/null 2>&1
+                        break
+                    fi
+                    sleep 1
+                done
+            ) &
         fi
     else
         echo -e "${D}  [~] scripts/internal/khoj_docker.sh not found, skipping${NC}"
+    fi
+
+    if ! _ensure_lsp_shim; then
+        echo -e "${Y}  [~] Failed to enforce LSP shield; continuing startup with current routing state${NC}"
     fi
 
     _stop_windsurf
@@ -467,8 +815,15 @@ do_verify_inline() {
     # ── Services ─────────────────────────────────────────────────────
     check_port 9998 && echo -e "  Proxy HTTP  (9998)  ${G}UP${NC}" \
         || echo -e "  Proxy HTTP  (9998)  ${R}DOWN${NC}"
-    check_port 443  && echo -e "  Proxy HTTPS (443)   ${G}UP${NC}" \
-        || echo -e "  Proxy HTTPS (443)   ${Y}DOWN${NC}"
+    if _microproxy_front_enabled; then
+        check_port "$HG_PROXY_INTERNAL_HTTPS_PORT" && echo -e "  Proxy HTTPS  (${HG_PROXY_INTERNAL_HTTPS_PORT}) ${G}UP${NC}" \
+            || echo -e "  Proxy HTTPS  (${HG_PROXY_INTERNAL_HTTPS_PORT}) ${Y}DOWN${NC}"
+        check_port 443 && echo -e "  C front TLS  (443)  ${G}UP${NC}" \
+            || echo -e "  C front TLS  (443)  ${Y}DOWN${NC}"
+    else
+        check_port 443  && echo -e "  Proxy HTTPS (443)   ${G}UP${NC}" \
+            || echo -e "  Proxy HTTPS (443)   ${Y}DOWN${NC}"
+    fi
     is_khoj_healthy \
         && echo -e "  Khoj        (42110) ${G}UP${NC}" \
         || echo -e "  Khoj        (42110) ${D}--${NC}"
@@ -483,8 +838,8 @@ do_verify_inline() {
     echo ""
 
     # ── Patch status ─────────────────────────────────────────────────
-    python3 src/patch_all.py --verify --binary-only --js-only --hosts-only 2>&1 \
-        | grep -E 'Binary|JS|hosts|iptables|OK|FAIL' \
+    python3 src/patch_all.py --verify 2>&1 \
+        | grep -E 'Binary|JS|Workbench|hosts|iptables|OK|FAIL' \
         | grep -v '^  \[' \
         | sed 's/^/  /'
 
@@ -530,7 +885,9 @@ do_verify() {
 
 do_dashboard() {
     printf "${SHOW}"
-    if [ -f "hg_dashboard.py" ]; then
+    if [ -f "src/hg_dashboard.py" ]; then
+        exec "$PROXY_PYTHON_BIN" src/hg_dashboard.py
+    elif [ -f "hg_dashboard.py" ]; then
         exec python3 hg_dashboard.py
     elif [ -f "archive/old_scripts/internal/hg_dashboard.py" ]; then
         exec python3 archive/old_scripts/internal/hg_dashboard.py
@@ -552,7 +909,7 @@ do_install_deps() {
     echo -e "${G}  [+] System packages installed${NC}\n"
     
     echo -e "${B}  [2/3] Python packages${NC}"
-    pip install -q aiohttp fastapi uvicorn requests 2>&1 | tail -3
+    pip install -q aiohttp fastapi uvicorn hypercorn h2 requests 2>&1 | tail -3
     echo -e "${G}  [+] Python packages installed${NC}\n"
     
     echo -e "${B}  [3/3] Docker images${NC}"
@@ -755,6 +1112,37 @@ do_keylog_verify() {
     pause
 }
 
+do_proxy_mode_restart() {
+    printf "${CLR}"
+    echo -e "${BOLD}${C}  Restart C proxy with upstream inference mode${NC}\n"
+    echo -e "  ${G}1${NC}) cache-first  ${D}cache hits replay locally; misses go upstream${NC}"
+    echo -e "  ${G}2${NC}) cache-only   ${D}cache hits only; misses blocked locally${NC}"
+    echo -e "  ${G}3${NC}) confirm      ${D}block misses with gate telemetry${NC}"
+    echo -e "  ${G}4${NC}) block        ${D}block upstream inference misses${NC}"
+    echo -e "  ${G}5${NC}) local-only   ${D}local-only alias for block behavior${NC}"
+    echo -e "  ${G}q${NC}) back\n"
+
+    local choice mode
+    read -r -p "  Mode [1]: " choice
+    case "${choice:-1}" in
+        1) mode="cache-first" ;;
+        2) mode="cache-only" ;;
+        3) mode="confirm" ;;
+        4) mode="block" ;;
+        5) mode="local-only" ;;
+        q|Q) return 0 ;;
+        *)
+            echo -e "${R}  Invalid mode selection${NC}"
+            pause
+            return 1
+            ;;
+    esac
+
+    HG_MICROPROXY_FRONT=1 HG_UPSTREAM_INFERENCE_MODE="$mode" do_start_proxy
+    echo -e "\n  ${G}Mode active:${NC} $mode"
+    pause
+}
+
 # ─── main TUI loop ──────────────────────────────────────────────────
 main() {
     printf "${HIDE}"
@@ -771,9 +1159,10 @@ main() {
                     1) do_repatch ;;
                     2) do_undo ;;
                     3) do_start ;;
-                    4) do_dashboard ;;
-                    5) do_verify ;;
-                    6) break ;;
+                    4) do_proxy_mode_restart ;;
+                    5) do_dashboard ;;
+                    6) do_verify ;;
+                    7) break ;;
                     *) ;;
                 esac
                 ;;
@@ -781,8 +1170,9 @@ main() {
             NUM2) SEL=1; do_repatch ;;
             NUM3) SEL=2; do_undo ;;
             NUM4) SEL=3; do_start ;;
-            NUM5) SEL=5; do_verify ;;
-            NUM6) SEL=4; do_dashboard ;;
+            NUM5) SEL=4; do_proxy_mode_restart ;;
+            NUM6) SEL=5; do_dashboard ;;
+            NUM7) SEL=6; do_verify ;;
             NUM0) SEL=1; do_repatch; do_start ;;
             QUIT|ESC) break ;;
         esac
@@ -810,6 +1200,9 @@ run_command() {
         start)
             do_start
             ;;
+        start_proxy)
+            do_start_proxy
+            ;;
         verify|status)
             do_verify
             ;;
@@ -817,10 +1210,12 @@ run_command() {
             do_dashboard
             ;;
         *)
-            echo "Usage: $0 [menu|patch|repatch|undo|start|verify|status|dashboard]"
+            echo "Usage: $0 [menu|patch|repatch|undo|start|start_proxy|verify|status|dashboard]"
             return 1
             ;;
     esac
 }
 
-run_command "${1:-menu}"
+if [ "${HG_START_SOURCE_ONLY:-0}" != "1" ]; then
+    run_command "${1:-menu}"
+fi

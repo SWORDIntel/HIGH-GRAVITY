@@ -5,7 +5,20 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
-if [ "${1:-}" != "--direct" ]; then
+DIRECT=0
+PROXY_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --direct)
+            DIRECT=1
+            ;;
+        --proxy-only|--proxy)
+            PROXY_ONLY=1
+            ;;
+    esac
+done
+
+if [ "$DIRECT" -ne 1 ]; then
     exec bash "$SCRIPT_DIR/../hg.sh" stop
 fi
 
@@ -90,40 +103,54 @@ pkill -f "hg.py" && echo -e "${GREEN}[✓] Dashboard stopped${NC}" || echo -e "$
 # Stop Launchers and Watchdogs
 echo -e "${BLUE}[*] Stopping Launchers and Watchdogs...${NC}"
 stop_pidfile "logs/proxy_watchdog.pid" "Proxy watchdog"
-stop_pidfile "logs/khoj_watchdog.pid" "Khoj watchdog"
-stop_pidfile "logs/windsurf_launch.pid" "Windsurf launcher"
-pkill -f "gemini_session_launcher.py" 2>/dev/null || true
 pkill -f "_watchdog_proxy" 2>/dev/null || true
-pkill -f "_watchdog_khoj" 2>/dev/null || true
-pkill -f "hg_trace.sh" 2>/dev/null || true
-pkill -f "hg_doctor.sh" 2>/dev/null || true
+if [ "$PROXY_ONLY" -ne 1 ]; then
+    stop_pidfile "logs/khoj_watchdog.pid" "Khoj watchdog"
+    stop_pidfile "logs/windsurf_launch.pid" "Windsurf launcher"
+    pkill -f "gemini_session_launcher.py" 2>/dev/null || true
+    pkill -f "_watchdog_khoj" 2>/dev/null || true
+    pkill -f "hg_trace.sh" 2>/dev/null || true
+    pkill -f "hg_doctor.sh" 2>/dev/null || true
+fi
 
 # Stop Windsurf
-echo -e "${BLUE}[*] Stopping Windsurf...${NC}"
-stop_windsurf
+if [ "$PROXY_ONLY" -ne 1 ]; then
+    echo -e "${BLUE}[*] Stopping Windsurf...${NC}"
+    stop_windsurf
+else
+    echo -e "${BLUE}[*] Proxy-only mode: skipping Windsurf shutdown${NC}"
+fi
 
 # Stop Proxy
 echo -e "${BLUE}[*] Stopping Proxy...${NC}"
 stop_pidfile "logs/proxy.pid" "HTTP proxy"
 stop_pidfile "logs/proxy_https.pid" "HTTPS proxy"
-echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py" 2>/dev/null || true
-echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py --https" 2>/dev/null || true
-pkill -f "src/proxy.py" 2>/dev/null || true
-pkill -f "highgravity_proxy.py" 2>/dev/null || true
+stop_pidfile "logs/microproxy_front.pid" "C microproxy front"
+echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py|src\\.proxy|src/proxy\\.py" 2>/dev/null || true
+echo "$SUDO_PASS" | sudo -S pkill -f "src/proxy.py --https|src\\.proxy --https" 2>/dev/null || true
+echo "$SUDO_PASS" | sudo -S pkill -f "src/microproxy/build/hg-edge|hg-edge --relay" 2>/dev/null || true
+pkill -f "src/proxy.py|src\\.proxy|highgravity_proxy.py" 2>/dev/null || true
 pkill -f "lsp_shim" 2>/dev/null || true
 
 # Cleanup iptables
 echo "$SUDO_PASS" | sudo -S iptables -t nat -D OUTPUT -p tcp --dport 50001 -j REDIRECT --to-port 9998 2>/dev/null || true
+if [ "$PROXY_ONLY" -ne 1 ]; then
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -D OUTPUT -j HG-WINDSURF-EGRESS 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -F HG-WINDSURF-EGRESS 2>/dev/null || true
+    echo "$SUDO_PASS" | sudo -S iptables -t nat -X HG-WINDSURF-EGRESS 2>/dev/null || true
+fi
 echo -e "${GREEN}[✓] Proxy stop sequence sent and iptables cleaned${NC}"
 
 echo -e "${BLUE}[*] Stopping Khoj...${NC}"
-if [ -f "logs/khoj_docker.pid" ] || [ -f "data/khoj.pid" ]; then
-    stop_pidfile "logs/khoj_docker.pid" "Khoj docker launcher"
-    docker stop khoj khoj-pg >/dev/null 2>&1 || true
-    bash scripts/internal/khoj_stop.sh 2>/dev/null || true
-    echo -e "${GREEN}[✓] Khoj stop sequence sent${NC}"
-else
-    pkill -f "khoj.*--port.*42110" && echo -e "${GREEN}[✓] Khoj stopped${NC}" || echo -e "${YELLOW}[!] Khoj not running${NC}"
+if [ "$PROXY_ONLY" -ne 1 ]; then
+    if [ -f "logs/khoj_docker.pid" ] || [ -f "data/khoj.pid" ]; then
+        stop_pidfile "logs/khoj_docker.pid" "Khoj docker launcher"
+        docker stop khoj khoj-pg >/dev/null 2>&1 || true
+        bash scripts/internal/khoj_stop.sh 2>/dev/null || true
+        echo -e "${GREEN}[✓] Khoj stop sequence sent${NC}"
+    else
+        pkill -f "khoj.*--port.*42110" && echo -e "${GREEN}[✓] Khoj stopped${NC}" || echo -e "${YELLOW}[!] Khoj not running${NC}"
+    fi
 fi
 
 # Verify

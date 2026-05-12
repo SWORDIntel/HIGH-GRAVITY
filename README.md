@@ -44,6 +44,8 @@ Run `./hg.sh dashboard` for the Rich TUI.
 *   **`D`**: Run System Doctor (Diagnostics)
 *   **`W`**: Launch Windsurf Next
 *   **`L`**: Intelligence Log Browser
+*   **`H`**: Launch Procedural HMI Dashboard
+*   **`HMI Dashboard`**: menu launch path is `./hg.sh hmi-dashboard`
 
 ### 3. CLI Expert Suite
 ```bash
@@ -52,6 +54,7 @@ Run `./hg.sh dashboard` for the Rich TUI.
 ./hg.sh logs        # Live tail of all intelligence logs
 ./hg.sh unpatch     # Restore original system files
 ./hg.sh reset       # Clean restoration followed by fresh patch
+./hg.sh hmi-dashboard # Launch C++ HMI dashboard (tui launcher)
 ```
 
 ---

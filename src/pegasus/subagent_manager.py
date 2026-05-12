@@ -5,6 +5,7 @@ import threading
 import time
 import psutil
 import os
+import re
 from pathlib import Path
 from typing import Dict
 from src.pegasus.jit_engine.compiler import JITCompiler
@@ -22,10 +23,14 @@ from src.pegasus.orchestrator import PegasusOrchestrator
 from lib.protocols.ufp_bridge import UFPBridge
 
 logger = logging.getLogger("Pegasus-Swarm")
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class SubAgentManager:
     def __init__(self):
         self.active_agents: Dict[str, subprocess.Popen] = {}
+        self.agent_started_at: Dict[str, float] = {}
+        self.max_active_agents = int(os.environ.get("HG_PEGASUS_MAX_ACTIVE_AGENTS", "3"))
+        self.agent_max_seconds = int(os.environ.get("HG_PEGASUS_AGENT_MAX_SECONDS", "900"))
         self.jit = JITCompiler()
         self.gsl = GlobalStateLedger()
         self.superposition = MemorySuperposition()
@@ -61,6 +66,26 @@ class SubAgentManager:
         while True:
             time.sleep(30) # Check every 30 seconds
             for aid, proc in list(self.active_agents.items()):
+                started = self.agent_started_at.get(aid, time.time())
+                if proc.poll() is not None:
+                    self.active_agents.pop(aid, None)
+                    self.agent_started_at.pop(aid, None)
+                    try:
+                        proc._hg_log_fh.close()
+                    except Exception:
+                        pass
+                    logger.info(f"AGENT_REAPED: {aid} rc={proc.returncode}")
+                    continue
+                if self.agent_max_seconds > 0 and time.time() - started > self.agent_max_seconds:
+                    logger.warning(f"AGENT_TIMEOUT: terminating {aid} after {self.agent_max_seconds}s")
+                    proc.terminate()
+                    self.active_agents.pop(aid, None)
+                    self.agent_started_at.pop(aid, None)
+                    try:
+                        proc._hg_log_fh.close()
+                    except Exception:
+                        pass
+                    continue
                 if proc.poll() is None: # Still running
                     try:
                         p = psutil.Process(proc.pid)
@@ -72,7 +97,53 @@ class SubAgentManager:
                             self.bridge.send_task(role, task)
                     except: continue
 
+    def _external_swarm_worker_count(self) -> int:
+        try:
+            proc = subprocess.run(
+                ["ps", "-eo", "args"],
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=1.0,
+            )
+        except Exception:
+            return 0
+        if proc.returncode != 0:
+            return 0
+        request_ids = set()
+        fallback_count = 0
+        for line in proc.stdout.splitlines():
+            if "gemini --prompt [HG_SWARM_TRIGGER]" not in line:
+                continue
+            match = re.search(r"\brequest_id=([A-Za-z0-9_-]+)", line)
+            if match:
+                request_ids.add(match.group(1))
+            elif line.startswith("node ") or line.startswith("/usr/bin/node "):
+                fallback_count += 1
+        return len(request_ids) if request_ids else fallback_count
+
     def spawn_agent(self, role: str, prompt: str, source: str = "HUMAN") -> str:
+        for aid, proc in list(self.active_agents.items()):
+            if proc.poll() is not None:
+                self.active_agents.pop(aid, None)
+                self.agent_started_at.pop(aid, None)
+                try:
+                    proc._hg_log_fh.close()
+                except Exception:
+                    pass
+        if self.max_active_agents > 0 and len(self.active_agents) >= self.max_active_agents:
+            logger.warning(
+                f"AGENT_SPAWN_BUSY: active={len(self.active_agents)} max={self.max_active_agents} role={role}"
+            )
+            return "BUSY"
+        external_active = self._external_swarm_worker_count()
+        if self.max_active_agents > 0 and external_active >= self.max_active_agents:
+            logger.warning(
+                f"AGENT_SPAWN_BUSY_GLOBAL: active={external_active} max={self.max_active_agents} role={role}"
+            )
+            return "BUSY"
+
         # Check Hardware capability
         backend = self.scheduler.get_optimal_backend()
         logger.info(f"HARDWARE_SCHEDULER: Routing {role} to {backend}")
@@ -101,16 +172,48 @@ class SubAgentManager:
         vpn_config = self.network.get_random_config()
         logger.info(f"SPAWNING_GEODISTRIBUTED_AGENT: {agent_id} via {vpn_config} with key {api_key[:20]}...")
 
-        # Pass VPN config and API key to the launch script
-        cmd = ["bash", "bin/launch_claude_interface.sh", "-p", prompt, "--vpn", vpn_config, "--api-key", api_key]
+        launcher = REPO_ROOT / "scripts" / "internal" / "launch_claude_interface.sh"
+        if not launcher.exists():
+            logger.error(f"AGENT_LAUNCHER_MISSING: {launcher}")
+            return "ERROR"
+
+        # Pass proxy-bound execution through the local launcher. VPN/API key details
+        # are carried in env so the Claude CLI argument surface stays stable.
+        env = {
+            **os.environ,
+            "GEMINI_API_KEY": api_key,
+            "HG_PEGASUS_AGENT_ID": agent_id,
+            "HG_PEGASUS_AGENT_ROLE": role,
+            "HG_PEGASUS_VPN_CONFIG": vpn_config,
+        }
+        cmd = ["bash", str(launcher), "-p", prompt]
+        log_dir = REPO_ROOT / "logs" / "pegasus_agents"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_fh = open(log_dir / f"{agent_id}.log", "ab", buffering=0)
         proc = subprocess.Popen(
             cmd, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
-            env={**os.environ, "GEMINI_API_KEY": api_key}
+            cwd=str(REPO_ROOT),
+            env=env,
         )
+        time.sleep(0.2)
+        if proc.poll() is not None:
+            try:
+                log_fh.close()
+            except Exception:
+                pass
+            log_path = log_dir / f"{agent_id}.log"
+            try:
+                stderr = log_path.read_text(encoding="utf-8", errors="replace").strip()
+            except Exception:
+                stderr = "unavailable"
+            logger.error(f"AGENT_LAUNCH_FAILED: {agent_id} rc={proc.returncode} log={log_path} stderr={stderr[:300]}")
+            return "ERROR"
+        proc._hg_log_fh = log_fh
         self.active_agents[agent_id] = proc
+        self.agent_started_at[agent_id] = time.time()
         self.gsl.post_delta(proc.pid, "STATUS", 1)
         logger.info(f"ORCHESTRATOR: Agent {agent_id} spawned under orchestrator command")
         return agent_id

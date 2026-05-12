@@ -47,7 +47,7 @@ The proxy server (`src/proxy.py`) handles the backend logic for cost reduction a
 
 ### Launching the Proxy:
 ```bash
-python3 src/proxy.py
+./.hg_proxy_venv/bin/python -m src.proxy
 ```
 
 ### Automatic Wiring

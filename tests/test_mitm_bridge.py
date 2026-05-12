@@ -6,8 +6,11 @@ Test MITM Bridge for Gemini and Codex auto-detection and interception
 import requests
 import json
 import time
+import os
 
-PROXY_URL = "http://localhost:9998"
+PROXY_PORT = int(os.environ.get("HG_PROXY_PORT", "9998"))
+PROXY_URL = f"http://localhost:{PROXY_PORT}"
+PROXY_HOST_HEADER = "proxy.windsurf.com"
 
 def test_telemetry():
     """Check MITM bridge status via telemetry endpoint"""
@@ -34,6 +37,31 @@ def test_telemetry():
             return False
     except Exception as e:
         print(f"✗ Cannot connect to proxy: {e}")
+        return False
+
+
+def test_smoke_usage():
+    """Smoke check against a known routed endpoint."""
+    print("\n" + "="*70)
+    print("TESTING ROUTED USAGE ENDPOINT")
+    print("="*70)
+    try:
+        headers = {"Host": PROXY_HOST_HEADER}
+        resp = requests.get(
+            f"{PROXY_URL}/api/oauth/usage",
+            headers=headers,
+            timeout=10,
+        )
+        print(f"← Response status: {resp.status_code}")
+        if resp.status_code == 200:
+            body = resp.json()
+            if isinstance(body, dict):
+                print(f"✓ usage keys: {list(body.keys())[:5]}")
+                return True
+            print(f"✗ Usage response not JSON: {body}")
+        return False
+    except Exception as e:
+        print(f"✗ Smoke check failed: {e}")
         return False
 
 def test_gemini_detection():
@@ -152,13 +180,14 @@ def main():
     print("MITM BRIDGE TEST SUITE")
     print("="*70)
     print("Testing automatic detection and interception of Gemini and Codex")
-    print("Make sure the proxy is running: python tools/integration/highgravity_proxy.py")
+    print("Make sure the proxy is running: ./.hg_proxy_venv/bin/python -m src.proxy")
     print("="*70)
     
     results = []
     
     # Test 1: Telemetry
     results.append(("Telemetry", test_telemetry()))
+    results.append(("Usage Smoke", test_smoke_usage()))
     
     # Test 2: Gemini Detection
     results.append(("Gemini Detection", test_gemini_detection()))

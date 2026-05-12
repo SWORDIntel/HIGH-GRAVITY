@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SCRIPT_DIR"
+PROXY_PORT="${HG_PROXY_PORT:-9998}"
+PROXY_URL="http://127.0.0.1:${PROXY_PORT}"
 
 if [ "${1:-}" = "--watch" ] || [ "${1:-}" = "watch" ]; then
   shift || true
@@ -19,10 +21,14 @@ echo -e "${CYAN}HIGH-GRAVITY Doctor${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # 1. Network & Proxy Check
-if lsof -i:9998 >/dev/null 2>&1; then
-  echo -e "Proxy 9998: ${GREEN}UP${NC}"
+if ss -ltn "( sport = :${PROXY_PORT} )" 2>/dev/null | tail -n +2 | grep -q ":${PROXY_PORT} "; then
+  if curl -fsS --max-time 2 "${PROXY_URL}/hg/telemetry" >/dev/null 2>&1; then
+    echo -e "Proxy ${PROXY_PORT}: ${GREEN}UP${NC}"
+  else
+    echo -e "Proxy ${PROXY_PORT}: ${YELLOW}DEGRADED${NC} (socket up, telemetry down)"
+  fi
 else
-  echo -e "Proxy 9998: ${RED}DOWN${NC}"
+  echo -e "Proxy ${PROXY_PORT}: ${RED}DOWN${NC}"
 fi
 
 if lsof -i:443 >/dev/null 2>&1; then
@@ -53,9 +59,39 @@ fi
 
 # 4. Binary Integrity Check
 BIN_PATH="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64"
-if [ -f "$BIN_PATH" ]; then
-  if strings "$BIN_PATH" | grep -q "proxy.windsurf.com"; then
-    echo -e "Binary:     ${GREEN}PATCHED${NC} (v1.110.1)"
+BIN_REAL_PATH="/usr/share/windsurf-next/resources/app/extensions/windsurf/bin/language_server_linux_x64.real"
+BIN_PATH_ACTIVE="$BIN_PATH"
+[ -f "$BIN_REAL_PATH" ] && BIN_PATH_ACTIVE="$BIN_REAL_PATH"
+
+if [ -f "$BIN_PATH_ACTIVE" ]; then
+  if strings "$BIN_PATH_ACTIVE" | grep -q "proxy.windsurf.com"; then
+    echo -e "Binary:     ${GREEN}PATCHED${NC} (v1.110.1 URLs)"
+    patch_state="full"
+  else
+    patch_state="$(python3 - "$BIN_PATH_ACTIVE" <<'PY'
+import sys
+
+with open(sys.argv[1], 'rb') as fh:
+    data = fh.read()
+
+count_new = data.count(b'\x49\x39\xd3\xeb\x2e')
+if count_new == 0:
+    count_new = data.count(b'\x49\x39\xd3\x90\x90')
+
+if count_new >= 3:
+    print('full')
+elif count_new > 0:
+    print('partial')
+else:
+    print('none')
+PY
+)"
+  fi
+
+  if [ "${patch_state:-none}" = "full" ]; then
+    echo -e "Binary:     ${GREEN}PATCHED${NC} (v1.110.1 machine-code marker)"
+  elif [ "${patch_state:-none}" = "partial" ]; then
+    echo -e "Binary:     ${YELLOW}PARTIAL${NC} (machine-code marker)"
   else
     echo -e "Binary:     ${RED}ORIGINAL${NC} (Bypass active!)"
   fi
@@ -72,8 +108,12 @@ if [ -n "$LS_CMD" ]; then
   LS_AGE="$(ps -o etimes= -p "$LS_PID" 2>/dev/null | tr -d ' ' || echo 0)"
   echo "LS api_server_url:       ${API_URL:-unknown}"
   echo "LS inference_api_url:    ${INF_URL:-unknown}"
-  if echo "${API_URL:-}" | grep -q 'proxy.windsurf.com'; then
+  if echo "${API_URL:-}" | grep -q 'proxy.windsurf.com\|inferapi.windsurf.com' && \
+     echo "${INF_URL:-}" | grep -q 'proxy.windsurf.com\|inferapi.windsurf.com'; then
     echo -e "LS routing mode: ${GREEN}PROXIED${NC}"
+  elif echo "${API_URL:-}" | grep -q 'server.self-serve.windsurf.com' && \
+       echo "${INF_URL:-}" | grep -q 'proxy.windsurf.com\|inferapi.windsurf.com'; then
+    echo -e "LS routing mode: ${CYAN}SPLIT (intentional)${NC} (api direct, inference proxied)"
   else
     echo -e "LS routing mode: ${YELLOW}DIRECT${NC} (age=${LS_AGE}s)"
   fi
@@ -83,12 +123,12 @@ fi
 
 echo ""
 echo "Telemetry snapshot:"
-curl -s http://127.0.0.1:9998/hg/telemetry 2>/dev/null | jq -c '{active_keys,exhausted_keys,total_keys,total_requests,mitm_rate_limit_hits,latency_ms,slow_requests_recent,concurrent_requests,max_concurrent}' || echo "unavailable"
+curl -s "${PROXY_URL}/hg/telemetry" 2>/dev/null | jq -c '{active_keys,exhausted_keys,total_keys,total_requests,mitm_rate_limit_hits,latency_ms,slow_requests_recent,concurrent_requests,max_concurrent}' || echo "unavailable"
 
 echo ""
 echo "Recent upstream errors:"
 if [ -f "logs/proxy.log" ]; then
-  grep -Ei "UPSTREAM_ERROR|AUTH_FLOW|BUNDLE_FOLLOWER|PULSE" logs/proxy.log | tail -n 20 || true
+  grep -Ei "RELAY_ERROR|Upstream unreachable|UPSTREAM_ERROR|AUTH_FLOW|BUNDLE_FOLLOWER|PULSE" logs/proxy.log | tail -n 20 || true
 else
   echo "proxy.log not found"
 fi

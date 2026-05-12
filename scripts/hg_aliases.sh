@@ -6,6 +6,7 @@ HG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Dashboard
 alias hg="$HG_ROOT/hg.sh"
+alias hg-hmi-dashboard="$HG_ROOT/hg.sh hmi-dashboard"
 
 # Windsurf launchers
 alias hg-windsurf="$HG_ROOT/bin/gemini_session_launcher.py --mode windsurf --provider proxy --proxy-url http://localhost:9998"
@@ -31,8 +32,8 @@ alias hg-status="curl -s http://localhost:9998/hg/telemetry | jq"
 alias hg-patch="python3 $HG_ROOT/src/patch_all.py"
 
 # Proxy control
-alias hg-proxy-start="python3 $HG_ROOT/tools/integration/highgravity_proxy.py &"
-alias hg-proxy-stop="pkill -f highgravity_proxy.py"
+alias hg-proxy-start="( if [ -x \"$HG_ROOT/.hg_proxy_venv/bin/python\" ]; then PYTHONPATH=\"$HG_ROOT\" \"$HG_ROOT/.hg_proxy_venv/bin/python\" -m src.proxy; else PYTHONPATH=\"$HG_ROOT\" python3 -m src.proxy; fi ) &"
+alias hg-proxy-stop="pkill -f 'src\\.proxy|src/proxy\\.py|highgravity_proxy\\.py'"
 
 # Quick launch functions
 hg-launch() {
@@ -47,6 +48,7 @@ hg-launch-json() {
 echo "HIGH-GRAVITY aliases loaded!"
 echo "Available commands:"
 echo "  hg                     - Launch dashboard"
+echo "  hg-hmi-dashboard       - Launch HMI dashboard"
 echo "  hg-windsurf            - Launch Windsurf with proxy"
 echo "  hg-windsurf-k1/k2/k3   - Launch Windsurf with specific key"
 echo "  hg-studio              - Launch Gemini AI Studio"

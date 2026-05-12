@@ -9,6 +9,9 @@ import json
 import logging
 import aiohttp
 import hashlib
+import gzip
+import re
+import zlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from collections import deque
@@ -25,16 +28,23 @@ class PegasusKhojBridge:
         self.base_url = os.environ.get("HG_KHOJ_URL", "http://127.0.0.1:42110").rstrip("/")
         self.token = os.environ.get("HG_KHOJ_TOKEN", "").strip()
         self.timeout_s = float(os.environ.get("HG_KHOJ_TIMEOUT_SECONDS", "4"))
-        self.fast_timeout_s = float(os.environ.get("HG_KHOJ_FAST_TIMEOUT_SECONDS", "0.3"))
+        self.fast_timeout_s = float(os.environ.get("HG_KHOJ_FAST_TIMEOUT_SECONDS", "0.8"))
         self.deep_timeout_s = float(os.environ.get("HG_KHOJ_DEEP_TIMEOUT_SECONDS", "1.5"))
-        self.default_n = int(os.environ.get("HG_KHOJ_TOP_K", "4"))
-        self.max_snippets = int(os.environ.get("HG_KHOJ_MAX_SNIPPETS", "4"))
-        self.max_chars_per_snippet = int(os.environ.get("HG_KHOJ_MAX_CHARS_PER_SNIPPET", "600"))
-        self.max_total_context_chars = int(os.environ.get("HG_KHOJ_MAX_TOTAL_CONTEXT_CHARS", "2200"))
+        self.inject_mode = os.environ.get("HG_KHOJ_INJECT_MODE", "compact").strip().lower()
+        if self.inject_mode not in {"compact", "full", "off"}:
+            self.inject_mode = "compact"
+        self.default_n = int(os.environ.get("HG_KHOJ_TOP_K", "3"))
+        self.max_snippets = int(os.environ.get("HG_KHOJ_MAX_SNIPPETS", "2"))
+        self.max_chars_per_snippet = int(os.environ.get("HG_KHOJ_MAX_CHARS_PER_SNIPPET", "260"))
+        self.max_total_context_chars = int(os.environ.get("HG_KHOJ_MAX_TOTAL_CONTEXT_CHARS", "900"))
         self.cache_ttl_s = int(os.environ.get("HG_KHOJ_CACHE_TTL_SECONDS", "90"))
+        self.binary_inject_ttl_s = int(os.environ.get("HG_KHOJ_BINARY_INJECT_TTL_SECONDS", "600"))
         self.cb_fail_threshold = int(os.environ.get("HG_KHOJ_CB_FAIL_THRESHOLD", "5"))
         self.cb_window_s = int(os.environ.get("HG_KHOJ_CB_WINDOW_SECONDS", "120"))
         self.cb_open_s = int(os.environ.get("HG_KHOJ_CB_OPEN_SECONDS", "180"))
+        self.store_observations = os.environ.get("HG_KHOJ_STORE_OBSERVATIONS", "1").lower() in {"1", "true", "yes", "on"}
+        self.observation_path = self.repo_root / "logs" / "khoj_intelligence.jsonl"
+        self.accel_status_path = self.repo_root / "logs" / "khoj_accel.json"
         
         # Statistics
         self.search_count = 0
@@ -52,9 +62,25 @@ class PegasusKhojBridge:
         self.last_snippet_sources: List[str] = []
         self.last_search_status = "idle"
         self.last_injection_status = "idle"
+        self.last_passive_status = "idle"
+        self.last_passive_query = ""
+        self.last_passive_query_hash = ""
+        self.last_passive_sources: List[str] = []
+        self.last_passive_snippet_count = 0
+        self.last_passive_ms = 0.0
         self.search_latencies_ms = deque(maxlen=300)
         self.injection_latencies_ms = deque(maxlen=300)
+        self.passive_latencies_ms = deque(maxlen=300)
         self.empty_result_count = 0
+        self.search_cache_hit_count = 0
+        self.passive_lookup_count = 0
+        self.passive_hit_count = 0
+        self.binary_inject_dedupe_skips = 0
+        self.binary_inject_disabled_skips = 0
+        self.recent_binary_injections: Dict[str, float] = {}
+        self.stored_observation_count = 0
+        self.last_store_status = "idle"
+        self.last_store_path = ""
         self.search_error_reasons = {}
         self.query_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self.cb_failures = deque(maxlen=200)
@@ -84,7 +110,108 @@ class PegasusKhojBridge:
                 fh.write(json.dumps(payload, sort_keys=True) + "\n")
         except Exception as exc:
             logger.debug(f"Khoj trace write failed: {exc}")
-    
+
+    def _store_observation(
+        self,
+        mode: str,
+        path: str,
+        query: str,
+        status: str,
+        snippets: List[str],
+        sources: List[str],
+        request_id: str = "",
+        injected: bool = False,
+    ) -> bool:
+        """Persist useful local intelligence gathered from live work."""
+        if not self.store_observations or not query:
+            self.last_store_status = "skipped"
+            return False
+
+        payload = {
+            "ts": time.time(),
+            "mode": mode,
+            "path": path,
+            "request_id": request_id,
+            "query": query[:500],
+            "query_hash": hashlib.sha256(query.encode()).hexdigest()[:16],
+            "status": status,
+            "injected": bool(injected),
+            "snippet_count": len(snippets),
+            "sources": sources[: self.max_snippets],
+            "snippets": snippets[: self.max_snippets],
+        }
+
+        try:
+            self.observation_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.observation_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload, sort_keys=True) + "\n")
+            self.stored_observation_count += 1
+            self.last_store_status = "ok"
+            self.last_store_path = str(self.observation_path)
+            return True
+        except Exception as exc:
+            self.last_store_status = type(exc).__name__
+            logger.debug(f"Khoj observation store failed: {exc}")
+            return False
+
+    def _observation_file_stats(self) -> Dict[str, Any]:
+        """Summarize persisted observations so sibling proxy processes share a baseline."""
+        if not self.observation_path.exists():
+            return {"observation_file_count": 0}
+
+        total = 0
+        injected = 0
+        hits = 0
+        latest: Dict[str, Any] = {}
+        try:
+            with open(self.observation_path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    total += 1
+                    if item.get("injected"):
+                        injected += 1
+                    if int(item.get("snippet_count") or 0) > 0:
+                        hits += 1
+                    latest = item
+        except Exception as exc:
+            logger.debug(f"Khoj observation stats failed: {exc}")
+            return {"observation_file_count": total, "observation_file_error": type(exc).__name__}
+
+        stats = {
+            "observation_file_count": total,
+            "observation_injection_count": injected,
+            "observation_hit_count": hits,
+        }
+        if latest:
+            query = str(latest.get("query", ""))
+            stats.update({
+                "last_observation_status": latest.get("status", ""),
+                "last_observation_path": latest.get("path", ""),
+                "last_observation_query": query[:200],
+                "last_observation_query_hash": latest.get("query_hash", ""),
+                "last_observation_snippet_count": int(latest.get("snippet_count") or 0),
+                "last_observation_injected": bool(latest.get("injected")),
+                "last_observation_ts": latest.get("ts", 0),
+            })
+        return stats
+
+    def _acceleration_stats(self) -> Dict[str, Any]:
+        if not self.accel_status_path.exists():
+            return {"configured": False}
+        try:
+            with open(self.accel_status_path, "r", encoding="utf-8") as fh:
+                status = json.load(fh)
+            status["configured"] = True
+            return status
+        except Exception as exc:
+            return {"configured": False, "error": type(exc).__name__}
+
     def _check_enabled(self) -> bool:
         """Check if Khoj should be enabled"""
         env_enabled = os.environ.get("HG_KHOJ_ENABLED", "").lower()
@@ -136,6 +263,7 @@ class PegasusKhojBridge:
         now = time.time()
         if cached and (now - cached[0] <= self.cache_ttl_s):
             self.last_search_status = "cache_hit"
+            self.search_cache_hit_count += 1
             self._emit_trace(
                 "search_cache_hit",
                 query=query[:200],
@@ -235,6 +363,226 @@ class PegasusKhojBridge:
                             text_parts.append(part)
                     return " ".join(text_parts)[:200]
         return ""
+
+    def _read_binary_varint(self, data: bytes, offset: int, max_bytes: int = 5) -> Tuple[Optional[int], int]:
+        value = 0
+        shift = 0
+        for idx in range(offset, min(len(data), offset + max_bytes)):
+            byte = data[idx]
+            value |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                return value, idx + 1
+            shift += 7
+        return None, offset
+
+    def _decompress_binary_payload(self, data: bytes, limit: int) -> List[bytes]:
+        """Return bounded gzip/zlib decodes for likely-compressed payloads."""
+        if not data:
+            return []
+
+        payloads = []
+        attempts = []
+        if data.startswith(b"\x1f\x8b"):
+            attempts.append(16 + zlib.MAX_WBITS)
+        if len(data) >= 2:
+            attempts.append(zlib.MAX_WBITS)
+
+        for wbits in dict.fromkeys(attempts):
+            try:
+                decompressor = zlib.decompressobj(wbits)
+                decoded = decompressor.decompress(data, limit + 1)
+            except zlib.error:
+                continue
+            if decoded:
+                payloads.append(decoded[:limit])
+
+        # Some test fixtures and clients produce plain gzip members that zlib
+        # rejects after the bounded attempt; keep a fallback for small bodies.
+        if data.startswith(b"\x1f\x8b") and len(data) <= limit:
+            try:
+                decoded = gzip.decompress(data)
+            except (OSError, EOFError, zlib.error):
+                decoded = b""
+            if decoded:
+                payloads.append(decoded[:limit])
+
+        return payloads
+
+    def _connect_frame_payloads(self, data: bytes, limit: int) -> List[bytes]:
+        """Extract bounded Connect envelope payloads without mutating frames."""
+        payloads = []
+        offset = 0
+        frames = 0
+        max_frames = 32
+
+        while offset + 5 <= len(data) and frames < max_frames:
+            flags = data[offset]
+            if flags & ~0x01:
+                break
+            length = int.from_bytes(data[offset + 1: offset + 5], "big")
+            start = offset + 5
+            end = start + length
+            if length <= 0 or length > limit or end > len(data):
+                break
+
+            payload = data[start:end]
+            if flags & 0x01:
+                payloads.extend(self._decompress_binary_payload(payload, limit))
+            else:
+                payloads.append(payload[:limit])
+                payloads.extend(self._decompress_binary_payload(payload, limit))
+
+            offset = end
+            frames += 1
+
+        if frames and offset == len(data):
+            return payloads
+        return []
+
+    def _extract_proto_strings(self, data: bytes, limit: int) -> List[str]:
+        strings = []
+        max_field_len = min(8192, limit)
+
+        for offset in range(0, max(0, len(data) - 2)):
+            key, pos = self._read_binary_varint(data, offset, max_bytes=3)
+            if key is None or key == 0 or key & 0x07 != 2:
+                continue
+            field_number = key >> 3
+            if field_number <= 0 or field_number > 4096:
+                continue
+            length, pos = self._read_binary_varint(data, pos, max_bytes=5)
+            if length is None or length < 4 or length > max_field_len or pos + length > len(data):
+                continue
+
+            chunk = data[pos: pos + length]
+            try:
+                text = chunk.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            strings.append(text)
+
+        return strings
+
+    def _binary_candidate_texts(self, body: bytes, scan_limit: int) -> List[str]:
+        payloads = [body[:scan_limit]]
+        payloads.extend(self._decompress_binary_payload(body[:scan_limit], scan_limit))
+        payloads.extend(self._connect_frame_payloads(body[:scan_limit], scan_limit))
+
+        for match in re.finditer(rb"\x1f\x8b", body[:scan_limit]):
+            if len(payloads) >= 24:
+                break
+            payloads.extend(self._decompress_binary_payload(body[match.start():scan_limit], scan_limit))
+
+        texts = []
+        seen_payloads = set()
+        for payload in payloads[:32]:
+            if not payload:
+                continue
+            payload_key = hashlib.sha256(payload[:4096]).hexdigest()
+            if payload_key in seen_payloads:
+                continue
+            seen_payloads.add(payload_key)
+
+            for item in re.findall(rb"[\x09\x0a\x0d\x20-\x7e]{6,}", payload):
+                texts.append(item.decode("utf-8", errors="ignore"))
+            texts.extend(self._extract_proto_strings(payload, scan_limit))
+
+        return texts
+
+    def _clean_binary_candidate(self, text: str) -> str:
+        text = text.replace(str(Path.home()), "~")
+        text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]+", " ", text)
+        text = re.sub(r"\s+", " ", text).strip(" \t\r\n'\"`")
+        if not text:
+            return ""
+
+        lower = text.lower()
+        action_markers = (
+            "error", "fix", "debug", "root cause", "patch", "test", "failure",
+            "failing", "implement", "improve", "update", "remove", "add",
+            "regression", "issue", "problem", "without", "broken", "missing",
+        )
+        semantic_markers = (
+            "error", "fix", "debug", "root cause", "patch", "test", "failure",
+            "failing", "implement", "improve", "update", "remove", "add",
+            "regression", "issue", "problem", "workspace", "file", "function",
+            "class", "proxy", "provider", "unreachable", "stream", "http",
+            "cert", "khoj", "integration", "protobuf", "connect", "binary",
+            "gzip", "frame", "message", "request", "chat", "windsurf", "exa",
+        )
+        noise_markers = (
+            "application/",
+            "connect-go/",
+            "grpc-",
+            "authorization",
+            "bearer ",
+            "server.self-serve",
+            "inferapi.",
+            "product_analytics",
+            "trajectory",
+            "request_id",
+            "user-agent",
+            "content-type",
+            "api_server_pb",
+            "codeium",
+        )
+        has_action = any(marker in lower for marker in action_markers)
+        has_semantic = has_action or any(marker in lower for marker in semantic_markers)
+        if any(marker in lower for marker in noise_markers) and not has_action:
+            return ""
+        if re.fullmatch(r"[a-f0-9-]{16,}", lower):
+            return ""
+        if re.fullmatch(r"[A-Za-z0-9+/=_-]{40,}", text) and " " not in text:
+            return ""
+
+        words = re.findall(r"[A-Za-z][A-Za-z0-9_./+-]*", text)
+        if len(words) < 3 and len(text) < 40:
+            return ""
+        if not has_semantic and len(words) < 5:
+            return ""
+        alpha_chars = sum(1 for char in text if char.isalpha())
+        if alpha_chars < 8:
+            return ""
+        if len(text) > 300:
+            text = text[:300].rsplit(" ", 1)[0] or text[:300]
+        return text
+
+    def _extract_binary_query(self, body: bytes, path: str = "") -> str:
+        """Extract a bounded semantic query from Connect/protobuf bodies.
+
+        This is intentionally passive. It gives Khoj enough text to retrieve
+        nearby workspace context without mutating opaque protobuf frames.
+        """
+        if not body:
+            return ""
+
+        scan_limit = int(os.environ.get("HG_KHOJ_BINARY_SCAN_BYTES", "262144"))
+        candidates = []
+        for text in self._binary_candidate_texts(body, scan_limit):
+            candidate = self._clean_binary_candidate(text)
+            if candidate:
+                candidates.append(candidate)
+
+        if not candidates:
+            return ""
+
+        def score(text: str) -> Tuple[int, int, int]:
+            lower = text.lower()
+            keyword_score = sum(
+                1
+                for marker in (
+                    "error", "fix", "debug", "root cause", "patch", "test",
+                    "function", "class", "proxy", "provider", "unreachable",
+                    "stream", "http", "cert", "khoj", "integration", "protobuf",
+                    "connect", "binary", "gzip", "frame", "windsurf", "chat",
+                )
+                if marker in lower
+            )
+            word_count = len(re.findall(r"[A-Za-z][A-Za-z0-9_./+-]*", text))
+            return keyword_score, min(word_count, 40), min(len(text), 300)
+
+        ranked = sorted(dict.fromkeys(candidates), key=score, reverse=True)
+        return " ".join(ranked[:3])[:500]
     
     def _minify_snippet(self, text: str) -> str:
         """Heuristic code minification to save tokens."""
@@ -292,15 +640,175 @@ class PegasusKhojBridge:
                 continue
             seen.add(key)
             snippet_sources.append(source)
-            snippet = f"`{source}`\n{text[:limit_chars]}"
-            if len(text) > limit_chars:
-                snippet += "..."
+            if self.inject_mode == "compact":
+                source_label = Path(source).name or "unknown"
+                text = re.sub(r"\s+", " ", text).strip()
+                snippet = f"{source_label}: {text[:limit_chars]}"
+                if len(text) > limit_chars:
+                    snippet += "..."
+            else:
+                snippet = f"`{source}`\n{text[:limit_chars]}"
+                if len(text) > limit_chars:
+                    snippet += "..."
             if total_chars + len(snippet) > self.max_total_context_chars:
                 break
             total_chars += len(snippet)
             snippets.append(snippet)
         self.last_snippet_sources = snippet_sources
         return snippets
+
+    def _format_context_message(self, snippets: List[str]) -> str:
+        if self.inject_mode == "off" or not snippets:
+            return ""
+        if self.inject_mode == "compact":
+            return "KHOJ_CONTEXT:\n" + "\n".join(f"- {s}" for s in snippets)
+        return (
+            "# KHOJ SEMANTIC SEARCH CONTEXT\n"
+            "Relevant code/documentation from indexed workspace:\n\n"
+            + "\n\n".join(f"**{i+1}.** {s}" for i, s in enumerate(snippets))
+        )
+
+    def should_inject_binary_context(self, context_result: Dict[str, Any]) -> Tuple[bool, str]:
+        """Keep live protobuf prompts from growing on repeated retries/continues."""
+        if self.inject_mode == "off":
+            self.binary_inject_disabled_skips += 1
+            self.last_injection_status = "disabled"
+            return False, "injection_mode_off"
+
+        qhash = str(context_result.get("query_hash") or "")
+        if not qhash:
+            return True, "ok"
+
+        now = time.time()
+        expired = [
+            key for key, seen_at in self.recent_binary_injections.items()
+            if now - seen_at > self.binary_inject_ttl_s
+        ]
+        for key in expired:
+            self.recent_binary_injections.pop(key, None)
+
+        if qhash in self.recent_binary_injections:
+            self.binary_inject_dedupe_skips += 1
+            self.last_injection_status = "deduped"
+            return False, "duplicate_query"
+
+        self.recent_binary_injections[qhash] = now
+        return True, "ok"
+
+    async def get_binary_context(
+        self,
+        path: str,
+        body: bytes,
+        request_id: str = "",
+        content_type: str = "",
+        limit_chars: int = 400,
+    ) -> Dict[str, Any]:
+        """Retrieve Khoj context for Connect/protobuf work without mutating it."""
+        if not self.enabled:
+            self.last_passive_status = "disabled"
+            return {"status": "disabled"}
+        if self._cb_open():
+            self.last_passive_status = "circuit_open"
+            self._emit_trace("passive_blocked", path=path, status="circuit_open")
+            return {"status": "circuit_open"}
+
+        query = self._extract_binary_query(body, path)
+        if not query:
+            self.last_passive_status = "no_query"
+            self._emit_trace("passive_no_query", path=path, content_type=content_type)
+            return {"status": "no_query"}
+
+        t0 = time.time()
+        self.passive_lookup_count += 1
+        qhash = hashlib.sha256(query.encode()).hexdigest()
+        self.last_passive_query = query[:200]
+        self.last_passive_query_hash = qhash[:16]
+
+        result = await self.search(
+            query,
+            n=min(2, self.max_snippets),
+            timeout_override=self.fast_timeout_s,
+        )
+        took = (time.time() - t0) * 1000.0
+        self.last_passive_ms = took
+        self.passive_latencies_ms.append(took)
+
+        if result.get("status") != "ok":
+            self.last_passive_status = result.get("status", "search_error")
+            failure_detail = str(
+                result.get("message")
+                or result.get("code")
+                or self.last_search_status
+                or self.last_passive_status
+            )
+            self._emit_trace(
+                "passive_search_failed",
+                path=path,
+                request_id=request_id,
+                query=query[:200],
+                query_hash=qhash[:16],
+                status=self.last_passive_status,
+                detail=failure_detail[:200],
+                took_ms=round(took, 2),
+            )
+            return {
+                "status": self.last_passive_status,
+                "query": query[:100],
+                "query_hash": qhash[:16],
+                "message": failure_detail[:300],
+                "search_status": self.last_search_status,
+                "search_ms": round(took, 2),
+            }
+
+        snippets = self._to_snippets(result.get("results", []), limit_chars=limit_chars)
+        self.last_passive_sources = self.last_snippet_sources[: self.max_snippets]
+        self.last_passive_snippet_count = len(snippets)
+        if snippets:
+            self.passive_hit_count += 1
+            self.last_passive_status = "ok"
+        else:
+            self.last_passive_status = "no_results"
+
+        self._emit_trace(
+            "passive_observe",
+            path=path,
+            request_id=request_id,
+            query=query[:200],
+            query_hash=qhash[:16],
+            status=self.last_passive_status,
+            snippets=len(snippets),
+            sources=self.last_passive_sources,
+            took_ms=round(took, 2),
+        )
+        return {
+            "status": self.last_passive_status,
+            "query": query[:500],
+            "query_hash": qhash[:16],
+            "snippets": len(snippets),
+            "snippet_text": snippets,
+            "context": self._format_context_message(snippets) if snippets else "",
+            "sources": self.last_passive_sources,
+            "search_ms": round(took, 2),
+        }
+
+    def store_binary_context(
+        self,
+        mode: str,
+        path: str,
+        context_result: Dict[str, Any],
+        request_id: str = "",
+        injected: bool = False,
+    ) -> bool:
+        return self._store_observation(
+            mode=mode,
+            path=path,
+            query=context_result.get("query", ""),
+            status=context_result.get("status", ""),
+            snippets=context_result.get("snippet_text", []),
+            sources=context_result.get("sources", []),
+            request_id=request_id,
+            injected=injected,
+        )
     
     async def inject_context(self, messages: List[Dict]) -> Dict[str, Any]:
         """Inject Khoj search context into messages"""
@@ -336,6 +844,8 @@ class PegasusKhojBridge:
                 search_status=self.last_search_status,
             )
             return search_result
+        if self.last_search_status == "idle":
+            self.last_search_status = "ok"
         
         # Convert to snippets
         snippets = self._to_snippets(search_result.get("results", []))
@@ -365,13 +875,13 @@ class PegasusKhojBridge:
             return {"status": "no_results"}
         
         # Inject as system message
+        context_content = self._format_context_message(snippets)
+        if not context_content:
+            self.last_injection_status = "disabled"
+            return {"status": "disabled"}
         context_msg = {
             "role": "system",
-            "content": (
-                "# KHOJ SEMANTIC SEARCH CONTEXT\n"
-                "Relevant code/documentation from indexed workspace:\n\n"
-                + "\n\n".join(f"**{i+1}.** {s}" for i, s in enumerate(snippets))
-            )
+            "content": context_content
         }
         
         messages.insert(0, context_msg)
@@ -391,14 +901,72 @@ class PegasusKhojBridge:
             search_status=self.last_search_status,
             search_ms=round(self.last_search_ms, 2),
         )
+        stored = self._store_observation(
+            mode="json_injection",
+            path="messages",
+            query=query,
+            status="ok",
+            snippets=snippets,
+            sources=self.last_snippet_sources[: self.max_snippets],
+            injected=True,
+        )
         
         return {
             "status": "ok",
             "injected": len(snippets),
+            "stored": stored,
             "query": query[:100],
             "search_ms": round(self.last_search_ms, 2),
             "inject_ms": round(self.last_injection_ms, 2),
             "sources": self.last_snippet_sources[: self.max_snippets],
+        }
+
+    async def observe_binary_request(
+        self,
+        path: str,
+        body: bytes,
+        request_id: str = "",
+        content_type: str = "",
+    ) -> Dict[str, Any]:
+        """Run passive Khoj lookup for real Windsurf Connect/proto work.
+
+        The live Cascade path is binary Connect/protobuf. Until protobuf schemas
+        are available, this records retrieval context instead of altering the
+        request body.
+        """
+        context_result = await self.get_binary_context(
+            path=path,
+            body=body,
+            request_id=request_id,
+            content_type=content_type,
+            limit_chars=400,
+        )
+        if context_result.get("status") not in {"ok", "no_results"}:
+            return {"status": context_result.get("status", "error"), "query": context_result.get("query", "")[:100]}
+        stored = False
+        if context_result.get("status") in {"ok", "no_results"}:
+            stored = self.store_binary_context(
+                mode="binary_passive",
+                path=path,
+                context_result=context_result,
+                request_id=request_id,
+                injected=False,
+            )
+        logger.info(
+            "KHOJ_PASSIVE: status=%s snippets=%s stored=%s query_hash=%s path=%s",
+            self.last_passive_status,
+            context_result.get("snippets", 0),
+            stored,
+            context_result.get("query_hash", ""),
+            path,
+        )
+        return {
+            "status": self.last_passive_status,
+            "query": context_result.get("query", "")[:100],
+            "snippets": context_result.get("snippets", 0),
+            "stored": stored,
+            "sources": self.last_passive_sources,
+            "search_ms": context_result.get("search_ms", 0),
         }
 
     def _cb_open(self) -> bool:
@@ -482,6 +1050,26 @@ class PegasusKhojBridge:
             "*.py,*.md,*.txt,*.json,*.yaml,*.yml,*.sh,*.c,*.cpp,*.h,*.rs,*.go,*.js,*.ts,*.jsx,*.tsx,*.java,*.kt,*.swift,*.rb"
         )
         globs = [g.strip() for g in include_globs.split(",") if g.strip()]
+        exclude_dirs = {
+            ".git",
+            ".hg_proxy_venv",
+            ".venv",
+            "__pycache__",
+            "node_modules",
+            "venv",
+            "venv_production",
+            "dist",
+            "build",
+            "tmp",
+            "logs",
+            "data",
+            "kp14_cache",
+            "windsurf_profiles",
+        }
+        env_excludes = os.environ.get("HG_KHOJ_EXCLUDE_DIRS", "")
+        exclude_dirs.update({d.strip() for d in env_excludes.split(",") if d.strip()})
+        max_file_bytes = int(os.environ.get("HG_KHOJ_MAX_FILE_BYTES", "524288"))
+        max_files = int(os.environ.get("HG_KHOJ_MAX_FILES", "2000"))
 
         # Collect files matching globs from configured paths
         files_to_index = []
@@ -491,8 +1079,24 @@ class PegasusKhojBridge:
                 continue
             for glob_pattern in globs:
                 for f in p.rglob(glob_pattern):
-                    if f.is_file():
-                        files_to_index.append(f)
+                    if not f.is_file():
+                        continue
+                    if any(part in exclude_dirs for part in f.parts):
+                        continue
+                    try:
+                        if f.stat().st_size > max_file_bytes:
+                            continue
+                    except OSError:
+                        continue
+                    files_to_index.append(f)
+
+        if len(files_to_index) > max_files:
+            logger.warning(
+                "Khoj index file cap applied: selected %s of %s files",
+                max_files,
+                len(files_to_index),
+            )
+            files_to_index = sorted(files_to_index, key=lambda item: str(item))[:max_files]
 
         if not files_to_index:
             logger.warning("No files found to index from configured paths")
@@ -636,23 +1240,49 @@ class PegasusKhojBridge:
             arr = sorted(vals)
             idx = min(len(arr) - 1, int(round((p / 100.0) * (len(arr) - 1))))
             return round(arr[idx], 2)
-        return {
+        observation_stats = self._observation_file_stats()
+        injection_count = max(self.injection_count, int(observation_stats.get("observation_injection_count") or 0))
+        passive_hit_count = max(self.passive_hit_count, int(observation_stats.get("observation_hit_count") or 0))
+        stored_observation_count = max(self.stored_observation_count, int(observation_stats.get("observation_file_count") or 0))
+        last_passive_status = self.last_passive_status
+        last_passive_query = self.last_passive_query
+        last_passive_query_hash = self.last_passive_query_hash
+        last_passive_snippet_count = self.last_passive_snippet_count
+        if last_passive_status == "idle" and observation_stats.get("last_observation_status"):
+            last_passive_status = str(observation_stats.get("last_observation_status", "idle"))
+            last_passive_query = str(observation_stats.get("last_observation_query", ""))
+            last_passive_query_hash = str(observation_stats.get("last_observation_query_hash", ""))
+            last_passive_snippet_count = int(observation_stats.get("last_observation_snippet_count") or 0)
+
+        stats = {
             "enabled": self.enabled,
             "base_url": self.base_url,
             "search_count": self.search_count,
-            "injection_count": self.injection_count,
+            "injection_count": injection_count,
             "last_query": self.last_query[:200],
             "last_query_hash": self.last_query_hash[:16],
             "last_snippet_count": self.last_snippet_count,
             "last_snippet_sources": self.last_snippet_sources[: self.max_snippets],
             "last_search_status": self.last_search_status,
             "last_injection_status": self.last_injection_status,
+            "last_passive_status": last_passive_status,
+            "last_passive_query": last_passive_query[:200],
+            "last_passive_query_hash": last_passive_query_hash[:16],
+            "last_passive_sources": self.last_passive_sources[: self.max_snippets],
+            "last_passive_snippet_count": last_passive_snippet_count,
+            "passive_lookup_count": self.passive_lookup_count,
+            "passive_hit_count": passive_hit_count,
+            "store_observations": self.store_observations,
+            "stored_observation_count": stored_observation_count,
+            "last_store_status": self.last_store_status,
+            "last_store_path": self.last_store_path,
             "last_index_time": self.last_index_time,
             "last_reindex_status": self.last_reindex_status,
             "last_reindex_detail": self.last_reindex_detail,
             "reindex_progress": self.last_reindex_progress,
             "last_search_ms": round(self.last_search_ms, 2),
             "last_injection_ms": round(self.last_injection_ms, 2),
+            "last_passive_ms": round(self.last_passive_ms, 2),
             "search_latency_ms": {
                 "p50": pct(list(self.search_latencies_ms), 50),
                 "p95": pct(list(self.search_latencies_ms), 95),
@@ -661,9 +1291,22 @@ class PegasusKhojBridge:
                 "p50": pct(list(self.injection_latencies_ms), 50),
                 "p95": pct(list(self.injection_latencies_ms), 95),
             },
+            "passive_latency_ms": {
+                "p50": pct(list(self.passive_latencies_ms), 50),
+                "p95": pct(list(self.passive_latencies_ms), 95),
+            },
             "empty_result_count": self.empty_result_count,
             "error_reasons": self.search_error_reasons,
+            "injection_mode": self.inject_mode,
+            "context_budget_chars": self.max_total_context_chars,
             "cache_entries": len(self.query_cache),
+            "search_cache_hits": self.search_cache_hit_count,
+            "binary_inject_dedupe_skips": self.binary_inject_dedupe_skips,
+            "binary_inject_disabled_skips": self.binary_inject_disabled_skips,
+            "recent_binary_injections": len(self.recent_binary_injections),
             "circuit_open": self._cb_open(),
             "circuit_open_until": int(self.cb_open_until) if self.cb_open_until else 0,
         }
+        stats.update(observation_stats)
+        stats["acceleration"] = self._acceleration_stats()
+        return stats
