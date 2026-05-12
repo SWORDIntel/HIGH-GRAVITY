@@ -1,103 +1,331 @@
-# HIGH-GRAVITY v3.2 (Expert-Tier)
+# HIGH-GRAVITY
 
-**Windsurf Proxy & Intelligence Enhancement Suite**
+Windsurf proxy control plane, local intelligence layer, C edge relay, and operator dashboards.
 
-Intercept, refactor, and optimize Windsurf AI completions with sub-millisecond local caching, expert-tier OPSEC hardening, and automated block bypass.
+HIGH-GRAVITY sits between Windsurf Next and upstream provider endpoints. The current runtime is designed around a conservative rule: **the proxy stack can be restarted independently, and Windsurf is left alone unless you explicitly choose a full start/stop command**.
 
----
+## Current Capabilities
 
-## 🔥 New in v3.2: The Expert Shield
+- C microproxy front on `:443` forwarding to the Python HTTPS proxy on `:9443`.
+- HTTP control/compatibility proxy on `:9998`.
+- Proxy-only restart paths that do not stop or launch Windsurf.
+- Inference gate modes: `cache-first`, `cache-only`, `confirm`, `block`, and `local-only`.
+- Exact and canonical response cache telemetry.
+- Local ACK handling for high-frequency telemetry/reporting paths.
+- Khoj RAG integration with token injected/saved counters.
+- Pegasus swarm trigger/result telemetry.
+- Rich TUI dashboard plus procedural HMI dashboard/status path.
+- C-edge stream lifecycle, backpressure, and direct-egress visibility.
+- GPU/OpenVINO/NCS2 acceleration probes for Khoj.
 
-✅ **Anti-Rejection Mutator** — Automatically reframes prompts and obfuscates trigger words to bypass upstream safety blocks and reduce 429s.  
-✅ **CSEC-Tier OPSEC** — Automated path/user redaction and upstream request jitter (5-45ms) to defeat timing-based proxy detection.  
-✅ **Multi-Stage Intelligence** — Sub-millisecond cache lookups via a tiered NotStisla (Interpolation) and QIHSE (SIMD) pipeline.  
-✅ **Watertight DNS Shield** — Intercepts 8 critical Codeium/Windsurf domains at the DNS level to seal all traffic leaks.  
-✅ **v1.110.1 Support** — Multi-point binary patching with automated heuristic offset discovery.  
-✅ **Integrated Intelligence Stream** — Real-time rolling logs and swarm events directly on the main dashboard.
+## Layout
 
----
+| Path | Purpose |
+| --- | --- |
+| `hg.sh` | Main CLI entrypoint. |
+| `src/proxy.py` | Python proxy, inference gate, usage spoofing, cache, Khoj/Pegasus integration. |
+| `src/microproxy/` | C edge relay, event schema, proto observer, tests. |
+| `src/hmi/` | Procedural C++/Vulkan HMI telemetry pipeline and runner. |
+| `src/pegasus/` | Pegasus swarm and Khoj integration helpers. |
+| `scripts/internal/` | Start/stop/status/dashboard/control helper scripts. |
+| `tests/` | Unit and integration-style regression tests. |
+| `docs/` | Operator and architecture notes. |
+| `logs/`, `data/`, `kp14_cache/`, `windsurf_profiles/` | Runtime output. Do not commit generated contents. |
 
-## Features
+## Install
 
-*   **Multi-Key Rotation**: 21+ API keys with automatic round-robin and exhaustion cooldowns.
-*   **TurboQuant Cache**: Full NumPy-vectorized bitwise search for instant similarity matching.
-*   **Deep RAG Integration**: Autonomous query recovery and minified code injection via Khoj.
-*   **Enterprise SaaS Mock**: Unlock Devin-tier autonomous features and Arena mode.
-*   **Shadow Profiles**: Per-key session isolation to prevent account cross-linking.
-
----
-
-## Quick Start
-
-### 1. Install
 ```bash
-git clone <repo-url> HIGH-GRAVITY
+git clone https://github.com/SWORDIntel/HIGH-GRAVITY
 cd HIGH-GRAVITY
-./hg.sh  # Launches interactive Management Menu
+python3 -m venv .hg_proxy_venv
+.hg_proxy_venv/bin/pip install -r requirements.txt
 ```
 
-### 2. Dashboard Controls
-Run `./hg.sh dashboard` for the Rich TUI.  
-*   **`S`**: Start All (Patch + Proxies + RAG)
-*   **`X`**: Emergency Stop
-*   **`P`**: Deep Patch (Binary + JS + DNS)
-*   **`D`**: Run System Doctor (Diagnostics)
-*   **`W`**: Launch Windsurf Next
-*   **`L`**: Intelligence Log Browser
-*   **`H`**: Launch Procedural HMI Dashboard
-*   **`HMI Dashboard`**: menu launch path is `./hg.sh hmi-dashboard`
+If the virtualenv is missing, `./hg.sh` will try to bootstrap the core Python dependencies.
 
-### 3. CLI Expert Suite
+## Normal Operation
+
+Start the management menu:
+
 ```bash
-./hg.sh doctor      # CSEC-tier deep diagnostic audit
-./hg.sh trace       # Watch real-time prompt/completion routing
-./hg.sh logs        # Live tail of all intelligence logs
-./hg.sh unpatch     # Restore original system files
-./hg.sh reset       # Clean restoration followed by fresh patch
-./hg.sh hmi-dashboard # Launch C++ HMI dashboard (tui launcher)
+./hg.sh
 ```
 
----
+Start or restart only the proxy stack with the C front enabled:
 
-## Architecture (Expert-Tier)
-
-```
-    [ Windsurf Editor ]  <─── (v1.110.1 Multi-Point Patch)
-            │
-            ▼
-    [ HIGH-GRAVITY PROXY ] ◄─── (CSEC Sentinel: Redaction + Jitter)
-    │       │
-    │       ├─→ [ Tiered Accelerator ] ──→ (NotStisla / QIHSE / TurboQuant)
-    │       │
-    │       └─→ [ Anti-Reject Mutator ] ─→ (Semantic Reframing)
-    │
-    ▼       ▼
-[ Upstream APIs ] ◄─────── (Shadow Profile Isolation)
+```bash
+./hg.sh restart-proxy-c cache-first
 ```
 
----
+This is the preferred live-debug command. It stops/restarts:
 
-## Components
+- HTTP proxy on `9998`
+- Python HTTPS proxy on `9443`
+- C microproxy front on `443`
+- proxy watchdog
 
-### Core Management
-| Command | Purpose |
-|------|---------|
-| `./hg.sh` | Expert-Tier Command Center (Menu/Dashboard) |
-| `src/proxy.py` | Main Intelligence Proxy (v3.2) |
-| `src/patch_all.py` | Heuristic Multi-Point Patcher |
-| `scripts/hg_doctor.sh` | CSEC-Tier Diagnostic Suite |
+It does **not** stop Windsurf.
 
-### Intelligence Layers
-*   **TurboQuant**: High-performance vectorized bitwise ANN search.
-*   **Khoj Bridge**: Deep RAG with automated query broadening and minification.
-*   **Pegasus Swarm**: Proactive agents monitoring and optimizing traffic flow.
+## Inference Modes
 
----
+The upstream inference gate is controlled by `HG_UPSTREAM_INFERENCE_MODE` or the optional mode argument:
 
-## Support
+```bash
+./hg.sh start-proxy-c cache-first
+./hg.sh restart-proxy-c cache-only
+./hg.sh restart-proxy-c confirm
+./hg.sh restart-proxy-c block
+./hg.sh restart-proxy-c local-only
+```
 
-1. Run `./hg.sh doctor` for a full security and routing audit.
-2. Check `logs/proxy.log` for intelligence event triggers.
-3. Review `docs/guides/WINDSURF_v1.110.1_PATCH_NOTES.md` for technical offsets.
+| Mode | Behavior |
+| --- | --- |
+| `cache-first` | Default. Replay cache hits locally; forward cache misses upstream. Preserves normal Windsurf capability. |
+| `cache-only` | Replay cache hits; block misses locally. Useful for usage-control testing. |
+| `confirm` | Block misses with explicit gate telemetry. |
+| `block` | Block upstream inference misses. |
+| `local-only` | Alias-style local-only behavior for no-upstream testing. |
 
-**Status:** 🛡️ **Shield Watertight** | 🧠 **Intelligence Optimized** | ✅ **Ready for Mission**
+The menu exposes these under `Start C Proxy Mode` and `Restart C Proxy Mode`.
+
+## Dashboards
+
+Rich TUI:
+
+```bash
+./hg.sh dashboard
+```
+
+The TUI shows:
+
+- proxy status
+- inference mode
+- response cache hit/store counts
+- upstream gate forward/miss/block counts
+- local ACK counts
+- Khoj token injected/saved counters
+- Pegasus swarm quality
+- C edge and routing status
+- acceleration status
+
+Hotkeys include:
+
+| Key | Action |
+| --- | --- |
+| `S` | Start all services. |
+| `X` | Stop all services. |
+| `P` | Patch. |
+| `R` | Repatch. |
+| `U` | Unpatch files. |
+| `D` | Doctor. |
+| `W` | Launch Windsurf wrapper. |
+| `H` | HMI dashboard path. |
+| `K` | Khoj reindex. |
+| `A` | Khoj acceleration probe. |
+| `G` | Restart Khoj acceleration stack. |
+| `C` | Clear cache. |
+| `Y` | Clear control-plane cache. |
+| `1` | Restart C proxy in `cache-first`. |
+| `2` | Restart C proxy in `cache-only`. |
+| `3` | Restart C proxy in `confirm`. |
+| `4` | Restart C proxy in `block`. |
+| `5` | Restart C proxy in `local-only`. |
+
+Procedural HMI:
+
+```bash
+./hg.sh hmi status
+./hg.sh hmi check
+./hg.sh hmi run
+./hg.sh hmi-dashboard
+```
+
+The HMI telemetry pipeline consumes the same core counters as the TUI: proxy mode, response cache, upstream gate, local ACK, Khoj, Pegasus, C-edge streams, and acceleration state.
+
+## Status And Usage
+
+Quick status:
+
+```bash
+./hg.sh status
+```
+
+Status reports:
+
+- HTTP proxy, HTTPS proxy, C front
+- current inference mode
+- response cache hit/store counts
+- upstream gate forwards/misses/blocks
+- local ACK count and avoided bytes
+- Khoj health and acceleration
+- Pegasus activity
+- proxy/Khoj watchdogs
+- Windsurf routing and direct-egress sockets
+
+Usage snapshot:
+
+```bash
+./hg.sh usage -j
+```
+
+Watch quota/inference lifecycle:
+
+```bash
+./hg.sh watch-quota
+```
+
+Throughput baseline:
+
+```bash
+./hg.sh throughput
+```
+
+## C Edge
+
+The C edge lives in `src/microproxy/` and is built by the proxy start path. It owns hot-path relay behavior:
+
+- TLS relay listener
+- request classification events
+- stream lifecycle events
+- quota/connect-error stream signal observation
+- active stream cap and backpressure events
+- direct fast-path observation hooks
+
+Build and smoke-test manually:
+
+```bash
+./hg.sh microproxy build
+./hg.sh microproxy smoke
+./hg.sh microproxy status
+```
+
+Read event logs:
+
+```bash
+python3 tools/read_microproxy_events.py --skip-invalid logs/microproxy_events.jsonl
+```
+
+## Khoj And Acceleration
+
+Khoj is used as the local second-brain/RAG layer. It can inject compact context where useful and reports token pressure through proxy telemetry.
+
+Commands:
+
+```bash
+./hg.sh khoj status
+./hg.sh khoj reindex
+./hg.sh khoj accel
+./hg.sh hmi status
+```
+
+Acceleration probes cover CUDA, OpenVINO, and NCS2/Myriad visibility. See:
+
+- `docs/guides/NCS2_RECOVERY.md`
+- `scripts/internal/khoj_accel_status.py`
+- `scripts/internal/khoj_ncs2_recover.py`
+
+## Patch And Routing Commands
+
+```bash
+./hg.sh patch
+./hg.sh repatch
+./hg.sh unpatch
+./hg.sh shim
+./hg.sh egress status
+./hg.sh egress on
+```
+
+`unpatch` restores files but preserves redirected hosts for local HTTPS routing. Use care with full stop/repatch flows when Windsurf is open.
+
+## Testing
+
+Core test commands:
+
+```bash
+python -m unittest discover -s tests
+python -m pytest tests
+```
+
+Focused checks used during recent work:
+
+```bash
+python3 -m py_compile src/proxy.py src/hg_dashboard.py
+bash -n hg.sh scripts/internal/hg_start.sh scripts/internal/hg_status.sh scripts/internal/hg_hmi.sh
+make -C src/hmi check
+.hg_proxy_venv/bin/python -m pytest -q \
+  tests/test_proxy_shared_metrics.py \
+  tests/test_microproxy_edge.py \
+  tests/test_microproxy_events.py \
+  tests/test_hmi_control_plane.py \
+  tests/test_usage_command.py
+```
+
+## Operational Rules
+
+- Use `./hg.sh restart-proxy-c cache-first` for live proxy changes.
+- Do not kill Windsurf when only proxy behavior is being changed.
+- Keep generated certificates, logs, captures, databases, virtualenvs, and local profiles out of commits.
+- Treat `logs/`, `data/`, `certs/`, `kp14_cache/`, and `windsurf_profiles/` as runtime areas unless a file is explicitly a sanitized template or source artifact.
+- When diagnosing two Windsurf sessions, watch C-edge stream and backpressure counters first.
+
+## Troubleshooting
+
+Provider unreachable:
+
+```bash
+./hg.sh status
+curl -s http://127.0.0.1:9998/hg/telemetry | python3 -m json.tool
+python3 tools/read_microproxy_events.py --skip-invalid logs/microproxy_events.jsonl
+```
+
+High usage climb:
+
+```bash
+./hg.sh usage -j
+./hg.sh dashboard
+./hg.sh restart-proxy-c cache-first
+```
+
+Concurrent sessions slow or unreachable:
+
+```bash
+./hg.sh status
+./hg.sh microproxy status
+python3 tools/read_microproxy_events.py --skip-invalid logs/microproxy_events.jsonl
+```
+
+HMI runtime does not launch:
+
+```bash
+./hg.sh hmi status
+./hg.sh hmi check
+```
+
+## Current Default Ports
+
+| Component | Port |
+| --- | --- |
+| C microproxy front | `443` |
+| Python HTTPS proxy | `9443` |
+| HTTP/control proxy | `9998` |
+| Khoj | `42110` |
+
+## Commit Hygiene
+
+Before pushing:
+
+```bash
+git diff --check
+python3 -m py_compile src/proxy.py src/hg_dashboard.py
+bash -n hg.sh scripts/internal/*.sh
+```
+
+Do not commit:
+
+- private keys
+- generated cert serials/CSRs
+- real API keys
+- runtime logs
+- packet captures
+- local virtualenvs
+- generated Windsurf profiles
