@@ -112,6 +112,49 @@ print(f"Proxy inference mode: {mode}")
 print(f"Proxy response cache: {exact_hits + canonical_hits} hit / {exact_stores + canonical_stores} store")
 print(f"Proxy upstream gate: {forwards} forward / {misses} miss / {blocks} block")
 print(f"Proxy local ACK: {acks} req / {ack_bytes // 1024} KiB avoided")
+ebpf = payload.get("ebpf") if isinstance(payload.get("ebpf"), dict) else {}
+observer = ebpf.get("status") if isinstance(ebpf.get("status"), dict) else {}
+
+def num(data, key):
+    try:
+        return int(data.get(key, 0) or 0)
+    except Exception:
+        return 0
+
+if ebpf:
+    active = bool(ebpf.get("active") or observer.get("active") or observer.get("running"))
+    stale = bool(ebpf.get("stale") or observer.get("stale"))
+    if ebpf.get("read_error"):
+        state = "read-error"
+    elif stale:
+        state = "stale"
+    elif active:
+        state = "active"
+    elif ebpf.get("present"):
+        state = "event-data" if num(ebpf, "events_total") else "no-events"
+    else:
+        state = "inactive"
+    mode = ebpf.get("mode") or observer.get("mode") or observer.get("active_mode") or "-"
+    tool = ebpf.get("tool") or observer.get("tool") or observer.get("active_tool") or observer.get("backend") or "-"
+    events = ebpf.get("by_event") if isinstance(ebpf.get("by_event"), dict) else {}
+    event_text = ",".join(f"{key}:{value}" for key, value in events.items()) or "none"
+    routes = ebpf.get("by_route_class") if isinstance(ebpf.get("by_route_class"), dict) else {}
+    route_text = ",".join(f"{key}:{value}" for key, value in routes.items()) or "none"
+    retry = ebpf.get("retry_storm") if isinstance(ebpf.get("retry_storm"), dict) else {}
+    retry_text = "active" if retry.get("active") else "quiet"
+    sessions = ebpf.get("sessions") if isinstance(ebpf.get("sessions"), dict) else {}
+    if sessions:
+        session_text = f"{num(sessions, 'session_count')}/{num(sessions, 'required_sessions')} visible"
+    else:
+        session_text = "not-reported"
+    print(
+        "Proxy eBPF observer: "
+        f"{state} mode={mode} tool={tool} "
+        f"events={num(ebpf, 'events_total')} ({event_text}) "
+        f"direct={num(ebpf, 'direct_egress')} "
+        f"retry={retry_text}:{num(retry, 'max_rate')} "
+        f"sessions={session_text} routes={route_text}"
+    )
 PY
         fi
     elif command -v curl >/dev/null 2>&1; then

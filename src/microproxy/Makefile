@@ -1,6 +1,6 @@
 CC ?= cc
-CFLAGS ?= -std=c11 -Wall -Wextra -Werror -O2
-CPPFLAGS ?= -D_POSIX_C_SOURCE=200809L
+CFLAGS ?= -std=c11 -Wall -Wextra -Werror -O3 -mavx2 -msse4.2
+CPPFLAGS ?= -D_GNU_SOURCE
 
 BIN_DIR := build
 BIN := $(BIN_DIR)/hg-edge

@@ -14,6 +14,7 @@ import subprocess
 import requests
 import json
 import random
+import shlex
 import numpy as np
 from datetime import datetime
 from pathlib import Path
@@ -126,11 +127,48 @@ class Dashboard:
         except Exception:
             self.status_msg = f"[red]Action '{name}' failed[/red]"
 
-    def run_cmd(self, label, cmd_str):
+    def _command_env(self, args, extra_env=None):
+        env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
+        hg_cmd = ""
+        if len(args) >= 2 and Path(args[0]).name == "hg.sh":
+            hg_cmd = args[1]
+        elif len(args) >= 2 and args[0] == "bash" and Path(args[1]).name == "hg.sh":
+            hg_cmd = args[2] if len(args) >= 3 else ""
+        if "proxy" in hg_cmd:
+            env.setdefault("HG_PROXY_WATCHDOG", "0")
+            env.setdefault("HG_TOKEN_SAVER", "1")
+            env.setdefault("HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION", "1")
+            env.setdefault("HG_TOKEN_SAVER_FORCE_LOW_REASONING", "0")
+            env.setdefault("HG_EXACT_RESPONSE_CACHE", "0")
+            env.setdefault("HG_CANONICAL_RESPONSE_CACHE", "0")
+            env.setdefault("HG_LOCAL_ACK_TELEMETRY", "0")
+            env.setdefault("HG_PEGASUS_SWARM_TRIGGER", "0")
+            env.setdefault("HG_PROXY_VERBOSE_REQUEST_LOGS", "0")
+            env.setdefault("HG_PROXY_LOG_DEEP_INTEL", "0")
+            env.setdefault("HG_PROXY_LOG_ACCESS", "0")
+        return env
+
+    def run_cmd(self, label, cmd):
         self.status_msg = f"[yellow]{label}...[/yellow]"
         try:
-            full_cmd = cmd_str.replace("./hg.sh", f"bash {REPO_ROOT}/hg.sh")
-            subprocess.Popen(full_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=REPO_ROOT)
+            args = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+            extra_env = {}
+            while args and "=" in args[0] and not args[0].startswith("./"):
+                key, value = args.pop(0).split("=", 1)
+                if key:
+                    extra_env[key] = value
+            if args and args[0] == "./hg.sh":
+                args = ["bash", str(REPO_ROOT / "hg.sh")] + args[1:]
+            subprocess.Popen(
+                args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                cwd=REPO_ROOT,
+                env=self._command_env(args, extra_env),
+                start_new_session=True,
+            )
             self.status_msg = f"[green]{label} triggered[/green]"
         except Exception as e:
             self.status_msg = f"[red]{label} error: {e}[/red]"
@@ -168,7 +206,7 @@ class Dashboard:
         if mode not in {"cache-first", "cache-only", "confirm", "block", "local-only"}:
             self.status_msg = f"[red]Invalid proxy mode: {escape(str(mode))}[/red]"
             return
-        self.run_cmd(f"C Proxy {mode}", f"./hg.sh restart-proxy-c {mode}")
+        self.run_cmd(f"C Proxy {mode}", f"./hg.sh proxy start {mode}")
 
     def _first_error(self, errors, limit=50):
         if not errors:
@@ -303,6 +341,98 @@ class Dashboard:
         tbl.add_row("RAG Tokens", f"+{injected:,} / -{avoided:,}")
         tbl.add_row("Throughput", f"{t.get('total_requests', 0)} req")
         return Panel(tbl, title="Quantum Proxy", border_style="green")
+
+    def _ebpf_panel(self):
+        ebpf = self.tel.get("ebpf", {}) if isinstance(self.tel.get("ebpf"), dict) else {}
+        observer = ebpf.get("status") if isinstance(ebpf.get("status"), dict) else {}
+        tbl = Table(expand=True, show_header=False, box=None, padding=(0, 1))
+        tbl.add_column(style="bold cyan", no_wrap=True)
+        tbl.add_column()
+
+        if not ebpf.get("present"):
+            tbl.add_row("Observer", "[dim]inactive[/dim]")
+            tbl.add_row("Events", "0")
+            tbl.add_row("Path", escape(str(ebpf.get("event_path", "logs/ebpf_events.jsonl"))))
+            return Panel(tbl, title="Kernel Observer", border_style="dim")
+
+        rows = self._int_value(ebpf, "events_total")
+        read_error = ebpf.get("read_error")
+        stale = bool(ebpf.get("stale") or observer.get("stale"))
+        active = bool(ebpf.get("active") or observer.get("active") or observer.get("running"))
+        if read_error:
+            status_style = "red"
+            status_label = "READ ERROR"
+        elif stale:
+            status_style = "yellow"
+            status_label = "STALE"
+        elif active:
+            status_style = "green"
+            status_label = "ACTIVE"
+        elif rows:
+            status_style = "green"
+            status_label = "EVENT DATA"
+        else:
+            status_style = "yellow"
+            status_label = "NO EVENTS"
+        tbl.add_row("Observer", f"[{status_style}]{status_label}[/{status_style}]")
+        mode = (
+            ebpf.get("mode")
+            or observer.get("mode")
+            or observer.get("active_mode")
+            or "-"
+        )
+        tool = (
+            ebpf.get("tool")
+            or observer.get("tool")
+            or observer.get("active_tool")
+            or observer.get("backend")
+            or "-"
+        )
+        tbl.add_row("Mode / Tool", escape(f"{mode} / {tool}"))
+        tbl.add_row("Events", f"{rows:,} rows")
+        event_text = ", ".join(
+            f"{key}:{value}" for key, value in (ebpf.get("by_event") or {}).items()
+        ) or "none"
+        tbl.add_row("Event Types", escape(event_text))
+        route_text = ", ".join(
+            f"{key}:{value}" for key, value in (ebpf.get("by_route_class") or {}).items()
+        ) or "none"
+        tbl.add_row("Route Classes", escape(route_text))
+        direct = self._int_value(ebpf, "direct_egress")
+        direct_style = "red" if direct else "green"
+        tbl.add_row("Direct Egress", f"[{direct_style}]{direct:,}[/{direct_style}]")
+        retry = ebpf.get("retry_storm") if isinstance(ebpf.get("retry_storm"), dict) else {}
+        retry_style = "red" if retry.get("active") else "green"
+        retry_state = "active" if retry.get("active") else "quiet"
+        tbl.add_row(
+            "Retry Storm",
+            (
+                f"[{retry_style}]{retry_state} / "
+                f"{self._int_value(retry, 'max_rate'):,} max[/{retry_style}]"
+            ),
+        )
+        sessions = ebpf.get("sessions") if isinstance(ebpf.get("sessions"), dict) else {}
+        session_count = self._int_value(sessions, "session_count")
+        required_sessions = self._int_value(sessions, "required_sessions")
+        if sessions:
+            session_style = "green" if sessions.get("ok") else "yellow"
+            tbl.add_row(
+                "Sessions",
+                (
+                    f"[{session_style}]{session_count}/"
+                    f"{required_sessions} visible[/{session_style}]"
+                ),
+            )
+        else:
+            tbl.add_row("Sessions", "[dim]not reported[/dim]")
+        tbl.add_row("Dst Peers", f"{self._int_value(ebpf, 'unique_dst_peers'):,}")
+        recent = ebpf.get("recent") if isinstance(ebpf.get("recent"), list) else []
+        if recent:
+            last = recent[-1] if isinstance(recent[-1], dict) else {}
+            comm = escape(str(last.get("comm") or "-")[:24])
+            dst = escape(f"{last.get('dst_ip') or '-'}:{last.get('dst_port') or '-'}")
+            tbl.add_row("Last", f"{comm} [dim]{dst}[/dim]")
+        return Panel(tbl, title="Kernel Observer", border_style=status_style)
 
     def _intelligence_panel(self):
         k = self.khoj
@@ -638,6 +768,8 @@ class Dashboard:
         tbl.add_column("Action", no_wrap=True)
         tbl.add_row("S", "Start All")
         tbl.add_row("X", "Stop All")
+        tbl.add_row("T", "Start Proxy")
+        tbl.add_row("Z", "Stop Proxy")
         tbl.add_row("P", "Deep Patch")
         tbl.add_row("R", "Repatch")
         tbl.add_row("U", "Unpatch")
@@ -727,6 +859,7 @@ class Dashboard:
         # Bottom section: Swarm Events on left, Live Log on right
         root["bottom"].split_row(
             Layout(self._events_panel(), ratio=1),
+            Layout(self._ebpf_panel(), ratio=1),
             Layout(Panel(self._mini_log_content(), title="Intelligence Stream", border_style="dim"), ratio=1),
         )
 
@@ -775,6 +908,8 @@ class Dashboard:
                     if c == "q": break
                     elif c == "s": self.run_cmd("System Start", "./hg.sh start")
                     elif c == "x": self.run_cmd("System Stop", "./hg.sh stop")
+                    elif c == "t": self.run_cmd("Proxy Start", "./hg.sh proxy start cache-first")
+                    elif c == "z": self.run_cmd("Proxy Stop", "./hg.sh proxy stop")
                     elif c == "p": self.run_cmd("Deep Patch", "./hg.sh patch")
                     elif c == "r": self.run_cmd("Repatch", "./hg.sh repatch")
                     elif c == "u": self.run_cmd("Unpatch", "./hg.sh unpatch")

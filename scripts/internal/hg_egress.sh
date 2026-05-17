@@ -11,12 +11,25 @@ TARGET_USER="${SUDO_USER:-${HG_EGRESS_USER:-john}}"
 TARGET_UID="$(id -u "$TARGET_USER" 2>/dev/null || id -u)"
 CHAIN="HG-WINDSURF-EGRESS"
 PORT="${HG_PROXY_HTTPS_PORT:-443}"
-KNOWN_IPS=(
-    "34.160.81.0"
-    "34.49.14.144"
-    "35.223.238.178"
-    "192.34.20.166"
+KNOWN_DOMAINS=(
+    "proxy.windsurf.com"
+    "inference.codeium.com"
+    "unleash.codeium.com"
+    "server.self-serve.windsurf.com"
 )
+
+# Dynamically resolve IPs
+resolve_ips() {
+    local ips=()
+    for domain in "${KNOWN_DOMAINS[@]}"; do
+        local ip
+        ip=$(dig +short "$domain" @1.1.1.1 | tail -n1)
+        if [[ -n "$ip" ]]; then
+            ips+=("$ip")
+        fi
+    done
+    echo "${ips[@]}"
+}
 
 sudo_iptables() {
     echo "$SUDO_PASS" | sudo -S iptables "$@" >/dev/null 2>&1
@@ -38,10 +51,14 @@ enable_shield() {
     sudo_iptables -t nat -F "$CHAIN" || true
     sudo_iptables -t nat -A "$CHAIN" -o lo -j RETURN
     sudo_iptables -t nat -A "$CHAIN" -p tcp -m owner ! --uid-owner "$TARGET_UID" -j RETURN
-    for ip in "${KNOWN_IPS[@]}"; do
+    
+    local resolved_ips
+    resolved_ips=$(resolve_ips)
+    for ip in $resolved_ips; do
         sudo_iptables -t nat -A "$CHAIN" -p tcp -d "$ip" --dport 443 -j REDIRECT --to-ports "$PORT"
     done
     echo "egress shield enabled for uid=$TARGET_UID port=$PORT"
+    echo "Shielded IPs: $resolved_ips"
 }
 
 status_shield() {

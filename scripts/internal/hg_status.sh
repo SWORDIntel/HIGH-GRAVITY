@@ -268,6 +268,52 @@ print(f"           Runtime mode: {mode}")
 print(f"           Response cache: {exact_hits + canonical_hits} hit / {exact_stores + canonical_stores} store")
 print(f"           Upstream gate: {forwards} forward / {misses} miss / {blocks} block")
 print(f"           Local ACK: {acks} req / {ack_bytes // 1024} KiB avoided")
+ebpf = payload.get("ebpf") if isinstance(payload.get("ebpf"), dict) else {}
+observer = ebpf.get("status") if isinstance(ebpf.get("status"), dict) else {}
+
+def ebpf_num(data, key):
+    try:
+        return int(data.get(key, 0) or 0)
+    except Exception:
+        return 0
+
+if ebpf:
+    active = bool(ebpf.get("active") or observer.get("active") or observer.get("running"))
+    stale = bool(ebpf.get("stale") or observer.get("stale"))
+    if ebpf.get("read_error"):
+        state = "read-error"
+    elif stale:
+        state = "stale"
+    elif active:
+        state = "active"
+    elif ebpf.get("present"):
+        state = "event-data" if ebpf_num(ebpf, "events_total") else "no-events"
+    else:
+        state = "inactive"
+    mode = ebpf.get("mode") or observer.get("mode") or observer.get("active_mode") or "-"
+    tool = ebpf.get("tool") or observer.get("tool") or observer.get("active_tool") or observer.get("backend") or "-"
+    events = ebpf.get("by_event") if isinstance(ebpf.get("by_event"), dict) else {}
+    event_text = ",".join(f"{key}:{value}" for key, value in events.items()) or "none"
+    routes = ebpf.get("by_route_class") if isinstance(ebpf.get("by_route_class"), dict) else {}
+    route_text = ",".join(f"{key}:{value}" for key, value in routes.items()) or "none"
+    retry = ebpf.get("retry_storm") if isinstance(ebpf.get("retry_storm"), dict) else {}
+    retry_text = "active" if retry.get("active") else "quiet"
+    sessions = ebpf.get("sessions") if isinstance(ebpf.get("sessions"), dict) else {}
+    if sessions:
+        session_text = (
+            f"{ebpf_num(sessions, 'session_count')}/"
+            f"{ebpf_num(sessions, 'required_sessions')} visible"
+        )
+    else:
+        session_text = "not-reported"
+    print(
+        "           eBPF observer: "
+        f"{state} mode={mode} tool={tool} "
+        f"events={ebpf_num(ebpf, 'events_total')} ({event_text}) "
+        f"direct={ebpf_num(ebpf, 'direct_egress')} "
+        f"retry={retry_text}:{ebpf_num(retry, 'max_rate')} "
+        f"sessions={session_text} routes={route_text}"
+    )
 PY
 )"
         if [ -n "$RUNTIME_SUMMARY" ]; then
@@ -308,6 +354,7 @@ if [ -f "certs/proxy.crt" ] && [ -f "certs/proxy.key" ]; then
             [ -z "$FRONT_PID" ] && FRONT_PID=$(listener_pid "$FRONT_PORT")
             [ -z "$FRONT_PID" ] && FRONT_PID="unknown"
             echo -e "C Front:   ${GREEN}✓ TLS RELAY RUNNING${NC} (PID: $FRONT_PID, ${HG_MICROPROXY_FRONT_LISTEN}→${HG_MICROPROXY_FRONT_UPSTREAM})"
+            echo -e "           ${CYAN}Expert Shield: jitter=5-45ms redactor=active acks=telemetry${NC}"
         elif pidfile_alive "logs/microproxy_front.pid"; then
             echo -e "C Front:   ${YELLOW}! RELAY PROCESS UP, LISTENER DOWN${NC} (pid $(pidfile_read "logs/microproxy_front.pid"), expected ${HG_MICROPROXY_FRONT_LISTEN}→${HG_MICROPROXY_FRONT_UPSTREAM})"
         elif [ -f "logs/microproxy_front.pid" ]; then

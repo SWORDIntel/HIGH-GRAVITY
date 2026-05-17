@@ -140,6 +140,9 @@ Procedural HMI:
 ./hg.sh hmi-dashboard
 ```
 
+Launch Procedural HMI Dashboard with `./hg.sh hmi-dashboard` or the TUI
+hotkey. **`H`**: Launch Procedural HMI Dashboard.
+
 The HMI telemetry pipeline consumes the same core counters as the TUI: proxy mode, response cache, upstream gate, local ACK, Khoj, Pegasus, C-edge streams, and acceleration state.
 
 ## Status And Usage
@@ -179,6 +182,43 @@ Throughput baseline:
 ```bash
 ./hg.sh throughput
 ```
+
+Kernel/socket observer:
+
+```bash
+./hg.sh ebpf status
+./hg.sh ebpf start trace-tcp 3600
+./hg.sh ebpf stop
+./hg.sh ebpf observe 15
+./hg.sh ebpf trace-tcp 10
+```
+
+The eBPF path is observational. It does not restart Windsurf, restart the proxy,
+alter routing, modify quota/accounting responses, or change iptables. When
+`bpftrace` or kernel BTF is missing, `observe` falls back to bounded `ss`
+sampling so direct socket behavior can still be compared against proxy
+telemetry. The managed observer commands write `logs/ebpf_status.json`,
+`logs/ebpf_observer.pid`, and `logs/ebpf_events.jsonl`; they only control that
+observer process group.
+
+Offline eBPF event helpers in `src/ebpf_events.py` classify socket destinations
+without requiring live kernel probes:
+
+| Route class | Meaning |
+| --- | --- |
+| `local_proxy` | Loopback traffic to the Python/control proxy, such as `9443` or `9998`. |
+| `expected_proxy_front` | Loopback traffic to the expected HTTPS/C-edge front, normally port `443`. |
+| `direct_upstream` | Remote TLS egress on port `443`, which bypasses the local proxy path. |
+| `unknown` | Missing, malformed, or non-HTTPS remote destinations that cannot be classified. |
+
+Retry storms are summarized as bursts of repeated attempts for the same process
+and destination within a bounded window. The default summary uses a 20 second
+window and a threshold of 5 attempts; focused tests can override both values.
+
+Two concurrent Windsurf sessions are considered visible only when eBPF rows
+preserve at least two distinct session/window identifiers and each required
+session has at least one classified route observation. This keeps session-level
+diagnostics separate from aggregate direct-egress counts.
 
 ## C Edge
 
@@ -230,12 +270,12 @@ Acceleration probes cover CUDA, OpenVINO, and NCS2/Myriad visibility. See:
 ./hg.sh patch
 ./hg.sh repatch
 ./hg.sh unpatch
-./hg.sh shim
 ./hg.sh egress status
 ./hg.sh egress on
 ```
 
-`unpatch` restores files but preserves redirected hosts for local HTTPS routing. Use care with full stop/repatch flows when Windsurf is open.
+`unpatch` restores binary and JavaScript files to their original state.
+**v4.0 Update**: We no longer use brittle `/etc/hosts` overrides. The `./hg.sh egress on` command now utilizes **Dynamic DNS Discovery** (`dig @1.1.1.1`) to resolve live production IPs at runtime, injecting them into the `HG-WINDSURF-EGRESS` iptables chain. This ensures the intercept shield remains perfectly synchronized with upstream load balancer rotations.
 
 ## Testing
 
@@ -291,6 +331,7 @@ Concurrent sessions slow or unreachable:
 ```bash
 ./hg.sh status
 ./hg.sh microproxy status
+./hg.sh ebpf observe 15
 python3 tools/read_microproxy_events.py --skip-invalid logs/microproxy_events.jsonl
 ```
 

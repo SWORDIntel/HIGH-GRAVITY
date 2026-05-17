@@ -587,14 +587,20 @@ class PegasusKhojBridge:
     def _minify_snippet(self, text: str) -> str:
         """Heuristic code minification to save tokens."""
         if not text: return text
-        # Remove single-line comments (Python, C, JS, etc.)
+        # 1. Remove docstrings (multi-line strings starting at start of line or after whitespace)
+        text = re.sub(r'(""".*?"""|\'\'\'.*?\'\'\')', '', text, flags=re.DOTALL)
+        # 2. Remove single-line comments (Python, C, JS, etc.)
         text = re.sub(r'#.*$', '', text, flags=re.MULTILINE)
         text = re.sub(r'//.*$', '', text, flags=re.MULTILINE)
-        # Collapse multiple empty lines
-        text = re.sub(r'\n{2,}', '\n', text)
-        # Trim whitespace from lines
-        text = "\n".join([line.rstrip() for line in text.splitlines() if line.strip()])
-        return text
+        # 3. Collapse multiple empty lines and trim every line
+        lines = []
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                # Collapse internal whitespace to single space
+                line = re.sub(r'[ \t]+', ' ', line)
+                lines.append(line)
+        return "\n".join(lines)
 
     def _to_snippets(self, results: Any, limit_chars: int = 800) -> List[str]:
         """Convert Khoj results to formatted snippets with distillation."""

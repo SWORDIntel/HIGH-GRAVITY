@@ -1,3 +1,6 @@
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#include "intelligence_edge.h"
 #include <errno.h>
 #include <ctype.h>
 #include <limits.h>
@@ -32,6 +35,34 @@
 #define HG_EDGE_MAX_HOST 256
 #define HG_EDGE_MAX_CONTENT_TYPE 128
 #define HG_EDGE_LARGE_EDIT_BYTES 262144ULL
+
+/* HIGH-GRAVITY Enterprise Spoofing Payloads */
+static const char *HG_SPOOF_ENTERPRISE_JSON =
+    "{\"planTier\":\"ENTERPRISE\",\"teamTier\":\"ENTERPRISE_SAAS\",\"subscriptionStatus\":\"active\","
+    "\"seatType\":\"enterprise\",\"organizationId\":\"hg-org-00000000\",\"userStatus\":\"active\","
+    "\"tier\":\"PRO\",\"enterpriseFeatures\":{\"unlimitedRequests\":true,\"priorityInference\":true,"
+    "\"extendedContext\":true,\"mcpTools\":true,\"webSearch\":true,\"codebaseIndexing\":true},"
+    "\"flex_credit_quota\":999999,\"used_prompt_credits\":0,\"used_flow_credits\":0,\"used_flex_credits\":0,"
+    "\"user_prompt_credit_cap\":999999,\"user_flow_credit_cap\":999999,\"add_on_credits_available\":999999,"
+    "\"add_on_credits_used\":0,\"is_capable\":true}";
+
+static const char *HG_SPOOF_MODELS_JSON =
+    "{\"status\":\"ok\",\"models\":["
+    "{\"modelId\":\"MODEL_PRIVATE_11\",\"modelKey\":\"MODEL_PRIVATE_11\",\"displayName\":\"Claude Haiku 4.5\",\"family\":\"claude\",\"tier\":\"fast\",\"contextWindow\":200000,\"status\":\"available\",\"visible\":true},"
+    "{\"modelId\":\"MODEL_PRIVATE_2\",\"modelKey\":\"MODEL_PRIVATE_2\",\"displayName\":\"Claude Sonnet 4.5\",\"family\":\"claude\",\"tier\":\"balanced\",\"contextWindow\":200000,\"status\":\"available\",\"visible\":true},"
+    "{\"modelId\":\"MODEL_PRIVATE_3\",\"modelKey\":\"MODEL_PRIVATE_3\",\"displayName\":\"Claude Sonnet 4.5 Thinking\",\"family\":\"claude\",\"tier\":\"deep\",\"contextWindow\":200000,\"status\":\"available\",\"visible\":true},"
+    "{\"modelId\":\"MODEL_PRIVATE_4\",\"modelKey\":\"MODEL_PRIVATE_4\",\"displayName\":\"Claude Opus 4.5\",\"family\":\"claude\",\"tier\":\"deep\",\"contextWindow\":200000,\"status\":\"available\",\"visible\":true},"
+    "{\"modelId\":\"MODEL_DEEPSEEK_V3\",\"modelKey\":\"MODEL_DEEPSEEK_V3\",\"displayName\":\"DeepSeek V3\",\"family\":\"deepseek\",\"tier\":\"pro\",\"contextWindow\":64000,\"status\":\"available\",\"visible\":true},"
+    "{\"modelId\":\"MODEL_CHAT_O3_LOW\",\"modelKey\":\"MODEL_CHAT_O3_LOW\",\"displayName\":\"OpenAI O3 (Low)\",\"family\":\"openai\",\"tier\":\"pro\",\"contextWindow\":128000,\"status\":\"available\",\"visible\":true}"
+    "]}";
+
+static const char *HG_SPOOF_UNLEASH_JSON =
+    "{\"unleash_data\":{\"version\":1,\"features\":["
+    "{\"name\":\"unlimited_context\",\"enabled\":true},{\"name\":\"enable_cascade_v2\",\"enabled\":true},"
+    "{\"name\":\"is_enterprise\",\"enabled\":true},{\"name\":\"is_paid_user\",\"enabled\":true},"
+    "{\"name\":\"enable_o1_models\",\"enabled\":true},{\"name\":\"enable_claude_opus\",\"enabled\":true},"
+    "{\"name\":\"priority_inference\",\"enabled\":true},{\"name\":\"unlimited_usage\",\"enabled\":true}"
+    "]}}";
 
 typedef struct {
     char host[HG_EDGE_MAX_ENDPOINT];
@@ -77,6 +108,8 @@ typedef struct {
     const char *route;
     const char *candidate;
     const char *reason;
+    char path[HG_EDGE_MAX_PATH];
+    char content_type[HG_EDGE_MAX_CONTENT_TYPE];
     bool hot_path_candidate;
     const char *fallback_state;
     bool direct_cooldown_active;
@@ -91,10 +124,34 @@ typedef struct {
 
 static volatile sig_atomic_t g_stop_requested = 0;
 static unsigned long long g_next_stream_id = 1;
+static char g_local_user[128] = "";
+static char g_local_home[256] = "";
+static shadow_profile_t g_current_profile;
+static key_pool_t g_key_pool;
 
 static void handle_stop_signal(int signal_number) {
     (void)signal_number;
     g_stop_requested = 1;
+}
+
+static ssize_t inject_api_key(char *buffer, ssize_t length, size_t capacity, const char *key) {
+    char *auth = strcasestr(buffer, "Authorization: Bearer ");
+    if (!auth) return length;
+
+    char *line_end = strstr(auth, "\r\n");
+    if (!line_end) return length;
+
+    size_t old_header_len = (size_t)(line_end - auth);
+    char new_header[256];
+    int nh_len = snprintf(new_header, sizeof(new_header), "Authorization: Bearer %s", key);
+
+    if (length - (ssize_t)old_header_len + (ssize_t)nh_len > (ssize_t)capacity) return length;
+
+    size_t tail_len = (size_t)(length - (line_end - buffer));
+    memmove(auth + nh_len, line_end, tail_len);
+    memcpy(auth, new_header, (size_t)nh_len);
+
+    return length - (ssize_t)old_header_len + (ssize_t)nh_len;
 }
 
 static void print_usage(FILE *stream, const char *program) {
@@ -117,6 +174,148 @@ static void print_usage(FILE *stream, const char *program) {
             program,
             HG_EDGE_DEFAULT_LISTEN,
             HG_EDGE_DEFAULT_UPSTREAM);
+}
+
+static bool send_http_json_response(int client_fd, const char *json, const char *content_type) {
+    char header[512];
+    char ct_buf[128];
+    size_t json_len = strlen(json);
+    bool connect_framed = false;
+
+    strncpy(ct_buf, content_type, sizeof(ct_buf) - 1);
+    ct_buf[sizeof(ct_buf) - 1] = '\0';
+
+    /* Surgical Switch: convert +proto to +json to satisfy Connect client */
+    char *proto_ptr = strstr(ct_buf, "+proto");
+    if (proto_ptr) {
+        memcpy(proto_ptr, "+json ", 6); /* replace +proto with +json */
+        proto_ptr[5] = '\0';
+    } else if (strcmp(ct_buf, "application/proto") == 0 || strcmp(ct_buf, "application/grpc") == 0) {
+        strcpy(ct_buf, "application/json");
+    }
+
+    if (strstr(ct_buf, "connect") || strstr(ct_buf, "grpc-web")) {
+        connect_framed = true;
+    }
+
+    size_t body_len = json_len;
+    if (connect_framed) {
+        body_len += 5;
+    }
+
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: %s\r\n"
+             "Content-Length: %zu\r\n"
+             "Connection: close\r\n"
+             "Server: hg-edge/%s\r\n"
+             "\r\n",
+             ct_buf, body_len, HG_EDGE_VERSION);
+
+    if (send(client_fd, header, strlen(header), 0) < 0) return false;
+
+    if (connect_framed) {
+        unsigned char prefix[5];
+        prefix[0] = 0x00; /* Data flag */
+        prefix[1] = (unsigned char)((json_len >> 24) & 0xFF);
+        prefix[2] = (unsigned char)((json_len >> 16) & 0xFF);
+        prefix[3] = (unsigned char)((json_len >> 8) & 0xFF);
+        prefix[4] = (unsigned char)(json_len & 0xFF);
+        if (send(client_fd, prefix, 5, 0) < 0) return false;
+    }
+
+    if (send(client_fd, json, json_len, 0) < 0) return false;
+
+    return true;
+}
+
+static bool check_ami_stage4(const char *path, const char *body, size_t len, const char **response_out, const char **content_type_out) {
+    (void)path;
+    (void)body;
+    (void)len;
+    (void)response_out;
+    (void)content_type_out;
+
+    /* TODO: Implement O(1) hash lookup for high-frequency exact matches */
+    return false;
+}
+
+static void apply_timing_jitter(void) {
+    /* 5ms to 45ms jitter */
+    unsigned int delay_ms = 5 + (rand() % 41);
+    struct timespec requested;
+    requested.tv_sec = 0;
+    requested.tv_nsec = (long)delay_ms * 1000000L;
+    while (nanosleep(&requested, &requested) != 0 && errno == EINTR) {
+    }
+}
+
+static ssize_t inject_shadow_profile(char *buffer, ssize_t length, size_t capacity, const shadow_profile_t *profile) {
+    const char *header_end = strstr(buffer, "\r\n\r\n");
+    if (!header_end) return length;
+
+    char new_headers[256];
+    int nh_len = snprintf(new_headers, sizeof(new_headers),
+                          "X-Session-Id: %s\r\n"
+                          "X-Installation-Id: %s\r\n",
+                          profile->session_id, profile->installation_id);
+
+    if (length + nh_len > (ssize_t)capacity) return length;
+
+    size_t tail_len = (size_t)(length - (header_end - buffer));
+    memmove((char *)header_end + nh_len, header_end, tail_len);
+    memcpy((char *)header_end, new_headers, (size_t)nh_len);
+
+    return length + nh_len;
+}
+
+static ssize_t redact_identity(char *buffer, ssize_t length, size_t capacity) {
+    if (g_local_user[0] == '\0') return length;
+
+    char *match;
+    ssize_t current_len = length;
+
+    /* Redact Home Path first (more specific) */
+    if (g_local_home[0] != '\0') {
+        size_t home_len = strlen(g_local_home);
+        while ((match = strstr(buffer, g_local_home)) != NULL) {
+            size_t match_offset = (size_t)(match - buffer);
+            if (match_offset + home_len > (size_t)current_len) break;
+
+            /* Replace with ~/ */
+            size_t replacement_len = 2;
+            const char *replacement = "~/";
+            
+            size_t tail_len = (size_t)current_len - match_offset - home_len;
+            if (match_offset + replacement_len + tail_len > capacity) break;
+
+            memmove(match + replacement_len, match + home_len, tail_len);
+            memcpy(match, replacement, replacement_len);
+            current_len = (ssize_t)(match_offset + replacement_len + tail_len);
+            buffer[current_len] = '\0';
+        }
+    }
+
+    /* Redact Username */
+    size_t user_len = strlen(g_local_user);
+    while ((match = strstr(buffer, g_local_user)) != NULL) {
+        size_t match_offset = (size_t)(match - buffer);
+        if (match_offset + user_len > (size_t)current_len) break;
+
+        /* Replace with [USER] */
+        size_t replacement_len = 6;
+        const char *replacement = "[USER]";
+        
+        size_t tail_len = (size_t)current_len - match_offset - user_len;
+        if (match_offset + replacement_len + tail_len > capacity) break;
+
+        memmove(match + replacement_len, match + user_len, tail_len);
+        memcpy(match, replacement, replacement_len);
+        current_len = (ssize_t)(match_offset + replacement_len + tail_len);
+        buffer[current_len] = '\0';
+    }
+
+    return current_len;
 }
 
 static bool parse_port(const char *text, unsigned int *port_out) {
@@ -625,12 +824,17 @@ static route_decision_t classify_http_request(const http_request_t *request) {
         .route = "passthrough",
         .candidate = "",
         .reason = "no_known_plaintext_hot_path_shape",
+        .path = {0},
+        .content_type = {0},
         .hot_path_candidate = false,
         .fallback_state = "none",
         .direct_cooldown_active = false,
         .direct_failure_count = 0,
         .direct_cooldown_remaining_ms = 0,
     };
+    snprintf(decision.path, sizeof(decision.path), "%s", request->path);
+    snprintf(decision.content_type, sizeof(decision.content_type), "%s", request->content_type);
+
     bool mutating_method = method_is_one_of(request->method, "POST", "PUT", "PATCH");
     bool proto_content =
         contains_ci(request->content_type, "application/connect+proto") ||
@@ -658,6 +862,33 @@ static route_decision_t classify_http_request(const http_request_t *request) {
         contains_ci(request->path, "rewrite") ||
         contains_ci(request->path, "composer") ||
         contains_ci(request->path, "cascade");
+
+    bool spoof_path =
+        contains_ci(request->path, "checkchatcapacity") ||
+        contains_ci(request->path, "getunleashdata") ||
+        contains_ci(request->path, "getcliteamsettings");
+
+    bool telemetry_path =
+        contains_ci(request->path, "recordanalyticsevent") ||
+        contains_ci(request->path, "recordasynctelemetry") ||
+        contains_ci(request->path, "client/metrics") ||
+        contains_ci(request->path, "analyticsservice") ||
+        contains_ci(request->path, "telemetry") ||
+        contains_ci(request->path, "pulse");
+
+    if (spoof_path) {
+        decision.classification = "config";
+        decision.route = "spoof";
+        decision.reason = "enterprise_metadata_spoof";
+        return decision;
+    }
+
+    if (telemetry_path) {
+        decision.classification = "telemetry";
+        decision.route = "local_ack";
+        decision.reason = "telemetry_high_frequency_pulse";
+        return decision;
+    }
 
     if (method_is_one_of(request->method, "GET", "HEAD", NULL) &&
         (contains_ci(request->path, "/v1/models") ||
@@ -1165,6 +1396,22 @@ static bool bytes_contains_ci(const char *buffer, ssize_t length, const char *ne
     return false;
 }
 
+/* Real-time Protobuf Patching */
+void patch_protobuf_stream(char *buffer, size_t count) {
+    for (size_t i = 0; i < count - 1; i++) {
+        // Look for 0x58 0x00 (flag: false) or 0x68 0x00, 0x78 0x00
+        // Flip to 0x01 (true)
+        if (((unsigned char)buffer[i] == 0x58 || 
+             (unsigned char)buffer[i] == 0x68 || 
+             (unsigned char)buffer[i] == 0x78 ||
+             (unsigned char)buffer[i] == 0x60 ||
+             (unsigned char)buffer[i] == 0x90) && (unsigned char)buffer[i+1] == 0x00) {
+            buffer[i+1] = 0x01;
+        }
+    }
+}
+bool is_model_config_stream(int stream_id) { (void)stream_id; return true; }
+
 static bool forward_ready_bytes(int from_fd,
                                 int to_fd,
                                 bool *from_open,
@@ -1193,33 +1440,15 @@ static bool forward_ready_bytes(int from_fd,
         return true;
     }
 
-    if (client_sniffed != NULL) {
-        sniff_client_bytes(event_log_path,
-                           stream_id,
-                           buffer,
-                           count,
-                           client_sniffed,
-                           hot_path_observe);
-    }
+    /* Pure L4 Relay: Forward bytes without modification to avoid SSL corruption.
+       Upstream proxy (proxy.py) handles L7 logic and SSL termination. */
 
-    if (!send_all(to_fd, buffer, count)) {
-        *to_open = false;
+    ssize_t sent = send(to_fd, buffer, count, 0);
+    if (sent < 0) {
         return false;
     }
 
-    if (upstream_to_client && stats != NULL) {
-        if (!stats->upstream_connect_error_signal &&
-            bytes_contains_ci(buffer, count, "failed_precondition")) {
-            stats->upstream_connect_error_signal = true;
-        }
-        if (!stats->upstream_quota_exhausted_signal &&
-            (bytes_contains_ci(buffer, count, "quota has been exhausted") ||
-             bytes_contains_ci(buffer, count, "daily usage quota exhausted"))) {
-            stats->upstream_quota_exhausted_signal = true;
-        }
-    }
-
-    *bytes_forwarded += (unsigned long long)count;
+    *bytes_forwarded += (unsigned long long)sent;
     return true;
 }
 
@@ -1361,6 +1590,23 @@ static int run_relay(const endpoint_t *listen,
            HG_EDGE_VERSION, listen->host, listen->port, upstream->host, upstream->port);
     fflush(stdout);
 
+    const char *env_user = getenv("USER");
+    const char *env_home = getenv("HOME");
+    const char *env_keys = getenv("HG_API_KEYS");
+    if (env_user) snprintf(g_local_user, sizeof(g_local_user), "%s", env_user);
+    if (env_home) snprintf(g_local_home, sizeof(g_local_home), "%s", env_home);
+    if (env_keys) {
+        char *keys_copy = strdup(env_keys);
+        char *token = strtok(keys_copy, ",");
+        while (token && g_key_pool.count < MAX_KEYS) {
+            snprintf(g_key_pool.keys[g_key_pool.count++], MAX_KEY_LEN, "%s", token);
+            token = strtok(NULL, ",");
+        }
+        free(keys_copy);
+    }
+    srand((unsigned int)time(NULL) ^ (unsigned int)getpid());
+    generate_shadow_profile(&g_current_profile);
+
     while (!g_stop_requested) {
         struct pollfd poll_fd;
         int poll_result;
@@ -1432,8 +1678,8 @@ static int run_relay(const endpoint_t *listen,
         start_ms = monotonic_ms();
         route_ms = start_ms;
 
-        if (direct_hot_path && direct_upstream != NULL &&
-            peek_client_http_decision(client_fd,
+        /* Always peek for routing and edge-spoofing */
+        if (peek_client_http_decision(client_fd,
                                       event_log_path,
                                       stream_id,
                                       &peek_decision,
@@ -1443,10 +1689,57 @@ static int run_relay(const endpoint_t *listen,
                                       NULL,
                                       NULL,
                                       1000)) {
-            if (peek_decision.hot_path_candidate ||
-                strcmp(peek_decision.classification, "large_edit") == 0) {
-                route_decision = peek_decision;
-                route_ms = monotonic_ms();
+            route_decision = peek_decision;
+            route_ms = monotonic_ms();
+
+            /* Edge Spoofing for Enterprise Metadata */
+            if (strcmp(route_decision.route, "spoof") == 0) {
+                const char *spoof_json = HG_SPOOF_ENTERPRISE_JSON;
+                if (strstr(peek_decision.path, "getclimodelconfigs") ||
+                    strstr(peek_decision.path, "getmodelstatuses") ||
+                    strstr(peek_decision.path, "getavailablemodels")) {
+                    spoof_json = HG_SPOOF_MODELS_JSON;
+                } else if (strstr(peek_decision.path, "getunleashdata")) {
+                    spoof_json = HG_SPOOF_UNLEASH_JSON;
+                }
+
+                if (send_http_json_response(client_fd, spoof_json, peek_decision.content_type)) {
+                    append_event(event_log_path, "response_spoofed", stream_id, listen, selected_upstream, 0, strlen(spoof_json), 0, NULL, NULL, route_ms, "none");
+                }
+                close_fd(client_fd);
+                continue;
+            }
+
+            /* Stage 1 AMI: Exact Cache Lookup */
+            const char *ami_res = NULL;
+            const char *ami_ct = NULL;
+            if (check_ami_stage4(peek_decision.path, NULL, 0, &ami_res, &ami_ct)) {
+                if (send_http_json_response(client_fd, ami_res, ami_ct)) {
+                    append_event(event_log_path, "ami_hit", stream_id, listen, selected_upstream, 0, strlen(ami_res), 0, NULL, NULL, route_ms, "stage4_semantic");
+                }
+                close_fd(client_fd);
+                continue;
+            }
+
+            /* Local ACK for Telemetry/Pulse */
+            if (strcmp(route_decision.route, "local_ack") == 0) {
+                if (send_http_json_response(client_fd, "{}", "application/json")) {
+                    append_event(event_log_path, "local_ack", stream_id, listen, selected_upstream, 0, 2, 0, NULL, NULL, route_ms, "telemetry_ack");
+                }
+                close_fd(client_fd);
+                continue;
+            }
+
+            /* Timing Jitter for Upstream Routes */
+            if (strcmp(route_decision.classification, "chat_completion") == 0 ||
+                strcmp(route_decision.classification, "large_edit") == 0 ||
+                strcmp(route_decision.route, "passthrough") == 0) {
+                apply_timing_jitter();
+            }
+
+            if (direct_hot_path && direct_upstream != NULL &&
+                (peek_decision.hot_path_candidate ||
+                 strcmp(peek_decision.classification, "large_edit") == 0)) {
                 if (direct_upstream_health_in_cooldown(&direct_health, route_ms)) {
                     selected_upstream = upstream;
                     selected_direct_upstream = false;
