@@ -19,6 +19,7 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,58 @@ REQUIRED_IMPORTS: Sequence[Tuple[str, str, str, bool]] = (
     ("uvicorn", "uvicorn", "requirements.txt", True),
     ("hypercorn", "hypercorn", "requirements.txt", True),
     ("h2", "h2", "requirements.txt", True),
+359
+​
+360
+​
+361
+def main(argv: Optional[List[str]] = None) -> int:
+362
+    parser = build_parser()
+363
+    args = parser.parse_args(argv)
+364
+    report = build_report(args)
+365
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+366
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+367
+    json_path = args.report_dir / f"hg_e2e_audit_{stamp}.json"
+368
+    md_path = args.report_dir / f"hg_e2e_audit_{stamp}.md"
+369
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+370
+    write_markdown(report, md_path)
+371
+    print(json.dumps({
+372
+        "ok": report["ok"],
+373
+        "failed_required": report["failed_required"],
+374
+        "json_report": str(json_path),
+375
+        "markdown_report": str(md_path),
+376
+    }, indent=2, sort_keys=True))
+377
+    if args.no_fail:
+378
+        return 0
+379
+    return 0 if report["ok"] else 1
+380
+​
+381
+​
+382
+if __name__ == "__main__":
+383
+    raise SystemExit(main())
+384
+
     ("aiohttp", "aiohttp", "requirements.txt", True),
     ("requests", "requests", "requirements.txt", True),
     ("pyyaml", "yaml", "requirements.txt", True),
@@ -71,6 +124,18 @@ FOCUSED_COMMANDS: Sequence[Tuple[str, Sequence[str], int, bool]] = (
     ("microproxy_smoke", ("./hg.sh", "microproxy", "smoke"), 90, True),
     ("microproxy_events_unit", ("python3", "-m", "unittest", "tests/test_microproxy_events.py"), 60, True),
     ("microproxy_status_unit", ("python3", "-m", "unittest", "tests/test_microproxy_status.py"), 60, True),
+    ("microproxy_edge_unit", ("python3", "-m", "unittest", "tests/test_microproxy_edge.py"), 120, True),
+    ("acceleration_fallback_unit", ("python3", "-m", "unittest", "tests/test_acceleration_fallback.py"), 60, True),
+    ("agy_root_launcher_unit", ("python3", "-m", "unittest", "tests/test_agy_launcher.py"), 60, True),
+    ("flow_log_unit", ("python3", "-m", "unittest", "tests/test_flow_log.py"), 60, True),
+    ("decrypted_flow_proxy_unit", ("python3", "-m", "unittest", "tests/test_decrypted_flow_proxy.py"), 60, True),
+    ("antigravity_paths_unit", ("python3", "-m", "unittest", "tests/test_antigravity_paths.py"), 60, True),
+    ("antigravity_streams_unit", ("python3", "-m", "unittest", "tests/test_antigravity_streams.py"), 60, True),
+    ("e2e_audit_unit", ("python3", "-m", "unittest", "tests/test_e2e_audit.py"), 60, True),
+)
+
+FULL_COMMANDS: Sequence[Tuple[str, Sequence[str], int, bool]] = (
+    ("full_unittest_discover", ("python3", "-m", "unittest", "discover", "-s", "tests"), 240, True),
     ("acceleration_fallback_unit", ("python3", "-m", "unittest", "tests/test_acceleration_fallback.py"), 60, True),
     ("agy_root_launcher_unit", ("python3", "-m", "unittest", "tests/test_agy_launcher.py"), 60, True),
 )
@@ -84,6 +149,7 @@ STATIC_PATTERNS: Sequence[Tuple[str, Sequence[str], bool]] = (
     ("unsafe_python_eval", ("rg", "-n", r"\beval\(", "src", "tools", "scripts", "tests"), False),
     ("pickle_loads", ("rg", "-n", r"pickle\.loads|pickle\.load", "src", "tools", "scripts", "tests"), False),
     ("yaml_load_without_safe_loader", ("rg", "-n", r"yaml\.load\(", "src", "tools", "scripts", "tests"), False),
+    ("microproxy_mutation_or_credential_markers", ("rg", "-n", r"inject_api_key|inject_shadow_profile|patch_protobuf_stream|Authorization: Bearer|HG_API_KEYS", "src/microproxy", "scripts/internal/hg_microproxy.sh"), True),
     ("microproxy_credential_injection_markers", ("rg", "-n", r"inject_api_key|inject_shadow_profile|Authorization: Bearer|HG_API_KEYS", "src/microproxy", "scripts/internal/hg_microproxy.sh"), True),
 )
 
@@ -99,6 +165,18 @@ class CommandResult:
     stdout_tail: str
     stderr_tail: str
     error: Optional[str] = None
+    diagnostics: Optional[List[str]] = None
+
+
+def command_diagnostics(stdout: str, stderr: str) -> List[str]:
+    """Extract stable unittest failure/error identifiers from command output."""
+
+    diagnostics: List[str] = []
+    for line in f"{stdout}\n{stderr}".splitlines():
+        match = re.match(r"^(?:FAIL|ERROR):\s+(.+)$", line.strip())
+        if match and match.group(1) not in diagnostics:
+            diagnostics.append(match.group(1))
+    return diagnostics
 
 
 def utc_now() -> str:
@@ -142,6 +220,7 @@ def run_command(name: str, command: Sequence[str], timeout: int, required: bool)
             duration_ms=duration_ms,
             stdout_tail=tail_text(completed.stdout),
             stderr_tail=tail_text(completed.stderr),
+            diagnostics=command_diagnostics(completed.stdout, completed.stderr),
         )
     except subprocess.TimeoutExpired as exc:
         duration_ms = int((time.monotonic() - start) * 1000)
@@ -176,6 +255,58 @@ def dependency_status() -> List[Dict[str, Any]]:
     for distribution, import_name, source, required in REQUIRED_IMPORTS:
         import_present = importlib.util.find_spec(import_name) is not None
         version = None
+359
+​
+360
+​
+361
+def main(argv: Optional[List[str]] = None) -> int:
+362
+    parser = build_parser()
+363
+    args = parser.parse_args(argv)
+364
+    report = build_report(args)
+365
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+366
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+367
+    json_path = args.report_dir / f"hg_e2e_audit_{stamp}.json"
+368
+    md_path = args.report_dir / f"hg_e2e_audit_{stamp}.md"
+369
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+370
+    write_markdown(report, md_path)
+371
+    print(json.dumps({
+372
+        "ok": report["ok"],
+373
+        "failed_required": report["failed_required"],
+374
+        "json_report": str(json_path),
+375
+        "markdown_report": str(md_path),
+376
+    }, indent=2, sort_keys=True))
+377
+    if args.no_fail:
+378
+        return 0
+379
+    return 0 if report["ok"] else 1
+380
+​
+381
+​
+382
+if __name__ == "__main__":
+383
+    raise SystemExit(main())
+384
+
         try:
             version = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
@@ -250,6 +381,17 @@ def write_markdown(report: Dict[str, Any], markdown_path: Path) -> None:
     lines.extend(["", "## Static/Security Scans", "", "| Scan | OK | Return |", "|---|---:|---:|"])
     for result in report["static_scans"]:
         lines.append(f"| `{result['name']}` | `{result['ok']}` | `{result.get('returncode')}` |")
+    lines.extend(["", "## Command Diagnostics", ""])
+    diagnostic_rows = [
+        (result["name"], item)
+        for result in report["commands"]
+        for item in (result.get("diagnostics") or [])
+    ]
+    if diagnostic_rows:
+        for name, item in diagnostic_rows:
+            lines.append(f"* `{name}`: `{item}`")
+    else:
+        lines.append("* None")
     lines.extend(["", "## Failed Required Checks", ""])
     failed = report.get("failed_required", [])
     if failed:
@@ -288,6 +430,7 @@ def build_report(args: argparse.Namespace) -> Dict[str, Any]:
         "generated_at": utc_now(),
         "ok": not required_failures,
         "failed_required": required_failures,
+        "failed_checks": [item.name for item in commands if not item.ok],
         "system": {
             "platform": platform.platform(),
             "python": sys.version.replace("\n", " "),
@@ -310,6 +453,7 @@ def build_report(args: argparse.Namespace) -> Dict[str, Any]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run HIGH-GRAVITY E2E environment/dependency audit.")
+    parser.add_argument("--full", action="store_true", help="Also run strict full unittest discovery; any failure fails the audit.")
     parser.add_argument("--full", action="store_true", help="Also run full unittest discovery.")
     parser.add_argument("--skip-smoke", action="store_true", help="Skip localhost microproxy smoke traffic.")
     parser.add_argument("--skip-static", action="store_true", help="Skip rg-based static/security marker scans.")
@@ -317,6 +461,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-fail", action="store_true", help="Always exit 0 after writing reports.")
     return parser
 
+  
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -450,6 +451,11 @@ static void append_event(const char *path,
         fprintf(stderr, "hg-edge: cannot append event log %s: %s\n", path, strerror(errno));
         return;
     }
+    if (flock(fileno(file), LOCK_EX) != 0) {
+        fprintf(stderr, "hg-edge: cannot lock event log %s: %s\n", path, strerror(errno));
+        fclose(file);
+        return;
+    }
 
     utc_timestamp(ts, sizeof(ts));
     snprintf(request_id, sizeof(request_id), "req-%llu", stream_id);
@@ -530,6 +536,11 @@ static void append_backpressure_event(const char *path,
     file = fopen(path, "a");
     if (file == NULL) {
         fprintf(stderr, "hg-edge: cannot append event log %s: %s\n", path, strerror(errno));
+        return;
+    }
+    if (flock(fileno(file), LOCK_EX) != 0) {
+        fprintf(stderr, "hg-edge: cannot lock event log %s: %s\n", path, strerror(errno));
+        fclose(file);
         return;
     }
 
@@ -778,6 +789,11 @@ static void append_http_event(const char *event_log_path,
     file = fopen(event_log_path, "a");
     if (file == NULL) {
         fprintf(stderr, "hg-edge: cannot append event log %s: %s\n", event_log_path, strerror(errno));
+        return;
+    }
+    if (flock(fileno(file), LOCK_EX) != 0) {
+        fprintf(stderr, "hg-edge: cannot lock event log %s: %s\n", event_log_path, strerror(errno));
+        fclose(file);
         return;
     }
 
@@ -1204,22 +1220,6 @@ static bool bytes_contains_ci(const char *buffer, ssize_t length, const char *ne
     return false;
 }
 
-/* Real-time Protobuf Patching */
-void patch_protobuf_stream(char *buffer, size_t count) {
-    for (size_t i = 0; i < count - 1; i++) {
-        // Look for 0x58 0x00 (flag: false) or 0x68 0x00, 0x78 0x00
-        // Flip to 0x01 (true)
-        if (((unsigned char)buffer[i] == 0x58 || 
-             (unsigned char)buffer[i] == 0x68 || 
-             (unsigned char)buffer[i] == 0x78 ||
-             (unsigned char)buffer[i] == 0x60 ||
-             (unsigned char)buffer[i] == 0x90) && (unsigned char)buffer[i+1] == 0x00) {
-            buffer[i+1] = 0x01;
-        }
-    }
-}
-bool is_model_config_stream(int stream_id) { (void)stream_id; return true; }
-
 static bool forward_ready_bytes(int from_fd,
                                 int to_fd,
                                 bool *from_open,
@@ -1248,15 +1248,24 @@ static bool forward_ready_bytes(int from_fd,
         return true;
     }
 
-    /* Pure L4 Relay: Forward bytes without modification to avoid SSL corruption.
-       Upstream proxy (proxy.py) handles L7 logic and SSL termination. */
+    /* Observe plaintext request metadata when available, but never modify bytes. */
+    if (!upstream_to_client && client_sniffed != NULL) {
+        sniff_client_bytes(
+            event_log_path,
+            stream_id,
+            buffer,
+            count,
+            client_sniffed,
+            hot_path_observe
+        );
+    }
 
-    ssize_t sent = send(to_fd, buffer, count, 0);
-    if (sent < 0) {
+    /* Pure L4 relay: always forward the original bytes in full. */
+    if (!send_all(to_fd, buffer, count)) {
         return false;
     }
 
-    *bytes_forwarded += (unsigned long long)sent;
+    *bytes_forwarded += (unsigned long long)count;
     return true;
 }
 

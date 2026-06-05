@@ -12,6 +12,9 @@ traffic_mutation_enabled: false
 decrypted_traffic_log: true
 decrypted_traffic_full_body: true
 decrypted_traffic_log_path: "logs/traffic_flows.jsonl"
+decrypted_traffic_log_max_bytes: 104857600
+decrypted_traffic_log_backup_count: 5
+decrypted_traffic_queue_size: 256
 local_ack_telemetry: false
 microproxy_event_log_path: "logs/microproxy_events.jsonl"
 mitm_mode: "observe-only"

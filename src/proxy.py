@@ -32,6 +32,7 @@ from fastapi import Response, FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 import aiohttp
 from src.ebpf_events import read_summary as read_ebpf_summary
+from src.flow_log import AsyncRotatingJsonlWriter
 from src.microproxy.events import read_events as read_microproxy_events
 from src.microproxy.events import summarize_observer_events
 from src.microproxy.patch_proto import patch_proto
@@ -132,6 +133,22 @@ def _safe_header_snapshot(headers: Mapping[str, Any]) -> Dict[str, str]:
     return snapshot
 
 
+def _body_observation(
+    body: bytes,
+    content_type: str = "",
+    total_bytes: Optional[int] = None,
+) -> Dict[str, Any]:
+    data = bytes(body or b"")
+    observed_bytes = len(data) if total_bytes is None else max(len(data), int(total_bytes))
+    max_bytes = max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)
+    sample = data[:max_bytes] if max_bytes else b""
+    truncated = len(sample) < observed_bytes
+    obs: Dict[str, Any] = {
+        "bytes": observed_bytes,
+        "sha256": None if truncated else hashlib.sha256(data).hexdigest(),
+        "sample_sha256": hashlib.sha256(sample).hexdigest(),
+        "sample_bytes": len(sample),
+        "truncated": truncated,
 def _body_observation(body: bytes, content_type: str = "") -> Dict[str, Any]:
     data = bytes(body or b"")
     max_bytes = max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)
@@ -165,6 +182,57 @@ def _body_observation(body: bytes, content_type: str = "") -> Dict[str, Any]:
     return obs
 
 
+def _decrypted_flow_event(record: Mapping[str, Any]) -> Dict[str, Any]:
+    """Perform expensive body encoding/JSON inspection off the event loop."""
+
+    body = bytes(record.get("body") or b"")
+    event = dict(record)
+    event["body"] = _body_observation(
+        body,
+        str(record.get("content_type") or ""),
+        total_bytes=int(record.get("body_total_bytes") or len(body)),
+    )
+    event.pop("body_total_bytes", None)
+    return event
+
+
+def _decrypted_flow_written(record: Mapping[str, Any]) -> None:
+    _append_shared_metric(
+        "decrypted_flow",
+        decrypted_flow_events=1,
+        decrypted_flow_bytes=int(record.get("body_total_bytes") or len(record.get("body") or b"")),
+    )
+
+
+def _get_decrypted_flow_writer() -> AsyncRotatingJsonlWriter:
+    global _DECRYPTED_FLOW_WRITER
+    with _DECRYPTED_FLOW_WRITER_LOCK:
+        if _DECRYPTED_FLOW_WRITER is None:
+            _DECRYPTED_FLOW_WRITER = AsyncRotatingJsonlWriter(
+                HG_DECRYPTED_TRAFFIC_LOG_FILE,
+                max_bytes=HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES,
+                backup_count=HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT,
+                queue_size=HG_DECRYPTED_TRAFFIC_QUEUE_SIZE,
+                transform=_decrypted_flow_event,
+                on_written=_decrypted_flow_written,
+            )
+        return _DECRYPTED_FLOW_WRITER
+
+
+def _decrypted_flow_writer_stats() -> Dict[str, int]:
+    if _DECRYPTED_FLOW_WRITER is not None:
+        return _DECRYPTED_FLOW_WRITER.stats()
+    return {
+        "queued": 0,
+        "written": 0,
+        "dropped": 0,
+        "failures": 0,
+        "max_bytes": HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES,
+        "backup_count": HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT,
+        "queue_size": HG_DECRYPTED_TRAFFIC_QUEUE_SIZE,
+    }
+
+
 def _append_decrypted_flow_event(
     *,
     request_id: str,
@@ -180,6 +248,7 @@ def _append_decrypted_flow_event(
     headers: Optional[Mapping[str, Any]] = None,
     chunk_index: Optional[int] = None,
 ) -> None:
+    """Queue one locally terminated flow observation without blocking requests."""
     """Append one TLS-terminated/decompressed flow observation to JSONL.
 
     This does not break third-party TLS. It records traffic that has already
@@ -189,6 +258,8 @@ def _append_decrypted_flow_event(
     if not HG_DECRYPTED_TRAFFIC_LOG:
         return
     try:
+        raw_body = bytes(body or b"")
+        record: Dict[str, Any] = {
         event: Dict[str, Any] = {
             "schema_version": 1,
             "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
@@ -205,6 +276,12 @@ def _append_decrypted_flow_event(
             "status": status,
             "chunk_index": chunk_index,
             "headers": _safe_header_snapshot(headers or {}),
+            "body": raw_body[:max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)],
+            "body_total_bytes": len(raw_body),
+        }
+        _get_decrypted_flow_writer().enqueue(record)
+    except Exception as exc:
+        logger.debug(f"DECRYPTED_FLOW_QUEUE_FAILED: {exc}")
             "body": _body_observation(body, content_type),
         }
         HG_DECRYPTED_TRAFFIC_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -270,6 +347,13 @@ HG_DECRYPTED_TRAFFIC_LOG = os.environ.get("HG_DECRYPTED_TRAFFIC_LOG", "1").strip
 HG_DECRYPTED_TRAFFIC_FULL_BODY = os.environ.get("HG_DECRYPTED_TRAFFIC_FULL_BODY", "1").strip().lower() in {"1", "true", "yes", "on"}
 HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES = int(os.environ.get("HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES", "1048576"))
 HG_DECRYPTED_TRAFFIC_LOG_FILE = Path(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_FILE", str(REPO_ROOT / "logs" / "traffic_flows.jsonl")))
+HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES = max(1, int(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES", "104857600")))
+HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT = max(0, int(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT", "5")))
+HG_DECRYPTED_TRAFFIC_QUEUE_SIZE = max(1, int(os.environ.get("HG_DECRYPTED_TRAFFIC_QUEUE_SIZE", "256")))
+_DECRYPTED_FLOW_WRITER: Optional[AsyncRotatingJsonlWriter] = None
+_DECRYPTED_FLOW_WRITER_LOCK = threading.Lock()
+_XDG_STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state")))
+HG_ANTIGRAVITY_STATE_FILE = Path(os.environ.get("HG_ANTIGRAVITY_STATE_FILE", str(_XDG_STATE_HOME / "high-gravity" / "antigravity" / "state.json")))
 HG_ANTIGRAVITY_STATE_FILE = Path(os.environ.get("HG_ANTIGRAVITY_STATE_FILE", str(Path.home() / ".local" / "state" / "high-gravity" / "antigravity" / "state.json")))
 HG_BYPASS_CONTROL_PLANE = os.environ.get("HG_BYPASS_CONTROL_PLANE", "1") == "1"
 HG_CONTROL_PLANE_CACHE_TTL_SECONDS = int(os.environ.get("HG_CONTROL_PLANE_CACHE_TTL_SECONDS", "30"))
@@ -4288,6 +4372,7 @@ async def hg_telemetry():
             "path": str(HG_DECRYPTED_TRAFFIC_LOG_FILE),
             "full_body": HG_DECRYPTED_TRAFFIC_FULL_BODY,
             "max_body_bytes": HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES,
+            "writer": _decrypted_flow_writer_stats() if HG_DECRYPTED_TRAFFIC_LOG else {},
             "events": shared["decrypted_flow_events"],
             "bytes": shared["decrypted_flow_bytes"],
         },
@@ -4318,6 +4403,7 @@ async def hg_antigravity_status():
             "path": str(HG_DECRYPTED_TRAFFIC_LOG_FILE),
             "full_body": HG_DECRYPTED_TRAFFIC_FULL_BODY,
             "max_body_bytes": HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES,
+            "writer": _decrypted_flow_writer_stats() if HG_DECRYPTED_TRAFFIC_LOG else {},
             "events": shared["decrypted_flow_events"],
             "bytes": shared["decrypted_flow_bytes"],
         },

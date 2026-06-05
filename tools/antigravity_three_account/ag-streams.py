@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
 import time
 from collections import Counter, defaultdict, deque
@@ -19,11 +20,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Deque, Dict, Iterable, Iterator, List, Optional, TextIO
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TRAFFIC_LOG = DEFAULT_ROOT / "logs" / "traffic_flows.jsonl"
 DEFAULT_MICROPROXY_LOG = DEFAULT_ROOT / "logs" / "microproxy_events.jsonl"
+DEFAULT_STATE_FILE = Path(
+    os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state"))
+) / "high-gravity" / "antigravity" / "state.json"
 DEFAULT_STATE_FILE = Path.home() / ".local" / "state" / "high-gravity" / "antigravity" / "state.json"
 
 
@@ -51,7 +55,12 @@ def load_jsonl(path: Path, *, skip_invalid: bool = True) -> Iterator[Dict[str, A
                 yield payload
 
 
-def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False) -> Iterator[Dict[str, Any]]:
+def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False) -> Iterator[Dict[str, Any]]pppppppppppppppppppppppppppppppppppppppp
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch(exist_ok=True)
+    handle = path.open("r", encoding="utf-8", errors="replace")
+    try
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch(exist_ok=True)
     with path.open("r", encoding="utf-8", errors="replace") as handle:
@@ -60,6 +69,16 @@ def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False)
         while True:
             line = handle.readline()
             if not line:
+                try:
+                    current = path.stat()
+                    opened = os.fstat(handle.fileno())
+                    rotated = current.st_ino != opened.st_ino or current.st_size < handle.tell()
+                except FileNotFoundError:
+                    rotated = False
+                if rotated:
+                    handle.close()
+                    handle = path.open("r", encoding="utf-8", errors="replace")
+                    continue
                 time.sleep(interval)
                 continue
             raw = line.strip()
@@ -72,6 +91,8 @@ def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False)
             if isinstance(payload, dict):
                 payload.setdefault("_source", str(path))
                 yield payload
+    finally:
+        handle.close()
 
 
 def body_size(event: Dict[str, Any]) -> int:
@@ -186,6 +207,7 @@ def redacted_event(event: Dict[str, Any], *, include_body: bool = False) -> Dict
         clone["body"] = {
             "bytes": body.get("bytes"),
             "sha256": body.get("sha256"),
+            "sample_sha256": body.get("sample_sha256"),
             "sample_bytes": body.get("sample_bytes"),
             "truncated": body.get("truncated"),
         }

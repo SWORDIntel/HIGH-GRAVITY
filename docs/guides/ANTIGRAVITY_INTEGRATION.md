@@ -54,6 +54,18 @@ export HG_LOCAL_ACK_TELEMETRY=0
 export HG_DECRYPTED_TRAFFIC_LOG=1
 export HG_DECRYPTED_TRAFFIC_FULL_BODY=1
 export HG_DECRYPTED_TRAFFIC_LOG_FILE=logs/traffic_flows.jsonl
+export HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES=104857600
+export HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT=5
+export HG_DECRYPTED_TRAFFIC_QUEUE_SIZE=256
+export HG_EDGE_EVENT_LOG=logs/microproxy_events.jsonl
+```
+
+Decrypted-flow body inspection, encoding, and JSONL writes run on a bounded
+background queue instead of the proxy event loop. The active log rotates at 100
+MiB with five retained backups by default. When the queue is full, observations
+are dropped rather than delaying concurrent requests; writer queue/drop/failure
+metrics are exposed by the telemetry endpoints.
+
 export HG_EDGE_EVENT_LOG=logs/microproxy_events.jsonl
 ```
 
