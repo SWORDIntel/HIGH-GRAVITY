@@ -28,6 +28,7 @@ DEFAULT_MICROPROXY_LOG = DEFAULT_ROOT / "logs" / "microproxy_events.jsonl"
 DEFAULT_STATE_FILE = Path(
     os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state"))
 ) / "high-gravity" / "antigravity" / "state.json"
+DEFAULT_STATE_FILE = Path.home() / ".local" / "state" / "high-gravity" / "antigravity" / "state.json"
 
 
 def utc_now() -> str:
@@ -54,13 +55,15 @@ def load_jsonl(path: Path, *, skip_invalid: bool = True) -> Iterator[Dict[str, A
                 yield payload
 
 
-def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False) -> Iterator[Dict[str, Any]]:
-    """Follow a JSONL path and reopen it after size-based rotation."""
+def follow_jsonl(path: Path, *, interval: float = 0.5, from_start: bool = False) -> Iterator[Dict[str, Any]]pppppppppppppppppppppppppppppppppppppppp
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch(exist_ok=True)
     handle = path.open("r", encoding="utf-8", errors="replace")
-    try:
+    try
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch(exist_ok=True)
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
         if not from_start:
             handle.seek(0, 2)
         while True:

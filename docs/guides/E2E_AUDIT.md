@@ -40,6 +40,8 @@
 * `./hg.sh microproxy smoke` with localhost fixture traffic.
 * Focused root-launcher, XDG-path, rotating-flow-log, C-edge relay, microproxy, and acceleration-fallback unit tests.
 * `--full` adds strict `python3 -m unittest discover -s tests`; any full-suite failure now fails the audit instead of being silently treated as informational.
+* Focused root-launcher, microproxy, and acceleration-fallback unit tests; `--full` adds informational `python3 -m unittest discover -s tests`.
+  Full discovery includes legacy mutation expectations that intentionally conflict with Antigravity observe-only mode, so its result is recorded but not a required audit gate.
 * Static marker scans for `eval`, `exec`, `pickle.load(s)`, unsafe `yaml.load`,
   and C microproxy credential-injection markers.
 

@@ -72,6 +72,7 @@ binary injection off. Decrypted JSONL observations contain locally terminated
 traffic and must be handled as sensitive evidence. Body samples are redacted by
 default in stream exports. The decrypted-flow writer uses a bounded asynchronous
 queue and size-based rotation so streaming sessions cannot grow one log forever.
+default in stream exports.
 
 ## Documentation
 

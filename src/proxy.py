@@ -149,6 +149,15 @@ def _body_observation(
         "sample_sha256": hashlib.sha256(sample).hexdigest(),
         "sample_bytes": len(sample),
         "truncated": truncated,
+def _body_observation(body: bytes, content_type: str = "") -> Dict[str, Any]:
+    data = bytes(body or b"")
+    max_bytes = max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)
+    sample = data[:max_bytes] if max_bytes else b""
+    obs: Dict[str, Any] = {
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "sample_bytes": len(sample),
+        "truncated": len(sample) < len(data),
     }
     if not HG_DECRYPTED_TRAFFIC_FULL_BODY:
         return obs
@@ -240,12 +249,18 @@ def _append_decrypted_flow_event(
     chunk_index: Optional[int] = None,
 ) -> None:
     """Queue one locally terminated flow observation without blocking requests."""
+    """Append one TLS-terminated/decompressed flow observation to JSONL.
+
+    This does not break third-party TLS. It records traffic that has already
+    terminated inside this local reverse proxy or microproxy chain.
+    """
 
     if not HG_DECRYPTED_TRAFFIC_LOG:
         return
     try:
         raw_body = bytes(body or b"")
         record: Dict[str, Any] = {
+        event: Dict[str, Any] = {
             "schema_version": 1,
             "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "request_id": request_id,
@@ -267,6 +282,14 @@ def _append_decrypted_flow_event(
         _get_decrypted_flow_writer().enqueue(record)
     except Exception as exc:
         logger.debug(f"DECRYPTED_FLOW_QUEUE_FAILED: {exc}")
+            "body": _body_observation(body, content_type),
+        }
+        HG_DECRYPTED_TRAFFIC_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with HG_DECRYPTED_TRAFFIC_LOG_FILE.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
+        _append_shared_metric("decrypted_flow", decrypted_flow_events=1, decrypted_flow_bytes=len(body or b""))
+    except Exception as exc:
+        logger.debug(f"DECRYPTED_FLOW_LOG_FAILED: {exc}")
 
 
 def _antigravity_state_summary(path: Optional[Path] = None) -> Dict[str, Any]:
@@ -331,6 +354,7 @@ _DECRYPTED_FLOW_WRITER: Optional[AsyncRotatingJsonlWriter] = None
 _DECRYPTED_FLOW_WRITER_LOCK = threading.Lock()
 _XDG_STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state")))
 HG_ANTIGRAVITY_STATE_FILE = Path(os.environ.get("HG_ANTIGRAVITY_STATE_FILE", str(_XDG_STATE_HOME / "high-gravity" / "antigravity" / "state.json")))
+HG_ANTIGRAVITY_STATE_FILE = Path(os.environ.get("HG_ANTIGRAVITY_STATE_FILE", str(Path.home() / ".local" / "state" / "high-gravity" / "antigravity" / "state.json")))
 HG_BYPASS_CONTROL_PLANE = os.environ.get("HG_BYPASS_CONTROL_PLANE", "1") == "1"
 HG_CONTROL_PLANE_CACHE_TTL_SECONDS = int(os.environ.get("HG_CONTROL_PLANE_CACHE_TTL_SECONDS", "30"))
 HG_CONTROL_PLANE_CACHE_MAX_ENTRIES = int(os.environ.get("HG_CONTROL_PLANE_CACHE_MAX_ENTRIES", "128"))

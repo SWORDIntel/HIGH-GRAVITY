@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-VERSION = "1.1.0"
+VERSION = "1.0.0"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPORT_DIR = REPO_ROOT / "logs" / "audit"
 
@@ -39,6 +39,58 @@ REQUIRED_IMPORTS: Sequence[Tuple[str, str, str, bool]] = (
     ("uvicorn", "uvicorn", "requirements.txt", True),
     ("hypercorn", "hypercorn", "requirements.txt", True),
     ("h2", "h2", "requirements.txt", True),
+359
+​
+360
+​
+361
+def main(argv: Optional[List[str]] = None) -> int:
+362
+    parser = build_parser()
+363
+    args = parser.parse_args(argv)
+364
+    report = build_report(args)
+365
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+366
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+367
+    json_path = args.report_dir / f"hg_e2e_audit_{stamp}.json"
+368
+    md_path = args.report_dir / f"hg_e2e_audit_{stamp}.md"
+369
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+370
+    write_markdown(report, md_path)
+371
+    print(json.dumps({
+372
+        "ok": report["ok"],
+373
+        "failed_required": report["failed_required"],
+374
+        "json_report": str(json_path),
+375
+        "markdown_report": str(md_path),
+376
+    }, indent=2, sort_keys=True))
+377
+    if args.no_fail:
+378
+        return 0
+379
+    return 0 if report["ok"] else 1
+380
+​
+381
+​
+382
+if __name__ == "__main__":
+383
+    raise SystemExit(main())
+384
+
     ("aiohttp", "aiohttp", "requirements.txt", True),
     ("requests", "requests", "requirements.txt", True),
     ("pyyaml", "yaml", "requirements.txt", True),
@@ -84,6 +136,12 @@ FOCUSED_COMMANDS: Sequence[Tuple[str, Sequence[str], int, bool]] = (
 
 FULL_COMMANDS: Sequence[Tuple[str, Sequence[str], int, bool]] = (
     ("full_unittest_discover", ("python3", "-m", "unittest", "discover", "-s", "tests"), 240, True),
+    ("acceleration_fallback_unit", ("python3", "-m", "unittest", "tests/test_acceleration_fallback.py"), 60, True),
+    ("agy_root_launcher_unit", ("python3", "-m", "unittest", "tests/test_agy_launcher.py"), 60, True),
+)
+
+FULL_COMMANDS: Sequence[Tuple[str, Sequence[str], int, bool]] = (
+    ("full_unittest_discover", ("python3", "-m", "unittest", "discover", "-s", "tests"), 180, False),
 )
 
 STATIC_PATTERNS: Sequence[Tuple[str, Sequence[str], bool]] = (
@@ -92,6 +150,7 @@ STATIC_PATTERNS: Sequence[Tuple[str, Sequence[str], bool]] = (
     ("pickle_loads", ("rg", "-n", r"pickle\.loads|pickle\.load", "src", "tools", "scripts", "tests"), False),
     ("yaml_load_without_safe_loader", ("rg", "-n", r"yaml\.load\(", "src", "tools", "scripts", "tests"), False),
     ("microproxy_mutation_or_credential_markers", ("rg", "-n", r"inject_api_key|inject_shadow_profile|patch_protobuf_stream|Authorization: Bearer|HG_API_KEYS", "src/microproxy", "scripts/internal/hg_microproxy.sh"), True),
+    ("microproxy_credential_injection_markers", ("rg", "-n", r"inject_api_key|inject_shadow_profile|Authorization: Bearer|HG_API_KEYS", "src/microproxy", "scripts/internal/hg_microproxy.sh"), True),
 )
 
 
@@ -196,6 +255,58 @@ def dependency_status() -> List[Dict[str, Any]]:
     for distribution, import_name, source, required in REQUIRED_IMPORTS:
         import_present = importlib.util.find_spec(import_name) is not None
         version = None
+359
+​
+360
+​
+361
+def main(argv: Optional[List[str]] = None) -> int:
+362
+    parser = build_parser()
+363
+    args = parser.parse_args(argv)
+364
+    report = build_report(args)
+365
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+366
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+367
+    json_path = args.report_dir / f"hg_e2e_audit_{stamp}.json"
+368
+    md_path = args.report_dir / f"hg_e2e_audit_{stamp}.md"
+369
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+370
+    write_markdown(report, md_path)
+371
+    print(json.dumps({
+372
+        "ok": report["ok"],
+373
+        "failed_required": report["failed_required"],
+374
+        "json_report": str(json_path),
+375
+        "markdown_report": str(md_path),
+376
+    }, indent=2, sort_keys=True))
+377
+    if args.no_fail:
+378
+        return 0
+379
+    return 0 if report["ok"] else 1
+380
+​
+381
+​
+382
+if __name__ == "__main__":
+383
+    raise SystemExit(main())
+384
+
         try:
             version = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
@@ -343,12 +454,14 @@ def build_report(args: argparse.Namespace) -> Dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run HIGH-GRAVITY E2E environment/dependency audit.")
     parser.add_argument("--full", action="store_true", help="Also run strict full unittest discovery; any failure fails the audit.")
+    parser.add_argument("--full", action="store_true", help="Also run full unittest discovery.")
     parser.add_argument("--skip-smoke", action="store_true", help="Skip localhost microproxy smoke traffic.")
     parser.add_argument("--skip-static", action="store_true", help="Skip rg-based static/security marker scans.")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
     parser.add_argument("--no-fail", action="store_true", help="Always exit 0 after writing reports.")
     return parser
 
+  
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()

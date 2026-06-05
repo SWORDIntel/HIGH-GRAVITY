@@ -7,6 +7,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 AG_DIR="$ROOT_DIR/tools/antigravity_three_account"
 STATE_DIR="${AGY_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/high-gravity/antigravity}"
 CONFIG_FILE="${AGY_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/high-gravity/antigravity/accounts.json}"
+STATE_DIR="${AGY_STATE_DIR:-$HOME/.local/state/high-gravity/antigravity}"
+CONFIG_FILE="${AGY_CONFIG:-$HOME/.config/high-gravity/antigravity/accounts.json}"
 VENV_DIR="${AGY_VENV:-$AG_DIR/.venv}"
 PY_BIN="$VENV_DIR/bin/python"
 if [ ! -x "$PY_BIN" ]; then
@@ -93,7 +95,7 @@ case "$cmd" in
     logs)
         touch "$ROOT_DIR/logs/proxy.log" "$HG_DECRYPTED_TRAFFIC_LOG_FILE" "$HG_EDGE_EVENT_LOG"
         log "tailing logs; Ctrl-C to stop"
-        tail -F "$ROOT_DIR/logs/proxy.log" "$HG_DECRYPTED_TRAFFIC_LOG_FILE" "$HG_EDGE_EVENT_LOG" "$STATE_DIR"/sessions/*.log 2>/dev/null || true
+        tail -f "$ROOT_DIR/logs/proxy.log" "$HG_DECRYPTED_TRAFFIC_LOG_FILE" "$HG_EDGE_EVENT_LOG" "$STATE_DIR"/sessions/*.log 2>/dev/null || true
         ;;
     env)
         cat <<ENV

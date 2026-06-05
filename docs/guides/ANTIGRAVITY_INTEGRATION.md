@@ -66,6 +66,9 @@ MiB with five retained backups by default. When the queue is full, observations
 are dropped rather than delaying concurrent requests; writer queue/drop/failure
 metrics are exposed by the telemetry endpoints.
 
+export HG_EDGE_EVENT_LOG=logs/microproxy_events.jsonl
+```
+
 With these defaults, HIGH-GRAVITY does **not**:
 
 * inject prompts, mission profiles, compliance reminders, Khoj context, or binary
