@@ -664,7 +664,42 @@ else
     echo -e "           ${YELLOW}khoj=off${NC}"
 fi
 
-# Windsurf
+
+# Antigravity CLI control plane
+AG_STATE="${AGY_STATE_DIR:-$HOME/.local/state/high-gravity/antigravity}/state.json"
+AG_TRAFFIC_LOG="${HG_DECRYPTED_TRAFFIC_LOG_FILE:-logs/traffic_flows.jsonl}"
+if [ -f "$AG_STATE" ]; then
+    AG_SUMMARY=$(python3 - "$AG_STATE" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text(encoding='utf-8'))
+except Exception as exc:
+    print(f"read_error={exc}")
+else:
+    print(
+        "account={account} active_run={active} cooldowns={cooldowns} runs={runs}".format(
+            account=data.get('current_account') or 'none',
+            active='yes' if data.get('active_run') else 'no',
+            cooldowns=sum(len(v) for v in (data.get('cooldowns') or {}).values() if isinstance(v, dict)),
+            runs=len(data.get('runs') or {}),
+        )
+    )
+PY
+)
+    echo -e "Antigravity: ${GREEN}✓ STATE${NC} ($AG_SUMMARY)"
+else
+    echo -e "Antigravity: ${YELLOW}○ NO STATE${NC} (run ./hg.sh antigravity bootstrap)"
+fi
+if [ -f "$AG_TRAFFIC_LOG" ]; then
+    AG_FLOW_COUNT=$(wc -l < "$AG_TRAFFIC_LOG" 2>/dev/null | tr -d ' ')
+    echo -e "           Traffic log: ${GREEN}${AG_FLOW_COUNT:-0} decrypted flow rows${NC} ($AG_TRAFFIC_LOG)"
+else
+    echo -e "           Traffic log: ${YELLOW}not created yet${NC} ($AG_TRAFFIC_LOG)"
+fi
+
+# Windsurf (legacy status only; mutation/patch logic is disabled by default)
 WS_MATCH_LINE="$(pgrep -f "windsurf-next|Windsurf|/usr/share/windsurf-next" 2>/dev/null | head -1 || true)"
 if [ -n "$WS_MATCH_LINE" ]; then
     WS_PID="${WS_MATCH_LINE%% *}"
