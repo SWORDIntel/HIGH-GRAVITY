@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Disabled-by-default microproxy prototype management.
+# C microproxy stage management for the HIGH-GRAVITY Antigravity stack.
 #
-# This helper never starts, stops, or routes live HIGH-GRAVITY traffic. It only
-# reports prototype readiness and manages an explicitly requested local
-# prototype process on non-live defaults.
+# The live Antigravity launch path uses hg-edge as the C front when enabled.
+# This helper provides build/smoke/status controls and keeps ad hoc runs on
+# non-live ports unless HG_MICROPROXY_FORCE_LIVE_PORTS=1 is set explicitly.
 
 set -euo pipefail
 
@@ -21,12 +21,12 @@ usage() {
 Usage: ./hg.sh microproxy <command>
 
 Commands:
-  status       Report configured prototype path and build/runtime readiness
-  build        Build the configured prototype without starting it
-  run          Start the prototype on non-live defaults
+  status       Report configured C microproxy path and build/runtime readiness
+  build        Build the configured C microproxy without starting it
+  run          Start the C microproxy on non-live defaults
   smoke        Build and probe hg-edge with local fixture traffic only
   smoke-direct Build and probe the direct fast-path against local fixtures
-  stop         Stop the prototype started by this helper
+  stop         Stop the C microproxy started by this helper
   help         Show this help
 
 Configuration:
@@ -49,8 +49,8 @@ Default search paths:
   prototypes/microproxy/
   tools/microproxy/
 
-The Python proxy remains the default live proxy. These commands are
-disabled-by-default control-plane helpers and do not switch traffic.
+The standard Antigravity stack is a C-front -> Python TLS-observer chain.
+Ad hoc run/smoke commands here do not switch live traffic unless explicitly configured.
 USAGE
 }
 
@@ -252,8 +252,8 @@ find_microproxy_bin() {
 print_status() {
     local dir build_system pid
 
-    echo "HIGH-GRAVITY microproxy prototype status"
-    echo "Live traffic: Python proxy remains default; no microproxy routing is enabled."
+    echo "HIGH-GRAVITY C microproxy status"
+    echo "Live traffic: standard Antigravity path is C-front -> Python TLS observer when HG_MICROPROXY_FRONT=1."
     echo "Runtime listen: $LISTEN_ENDPOINT"
     echo "Runtime upstream: $UPSTREAM_ENDPOINT"
     print_direct_fast_path_state
@@ -261,12 +261,12 @@ print_status() {
     echo "Runtime log file: $LOG_FILE"
 
     if ! dir="$(find_microproxy_dir)"; then
-        echo "Prototype path: not configured"
+        echo "C microproxy path: not configured"
         echo "Set HG_MICROPROXY_DIR or add one of the default prototype directories."
         return 3
     fi
 
-    echo "Prototype path: $dir"
+    echo "C microproxy path: $dir"
 
     if build_system="$(detect_build_system "$dir")"; then
         echo "Build system: $build_system"
@@ -276,11 +276,11 @@ print_status() {
     fi
 
     if pid="$(running_pid)"; then
-        echo "Prototype process: running (PID: $pid)"
+        echo "C microproxy process: running (PID: $pid)"
     elif [ -f "$PID_FILE" ]; then
-        echo "Prototype process: not running (stale pid file)"
+        echo "C microproxy process: not running (stale pid file)"
     else
-        echo "Prototype process: not running"
+        echo "C microproxy process: not running"
     fi
 }
 
@@ -288,7 +288,7 @@ build_microproxy() {
     local dir build_system
 
     if ! dir="$(find_microproxy_dir)"; then
-        echo "Microproxy prototype path is not configured." >&2
+        echo "C microproxy path is not configured." >&2
         echo "Set HG_MICROPROXY_DIR or add microproxy/, prototypes/microproxy/, or tools/microproxy/." >&2
         return 3
     fi
@@ -299,8 +299,8 @@ build_microproxy() {
         return 4
     fi
 
-    echo "Building microproxy prototype in $dir ($build_system)."
-    echo "This does not start the prototype or switch live traffic."
+    echo "Building C microproxy in $dir ($build_system)."
+    echo "This builds only; it does not start or switch live traffic."
 
     case "$build_system" in
         cargo)
@@ -431,7 +431,7 @@ smoke_microproxy() {
     local smoke_listen smoke_upstream edge_pid="" upstream_pid="" probe_status=0
 
     if ! dir="$(find_microproxy_dir)"; then
-        echo "Microproxy prototype path is not configured." >&2
+        echo "C microproxy path is not configured." >&2
         echo "Set HG_MICROPROXY_DIR or add microproxy/, prototypes/microproxy/, or tools/microproxy/." >&2
         return 3
     fi
@@ -455,7 +455,7 @@ smoke_microproxy() {
     ensure_local_endpoint "smoke upstream" "$smoke_upstream"
 
     echo "Running microproxy smoke check."
-    echo "Prototype path: $dir"
+    echo "C microproxy path: $dir"
     echo "Smoke listen: $smoke_listen"
     echo "Smoke upstream: $smoke_upstream"
     print_direct_fast_path_state
@@ -465,7 +465,7 @@ smoke_microproxy() {
     build_microproxy
 
     if ! bin="$(find_microproxy_bin "$dir")"; then
-        echo "No runnable microproxy prototype binary found in $dir after build." >&2
+        echo "No runnable C microproxy binary found in $dir after build." >&2
         return 4
     fi
 
@@ -534,7 +534,7 @@ smoke_microproxy() {
     python3 "$ROOT_DIR/tools/read_microproxy_events.py" --skip-invalid --missing-ok "$event_log"
     echo
     echo "Smoke complete. Logs: $smoke_dir"
-    echo "Python proxy remains the default live proxy; no live routing was changed."
+    echo "Ad hoc helper run did not change the managed live C-front chain."
 }
 
 start_local_fixture_server() {
@@ -616,7 +616,7 @@ host = sys.argv[1]
 port = int(sys.argv[2])
 request = (
     b"POST /exa.api_server_pb.ApiServerService/GetChatMessage HTTP/1.1\r\n"
-    b"Host: proxy.windsurf.com\r\n"
+    b"Host: antigravity.local\r\n"
     b"Content-Type: application/connect+proto\r\n"
     b"Content-Length: 5\r\n"
     b"Connection: close\r\n"
@@ -649,7 +649,7 @@ smoke_microproxy_direct() {
     local smoke_listen smoke_upstream smoke_direct_upstream edge_pid="" direct_pid="" probe_status=0
 
     if ! dir="$(find_microproxy_dir)"; then
-        echo "Microproxy prototype path is not configured." >&2
+        echo "C microproxy path is not configured." >&2
         echo "Set HG_MICROPROXY_DIR or add microproxy/, prototypes/microproxy/, or tools/microproxy/." >&2
         return 3
     fi
@@ -678,7 +678,7 @@ smoke_microproxy_direct() {
     ensure_local_endpoint "smoke direct upstream" "$smoke_direct_upstream"
 
     echo "Running direct-path microproxy smoke check."
-    echo "Prototype path: $dir"
+    echo "C microproxy path: $dir"
     echo "Smoke listen: $smoke_listen"
     echo "Smoke upstream: $smoke_upstream"
     echo "Smoke direct upstream: $smoke_direct_upstream"
@@ -689,7 +689,7 @@ smoke_microproxy_direct() {
     build_microproxy
 
     if ! bin="$(find_microproxy_bin "$dir")"; then
-        echo "No runnable microproxy prototype binary found in $dir after build." >&2
+        echo "No runnable C microproxy binary found in $dir after build." >&2
         return 4
     fi
 
@@ -758,14 +758,14 @@ smoke_microproxy_direct() {
     python3 "$ROOT_DIR/tools/read_microproxy_events.py" --skip-invalid --missing-ok "$event_log"
     echo
     echo "Smoke complete. Logs: $smoke_dir"
-    echo "Python proxy remains the default live proxy; no live routing was changed."
+    echo "Ad hoc helper run did not change the managed live C-front chain."
 }
 
 run_microproxy() {
     local dir bin pid
 
     if ! dir="$(find_microproxy_dir)"; then
-        echo "Microproxy prototype path is not configured." >&2
+        echo "C microproxy path is not configured." >&2
         echo "Set HG_MICROPROXY_DIR or add microproxy/, prototypes/microproxy/, or tools/microproxy/." >&2
         return 3
     fi
@@ -773,13 +773,13 @@ run_microproxy() {
     ensure_safe_listen_endpoint
 
     if pid="$(running_pid)"; then
-        echo "Microproxy prototype is already running (PID: $pid)."
-        echo "Python proxy remains the default live proxy."
+        echo "C microproxy is already running (PID: $pid)."
+        echo "Managed live C-front chain remains unchanged."
         return 0
     fi
 
     if ! bin="$(find_microproxy_bin "$dir")"; then
-        echo "No runnable microproxy prototype binary found in $dir." >&2
+        echo "No runnable C microproxy binary found in $dir." >&2
         echo "Run './hg.sh microproxy build' first or set HG_MICROPROXY_BIN." >&2
         return 4
     fi
@@ -831,21 +831,21 @@ run_microproxy() {
         wait "$pid" || status="$?"
         rm -f "$PID_FILE"
         if [ "$status" -eq 0 ]; then
-            echo "Microproxy prototype completed during startup; no long-running process is active."
+            echo "C microproxy completed during startup; no long-running process is active."
             echo "Log: $LOG_FILE"
-            echo "Python proxy remains the default live proxy; no live routing was changed."
+            echo "Ad hoc helper run did not change the managed live C-front chain."
             return 0
         fi
-        echo "Microproxy prototype exited during startup; see $LOG_FILE." >&2
+        echo "C microproxy exited during startup; see $LOG_FILE." >&2
         return "$status"
     fi
 
-    echo "Started microproxy prototype (PID: $pid)."
+    echo "Started C microproxy (PID: $pid)."
     echo "Listen: $LISTEN_ENDPOINT"
     echo "Upstream: $UPSTREAM_ENDPOINT"
     print_direct_fast_path_state
     echo "Log: $LOG_FILE"
-    echo "Python proxy remains the default live proxy; no live routing was changed."
+    echo "Ad hoc helper run did not change the managed live C-front chain."
 }
 
 stop_microproxy() {
@@ -856,9 +856,9 @@ stop_microproxy() {
             rm -f "$PID_FILE"
             echo "Removed stale microproxy pid file."
         else
-            echo "Microproxy prototype is not running."
+            echo "C microproxy is not running."
         fi
-        echo "Python proxy remains the default live proxy."
+        echo "Managed live C-front chain remains unchanged."
         return 0
     fi
 
@@ -866,14 +866,14 @@ stop_microproxy() {
     for _ in 1 2 3 4 5 6 7 8 9 10; do
         if ! pid_is_running "$pid"; then
             rm -f "$PID_FILE"
-            echo "Stopped microproxy prototype (PID: $pid)."
-            echo "Python proxy remains the default live proxy."
+            echo "Stopped C microproxy (PID: $pid)."
+            echo "Managed live C-front chain remains unchanged."
             return 0
         fi
         sleep 0.2
     done
 
-    echo "Microproxy prototype did not stop after SIGTERM (PID: $pid)." >&2
+    echo "C microproxy did not stop after SIGTERM (PID: $pid)." >&2
     echo "Pid file retained: $PID_FILE" >&2
     return 7
 }

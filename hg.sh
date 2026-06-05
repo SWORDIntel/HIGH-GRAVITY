@@ -1,6 +1,6 @@
 #!/bin/bash
 # HIGH-GRAVITY Unified CLI v4.0
-# The authoritative entry point for the Expert-Tier Windsurf Identity Proxy.
+# The authoritative entry point for the HIGH-GRAVITY Antigravity observability stack.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,21 +11,34 @@ PYTHON="$VENV_DIR/bin/python"
 # Environment Defaults
 export HG_MICROPROXY_FRONT="${HG_MICROPROXY_FRONT:-1}"
 export HG_UPSTREAM_INFERENCE_MODE="${HG_UPSTREAM_INFERENCE_MODE:-cache-first}"
-export HG_LOCAL_ACK_TELEMETRY="${HG_LOCAL_ACK_TELEMETRY:-1}"
-export HG_TOKEN_SAVER="${HG_TOKEN_SAVER:-1}"
+export HG_LOCAL_ACK_TELEMETRY="${HG_LOCAL_ACK_TELEMETRY:-0}"
+export HG_CLIENT_TARGET="${HG_CLIENT_TARGET:-antigravity}"
+export HG_TRAFFIC_MUTATION_ENABLED="${HG_TRAFFIC_MUTATION_ENABLED:-0}"
+export HG_DECRYPTED_TRAFFIC_LOG="${HG_DECRYPTED_TRAFFIC_LOG:-1}"
+export HG_DECRYPTED_TRAFFIC_FULL_BODY="${HG_DECRYPTED_TRAFFIC_FULL_BODY:-1}"
+export HG_KHOJ_BINARY_INJECT="${HG_KHOJ_BINARY_INJECT:-0}"
+export HG_TOKEN_SAVER="${HG_TOKEN_SAVER:-0}"
+export HG_EDGE_EVENT_LOG="${HG_EDGE_EVENT_LOG:-$SCRIPT_DIR/logs/microproxy_events.jsonl}"
 
 # Colors
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; NC='\033[0m'
 BOLD='\033[1m'
 
 bootstrap_venv() {
-    if [ ! -d "$VENV_DIR" ] || [ ! -f "$PYTHON" ]; then
+    if [ ! -d "$VENV_DIR" ] || [ ! -x "$PYTHON" ]; then
         echo -e "${B}[*] Bootstrapping virtual environment...${NC}"
-        python3 -m venv "$VENV_DIR"
-        "$PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null
-        "$PYTHON" -m pip install aiohttp fastapi uvicorn hypercorn h2 requests rich textual sentence-transformers numpy >/dev/null
-        echo -e "${G}[✓] Environment ready${NC}"
+        python3 -m venv --system-site-packages "$VENV_DIR"
     fi
+    if "$PYTHON" -c 'import aiohttp, fastapi, h2, hypercorn, requests, rich, uvicorn, yaml' >/dev/null 2>&1; then
+        echo -e "${G}[✓] Environment ready${NC}"
+        return 0
+    fi
+    echo -e "${Y}[!] Core imports missing; attempting requirements install${NC}"
+    if ! "$PYTHON" -m pip install -r "$SCRIPT_DIR/requirements.txt" >/dev/null; then
+        echo -e "${Y}[!] dependency install blocked; run './hg.sh audit' for exact findings${NC}"
+        return 1
+    fi
+    echo -e "${G}[✓] Environment ready${NC}"
 }
 
 print_sudo_notice() {
@@ -39,16 +52,18 @@ ${BOLD}${C}HIGH-GRAVITY Unified CLI${NC}
 Usage: ./hg.sh <command> [args]
 
 Core Commands:
-  ${G}start${NC}           Full stack launch: Patch + Proxy + Windsurf
+  ${G}start${NC}           Full stack launch: Antigravity observe-only proxy stack
   ${G}stop${NC}            Full stack shutdown (emergency kill)
   ${G}restart${NC}         Full stack restart
   ${G}dash${NC}            Launch the real-time Rich TUI Dashboard (alias: dashboard)
+  ${G}antigravity${NC}     Bootstrap/status/run/resume/monitor the ag-cli control plane
 
 Proxy Management:
   ${G}proxy start${NC}     Start only proxy services (C-front + Python)
   ${G}proxy stop${NC}      Stop only proxy services
   ${G}proxy restart${NC}   Restart only proxy services
   ${G}proxy status${NC}    Check proxy health and port status
+  ${G}microproxy${NC}       Build/smoke/status the C microproxy stage
 
 Shield Management:
   ${G}patch${NC}           Apply binary, JS, and DNS identity patches
@@ -58,8 +73,9 @@ Shield Management:
 
 Advanced:
   ${G}doctor${NC}          Deep system diagnostics
-  ${G}logs${NC}            Tail central intelligence logs
-  ${G}usage${NC}           Show real-time quota pressure
+  ${G}audit${NC}           Run E2E dependency, build, stream, and test audit
+  ${G}logs${NC}            Tail proxy, C microproxy, and decrypted flow logs
+  ${G}usage${NC}           Show real-time quota pressure and cache savings ratio
   ${G}egress${NC}          Monitor/Trap direct-IP bypass attempts
 
 USAGE
@@ -67,15 +83,23 @@ USAGE
 
 # Ensure we are in the right directory
 cd "$SCRIPT_DIR"
-bootstrap_venv
+cmd="${1:-menu}"
+case "$cmd" in
+    audit|e2e-audit|microproxy|cproxy|edge|antigravity|ag|agy|usage|logs|egress|-h|--help|help)
+        ;;
+    *)
+        bootstrap_venv
+        ;;
+esac
 
 # --- CLI Router ---
-cmd="${1:-menu}"
 case "$cmd" in
     # --- Full Stack ---
     start)
         print_sudo_notice
-        HG_NON_INTERACTIVE=1 bash "$SCRIPTS_DIR/internal/hg_start.sh" patch
+        if [ "${HG_CLIENT_TARGET:-antigravity}" != "antigravity" ]; then
+            HG_NON_INTERACTIVE=1 bash "$SCRIPTS_DIR/internal/hg_start.sh" patch
+        fi
         exec bash "$SCRIPTS_DIR/internal/hg_start.sh" start
         ;;
     stop)
@@ -167,6 +191,16 @@ case "$cmd" in
         fi
         ;;
 
+    # --- Antigravity Control Plane ---
+    antigravity|ag|agy)
+        exec bash "$SCRIPTS_DIR/internal/hg_antigravity.sh" "${@:2}"
+        ;;
+
+    # --- C Microproxy Control Plane ---
+    microproxy|cproxy|edge)
+        exec bash "$SCRIPTS_DIR/internal/hg_microproxy.sh" "${@:2}"
+        ;;
+
     # --- Monitoring & Tools ---
     dash|dashboard)
         exec "$PYTHON" "$SCRIPT_DIR/src/hg_dashboard.py"
@@ -174,11 +208,15 @@ case "$cmd" in
     doctor)
         exec bash "$SCRIPTS_DIR/hg_doctor.sh"
         ;;
+    audit|e2e-audit)
+        exec python3 "$SCRIPT_DIR/tools/audit/hg_e2e_audit.py" "${@:2}"
+        ;;
     logs)
-        tail -f logs/proxy.log logs/cascade_midway.log
+        touch logs/proxy.log logs/traffic_flows.jsonl "${HG_EDGE_EVENT_LOG}"
+        tail -f logs/proxy.log logs/traffic_flows.jsonl "${HG_EDGE_EVENT_LOG}" logs/cascade_midway.log
         ;;
     usage)
-        exec bash "$SCRIPTS_DIR/internal/hg_usage.sh"
+        exec bash "$SCRIPTS_DIR/internal/hg_usage.sh" "${@:2}"
         ;;
     egress)
         exec bash "$SCRIPTS_DIR/internal/hg_egress.sh" "${2:-status}"

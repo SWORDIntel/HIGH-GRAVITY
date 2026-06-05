@@ -19,26 +19,39 @@ import hashlib
 import ssl
 import binascii
 import subprocess
+import importlib.util
 from collections import deque
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Callable, Tuple
+from typing import Dict, List, Optional, Any, Union, Callable, Tuple, Mapping
 
 import uvicorn
-import numpy as np
 from fastapi import Response, FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 import aiohttp
 from src.ebpf_events import read_summary as read_ebpf_summary
+from src.flow_log import AsyncRotatingJsonlWriter
 from src.microproxy.events import read_events as read_microproxy_events
 from src.microproxy.events import summarize_observer_events
-from src.turbo_quant import TurboQuantIndex, compress_payload, decompress_payload
 from src.microproxy.patch_proto import patch_proto
 
-from src.qihse_wrapper import QIHSE
-from src.pegasus.subagent_manager import SubAgentManager
+NUMPY_AVAILABLE = importlib.util.find_spec("numpy") is not None
+if NUMPY_AVAILABLE:
+    import numpy as np
+    from src.turbo_quant import TurboQuantIndex, compress_payload, decompress_payload
+    from src.qihse_wrapper import QIHSE
+else:
+    np = None
+    from src.acceleration_fallback import QIHSE, TurboQuantIndex, compress_payload, decompress_payload
+if importlib.util.find_spec("psutil") is not None:
+    from src.pegasus.subagent_manager import SubAgentManager
+else:
+    class SubAgentManager:
+        def __init__(self):
+            raise RuntimeError("optional dependency psutil is unavailable")
+
 from src.pegasus.telemetry_shuffler import TelemetryShuffler
 from src.pegasus.learning.learner import PegasusLearner
 from src.pegasus.khoj_integration import PegasusKhojBridge
@@ -101,6 +114,195 @@ logging.basicConfig(
 )
 logger = logging.getLogger("HG-Proxy")
 
+
+def _traffic_mutation_enabled() -> bool:
+    """Return True only when explicit L7 mutation/spoofing is enabled."""
+
+    return HG_TRAFFIC_MUTATION_ENABLED
+
+
+def _safe_header_snapshot(headers: Mapping[str, Any]) -> Dict[str, str]:
+    snapshot: Dict[str, str] = {}
+    sensitive = {"authorization", "cookie", "set-cookie", "x-api-key", "api-key"}
+    for key, value in headers.items():
+        key_s = str(key)
+        if key_s.lower() in sensitive or "token" in key_s.lower():
+            snapshot[key_s] = "[redacted]"
+        else:
+            snapshot[key_s] = str(value)[:1000]
+    return snapshot
+
+
+def _body_observation(
+    body: bytes,
+    content_type: str = "",
+    total_bytes: Optional[int] = None,
+) -> Dict[str, Any]:
+    data = bytes(body or b"")
+    observed_bytes = len(data) if total_bytes is None else max(len(data), int(total_bytes))
+    max_bytes = max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)
+    sample = data[:max_bytes] if max_bytes else b""
+    truncated = len(sample) < observed_bytes
+    obs: Dict[str, Any] = {
+        "bytes": observed_bytes,
+        "sha256": None if truncated else hashlib.sha256(data).hexdigest(),
+        "sample_sha256": hashlib.sha256(sample).hexdigest(),
+        "sample_bytes": len(sample),
+        "truncated": truncated,
+    }
+    if not HG_DECRYPTED_TRAFFIC_FULL_BODY:
+        return obs
+    if sample:
+        obs["sample_b64"] = base64.b64encode(sample).decode("ascii")
+    text = None
+    try:
+        if sample.startswith(b"\x1f\x8b"):
+            text = gzip.decompress(sample).decode("utf-8", errors="replace")
+        else:
+            text = sample.decode("utf-8", errors="replace")
+    except Exception:
+        text = None
+    if text is not None and ("json" in content_type.lower() or text.lstrip().startswith(("{", "["))):
+        obs["text"] = text[:max_bytes]
+        try:
+            obs["json"] = json.loads(text)
+        except Exception:
+            pass
+    elif text is not None and any(ch.isprintable() and not ch.isspace() for ch in text):
+        obs["text"] = text[:max_bytes]
+    return obs
+
+
+def _decrypted_flow_event(record: Mapping[str, Any]) -> Dict[str, Any]:
+    """Perform expensive body encoding/JSON inspection off the event loop."""
+
+    body = bytes(record.get("body") or b"")
+    event = dict(record)
+    event["body"] = _body_observation(
+        body,
+        str(record.get("content_type") or ""),
+        total_bytes=int(record.get("body_total_bytes") or len(body)),
+    )
+    event.pop("body_total_bytes", None)
+    return event
+
+
+def _decrypted_flow_written(record: Mapping[str, Any]) -> None:
+    _append_shared_metric(
+        "decrypted_flow",
+        decrypted_flow_events=1,
+        decrypted_flow_bytes=int(record.get("body_total_bytes") or len(record.get("body") or b"")),
+    )
+
+
+def _get_decrypted_flow_writer() -> AsyncRotatingJsonlWriter:
+    global _DECRYPTED_FLOW_WRITER
+    with _DECRYPTED_FLOW_WRITER_LOCK:
+        if _DECRYPTED_FLOW_WRITER is None:
+            _DECRYPTED_FLOW_WRITER = AsyncRotatingJsonlWriter(
+                HG_DECRYPTED_TRAFFIC_LOG_FILE,
+                max_bytes=HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES,
+                backup_count=HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT,
+                queue_size=HG_DECRYPTED_TRAFFIC_QUEUE_SIZE,
+                transform=_decrypted_flow_event,
+                on_written=_decrypted_flow_written,
+            )
+        return _DECRYPTED_FLOW_WRITER
+
+
+def _decrypted_flow_writer_stats() -> Dict[str, int]:
+    if _DECRYPTED_FLOW_WRITER is not None:
+        return _DECRYPTED_FLOW_WRITER.stats()
+    return {
+        "queued": 0,
+        "written": 0,
+        "dropped": 0,
+        "failures": 0,
+        "max_bytes": HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES,
+        "backup_count": HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT,
+        "queue_size": HG_DECRYPTED_TRAFFIC_QUEUE_SIZE,
+    }
+
+
+def _append_decrypted_flow_event(
+    *,
+    request_id: str,
+    direction: str,
+    method: str,
+    path: str,
+    host: str,
+    route_mode: str,
+    content_type: str,
+    body: bytes,
+    status: Optional[int] = None,
+    upstream: str = "",
+    headers: Optional[Mapping[str, Any]] = None,
+    chunk_index: Optional[int] = None,
+) -> None:
+    """Queue one locally terminated flow observation without blocking requests."""
+
+    if not HG_DECRYPTED_TRAFFIC_LOG:
+        return
+    try:
+        raw_body = bytes(body or b"")
+        record: Dict[str, Any] = {
+            "schema_version": 1,
+            "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "request_id": request_id,
+            "direction": direction,
+            "client_target": HG_CLIENT_TARGET,
+            "method": method,
+            "path": "/" + path.lstrip("/"),
+            "host": host,
+            "upstream": upstream,
+            "route_mode": route_mode,
+            "content_type": content_type or "",
+            "mutation_enabled": _traffic_mutation_enabled(),
+            "status": status,
+            "chunk_index": chunk_index,
+            "headers": _safe_header_snapshot(headers or {}),
+            "body": raw_body[:max(0, HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES)],
+            "body_total_bytes": len(raw_body),
+        }
+        _get_decrypted_flow_writer().enqueue(record)
+    except Exception as exc:
+        logger.debug(f"DECRYPTED_FLOW_QUEUE_FAILED: {exc}")
+
+
+def _antigravity_state_summary(path: Optional[Path] = None) -> Dict[str, Any]:
+    source = Path(path or HG_ANTIGRAVITY_STATE_FILE).expanduser()
+    if not source.exists():
+        return {"present": False, "path": str(source)}
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8", errors="replace"))
+    except Exception as exc:
+        return {"present": True, "path": str(source), "read_error": str(exc)}
+    cooldowns = payload.get("cooldowns") if isinstance(payload, dict) else {}
+    active_cooldowns = 0
+    now = datetime.now(timezone.utc)
+    if isinstance(cooldowns, dict):
+        for account_state in cooldowns.values():
+            if not isinstance(account_state, dict):
+                continue
+            for reset_text in account_state.values():
+                try:
+                    reset_at = datetime.fromisoformat(str(reset_text).replace("Z", "+00:00")).astimezone(timezone.utc)
+                except Exception:
+                    continue
+                if reset_at > now:
+                    active_cooldowns += 1
+    return {
+        "present": True,
+        "path": str(source),
+        "current_account": payload.get("current_account") if isinstance(payload, dict) else None,
+        "active_run": payload.get("active_run") if isinstance(payload, dict) else None,
+        "last_command": payload.get("last_command") if isinstance(payload, dict) else None,
+        "active_cooldowns": active_cooldowns,
+        "events": len(payload.get("events", [])) if isinstance(payload, dict) else 0,
+        "runs": len(payload.get("runs", {})) if isinstance(payload, dict) else 0,
+    }
+
+
 app = FastAPI(title="HIGHGRAVITY Optimization Proxy")
 
 @app.middleware("http")
@@ -115,21 +317,35 @@ async def log_requests(request: Request, call_next):
     return response
 
 HG_SAFE_MODE = os.environ.get("HG_SAFE_MODE", "1") == "1"
+HG_CLIENT_TARGET = os.environ.get("HG_CLIENT_TARGET", "antigravity").strip().lower()
+HG_TRAFFIC_MUTATION_ENABLED = os.environ.get("HG_TRAFFIC_MUTATION_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+HG_ANTIGRAVITY_MODE = HG_CLIENT_TARGET in {"antigravity", "ag", "agy"}
+HG_DECRYPTED_TRAFFIC_LOG = os.environ.get("HG_DECRYPTED_TRAFFIC_LOG", "1").strip().lower() in {"1", "true", "yes", "on"}
+HG_DECRYPTED_TRAFFIC_FULL_BODY = os.environ.get("HG_DECRYPTED_TRAFFIC_FULL_BODY", "1").strip().lower() in {"1", "true", "yes", "on"}
+HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES = int(os.environ.get("HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES", "1048576"))
+HG_DECRYPTED_TRAFFIC_LOG_FILE = Path(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_FILE", str(REPO_ROOT / "logs" / "traffic_flows.jsonl")))
+HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES = max(1, int(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_MAX_BYTES", "104857600")))
+HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT = max(0, int(os.environ.get("HG_DECRYPTED_TRAFFIC_LOG_BACKUP_COUNT", "5")))
+HG_DECRYPTED_TRAFFIC_QUEUE_SIZE = max(1, int(os.environ.get("HG_DECRYPTED_TRAFFIC_QUEUE_SIZE", "256")))
+_DECRYPTED_FLOW_WRITER: Optional[AsyncRotatingJsonlWriter] = None
+_DECRYPTED_FLOW_WRITER_LOCK = threading.Lock()
+_XDG_STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state")))
+HG_ANTIGRAVITY_STATE_FILE = Path(os.environ.get("HG_ANTIGRAVITY_STATE_FILE", str(_XDG_STATE_HOME / "high-gravity" / "antigravity" / "state.json")))
 HG_BYPASS_CONTROL_PLANE = os.environ.get("HG_BYPASS_CONTROL_PLANE", "1") == "1"
 HG_CONTROL_PLANE_CACHE_TTL_SECONDS = int(os.environ.get("HG_CONTROL_PLANE_CACHE_TTL_SECONDS", "30"))
 HG_CONTROL_PLANE_CACHE_MAX_ENTRIES = int(os.environ.get("HG_CONTROL_PLANE_CACHE_MAX_ENTRIES", "128"))
-HG_KHOJ_BINARY_INJECT = os.environ.get("HG_KHOJ_BINARY_INJECT", "1").lower() in {"1", "true", "yes", "on"}
+HG_KHOJ_BINARY_INJECT = os.environ.get("HG_KHOJ_BINARY_INJECT", "0").lower() in {"1", "true", "yes", "on"}
 HG_KHOJ_BINARY_CONTEXT_CHARS = int(os.environ.get("HG_KHOJ_BINARY_CONTEXT_CHARS", "900"))
 HG_BINARY_REASONING_INJECT_MAX_BYTES = int(os.environ.get("HG_BINARY_REASONING_INJECT_MAX_BYTES", "32768"))
 HG_TOKEN_SAVER = os.environ.get("HG_TOKEN_SAVER", "0").lower() in {"1", "true", "yes", "on"}
 HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION = os.environ.get("HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION", "1").lower() in {"1", "true", "yes", "on"}
 HG_TOKEN_SAVER_FORCE_LOW_REASONING = os.environ.get("HG_TOKEN_SAVER_FORCE_LOW_REASONING", "0").lower() in {"1", "true", "yes", "on"}
 HG_BINARY_CACHE_SERVE = os.environ.get("HG_BINARY_CACHE_SERVE", "0").lower() in {"1", "true", "yes", "on"}
-HG_EXACT_RESPONSE_CACHE = os.environ.get("HG_EXACT_RESPONSE_CACHE", "1").lower() in {"1", "true", "yes", "on"}
+HG_EXACT_RESPONSE_CACHE = os.environ.get("HG_EXACT_RESPONSE_CACHE", "0").lower() in {"1", "true", "yes", "on"}
 HG_EXACT_RESPONSE_CACHE_TTL_SECONDS = float(os.environ.get("HG_EXACT_RESPONSE_CACHE_TTL_SECONDS", "600"))
 HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES = int(os.environ.get("HG_EXACT_RESPONSE_CACHE_MAX_ENTRIES", "64"))
 HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES = int(os.environ.get("HG_EXACT_RESPONSE_CACHE_MAX_BODY_BYTES", "1048576"))
-HG_CANONICAL_RESPONSE_CACHE = os.environ.get("HG_CANONICAL_RESPONSE_CACHE", "1").lower() in {"1", "true", "yes", "on"}
+HG_CANONICAL_RESPONSE_CACHE = os.environ.get("HG_CANONICAL_RESPONSE_CACHE", "0").lower() in {"1", "true", "yes", "on"}
 HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS = int(os.environ.get("HG_CANONICAL_RESPONSE_CACHE_MIN_TEXT_CHARS", "80"))
 HG_LOCAL_ACK_TELEMETRY = os.environ.get("HG_LOCAL_ACK_TELEMETRY", "1").lower() in {"1", "true", "yes", "on"}
 HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES = int(os.environ.get("HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES", "1048576"))
@@ -440,6 +656,8 @@ def _shared_metric_totals(max_lines: int = 50000) -> Dict[str, int]:
         "mitm_thinking_high": 0,
         "mitm_thinking_xhigh": 0,
         "binary_fail_open": 0,
+        "decrypted_flow_events": 0,
+        "decrypted_flow_bytes": 0,
     }
     try:
         if not SHARED_METRICS_FILE.exists():
@@ -1264,8 +1482,10 @@ class HilbertCache:
         self.db_path = CACHE_DB_RAM
         self.tokens_saved = 0
         self.cache_hits = 0
-        from src.qihse_wrapper import QIHSE
-        from src.not_stisla_wrapper import NotStisla
+        if NUMPY_AVAILABLE:
+            from src.not_stisla_wrapper import NotStisla
+        else:
+            from src.acceleration_fallback import NotStisla
         self.engine = QIHSE()
         self.accelerator = NotStisla()
 
@@ -1275,7 +1495,7 @@ class HilbertCache:
 
         # Performance-optimized indices
         self.vector_pool = []
-        self.sorted_hashes = np.array([], dtype=np.int64)
+        self.sorted_hashes = np.array([], dtype=np.int64) if NUMPY_AVAILABLE else []
         self.sorted_indices = []
         self._dirty_hashes = False
         self._lock = threading.RLock()
@@ -1313,7 +1533,7 @@ class HilbertCache:
             # Sort by prefix
             pairs.sort(key=lambda x: x[0])
 
-            self.sorted_hashes = np.array([p[0] for p in pairs], dtype=np.int64)
+            self.sorted_hashes = np.array([p[0] for p in pairs], dtype=np.int64) if NUMPY_AVAILABLE else [p[0] for p in pairs]
             self.sorted_indices = [p[1] for p in pairs]
             self._dirty_hashes = False
 
@@ -2099,7 +2319,7 @@ def _maybe_sanitize_usage_response(
     content_type: str,
     route_mode: str = "passthrough",
 ) -> bytes:
-    if not full_body:
+    if not full_body or not _traffic_mutation_enabled():
         return full_body
     is_usage_path = _is_usage_route(path_l)
     if route_mode == "passthrough" and not is_usage_path:
@@ -2171,6 +2391,8 @@ def _sanitize_streaming_usage_lines(
 ) -> tuple[bytes, bytes]:
     if not data:
         return data, carry
+    if not _traffic_mutation_enabled():
+        return carry + data, b""
     
     # Aggressive: Hot-patch any chunks matching the target pattern
     if _fuzz_target_value is not None and _fuzz_canary_value is not None:
@@ -3382,8 +3604,8 @@ def _apply_reasoning_controls(
     request_id: str,
     path: str,
 ) -> bool:
-    """Inject provider-native reasoning controls when not already present."""
-    if not isinstance(body, dict):
+    """Inject provider-native reasoning controls when explicitly enabled."""
+    if not _traffic_mutation_enabled() or not isinstance(body, dict):
         return False
     model_name = str(body.get("model", "")).lower()
     changed = False
@@ -3422,7 +3644,7 @@ def _apply_reasoning_controls(
 
 
 def _apply_token_saver_json(body: Dict[str, Any]) -> bool:
-    if not HG_TOKEN_SAVER or not isinstance(body, dict):
+    if not _traffic_mutation_enabled() or not HG_TOKEN_SAVER or not isinstance(body, dict):
         return False
 
     changed = False
@@ -3822,7 +4044,7 @@ async def _maybe_inject_binary_khoj_context(
 ) -> Tuple[bytes, bool, bool]:
     """Return body, injected, handled_lookup for real Connect/proto chat work."""
     path_l = path.lower()
-    if not HG_KHOJ_BINARY_INJECT or not _binary_injection_schema(path_l):
+    if not _traffic_mutation_enabled() or not HG_KHOJ_BINARY_INJECT or not _binary_injection_schema(path_l):
         return body_bytes, False, False
     if "proto" not in content_type:
         return body_bytes, False, False
@@ -3993,7 +4215,7 @@ def _relay_headers(headers, route_mode: str = "passthrough", path_l: str = "") -
     """Headers safe to forward after aiohttp may have decompressed the body."""
     blocked = {"content-encoding", "content-length", "transfer-encoding", "connection"}
     is_usage_path = _is_usage_route(path_l)
-    should_neutralize_limits = True
+    should_neutralize_limits = _traffic_mutation_enabled()
     out: Dict[str, str] = {}
     content_type = ""
     for key, value in headers.items():
@@ -4020,7 +4242,7 @@ def _relay_headers(headers, route_mode: str = "passthrough", path_l: str = "") -
         if should_neutralize_limits:
             for header_name, header_value in _RATE_LIMIT_HEADER_OVERRIDES.items():
                 out[header_name] = header_value
-        if is_usage_path:
+        if should_neutralize_limits and is_usage_path:
             out.setdefault("anthropic-ratelimit-unified-7d-utilization", "0")
             out["cache-control"] = "no-store, no-cache, must-revalidate, max-age=0"
             out["pragma"] = "no-cache"
@@ -4119,6 +4341,18 @@ async def hg_telemetry():
         "pegasus_swarm": swarm_quality,
         "ebpf": _ebpf_observer_summary(),
         "shared_metrics": shared,
+        "client_target": HG_CLIENT_TARGET,
+        "traffic_mutation_enabled": _traffic_mutation_enabled(),
+        "decrypted_traffic_log": {
+            "enabled": HG_DECRYPTED_TRAFFIC_LOG,
+            "path": str(HG_DECRYPTED_TRAFFIC_LOG_FILE),
+            "full_body": HG_DECRYPTED_TRAFFIC_FULL_BODY,
+            "max_body_bytes": HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES,
+            "writer": _decrypted_flow_writer_stats() if HG_DECRYPTED_TRAFFIC_LOG else {},
+            "events": shared["decrypted_flow_events"],
+            "bytes": shared["decrypted_flow_bytes"],
+        },
+        "antigravity": _antigravity_state_summary(),
         "enabled": True,
         "latency_ms": _latency_summary(),
         "slow_requests_recent": list(app.state.slow_requests_recent),
@@ -4132,6 +4366,26 @@ async def hg_microproxy_status():
     return _microproxy_status_summary()
 
 
+@app.get("/hg/antigravity/status")
+async def hg_antigravity_status():
+    """Read-only Antigravity CLI state summary for control-plane callers."""
+    shared = _shared_metric_totals()
+    return {
+        **_antigravity_state_summary(),
+        "client_target": HG_CLIENT_TARGET,
+        "traffic_mutation_enabled": _traffic_mutation_enabled(),
+        "decrypted_traffic_log": {
+            "enabled": HG_DECRYPTED_TRAFFIC_LOG,
+            "path": str(HG_DECRYPTED_TRAFFIC_LOG_FILE),
+            "full_body": HG_DECRYPTED_TRAFFIC_FULL_BODY,
+            "max_body_bytes": HG_DECRYPTED_TRAFFIC_MAX_BODY_BYTES,
+            "writer": _decrypted_flow_writer_stats() if HG_DECRYPTED_TRAFFIC_LOG else {},
+            "events": shared["decrypted_flow_events"],
+            "bytes": shared["decrypted_flow_bytes"],
+        },
+    }
+
+
 @app.post("/hg/manage")
 async def hg_manage(request: Request):
     """Control actions from hg_dashboard.py hotkeys"""
@@ -4140,7 +4394,7 @@ async def hg_manage(request: Request):
     if action == "clear_cache":
         ghost_cache.vector_pool.clear()
         ghost_cache.hash_to_payload.clear()
-        ghost_cache.sorted_hashes = __import__("numpy").array([], dtype=__import__("numpy").int64)
+        ghost_cache.sorted_hashes = np.array([], dtype=np.int64) if NUMPY_AVAILABLE else []
         ghost_cache.cache_hits = 0
         logger.info("CACHE_CLEARED via dashboard")
         return {"status": "ok", "action": action}
@@ -4451,6 +4705,17 @@ async def proxy_request(path: str, request: Request):
 
     if HG_PROXY_VERBOSE_REQUEST_LOGS:
         logger.info(f"[{request_id}] CLASSIFY: mode={route_mode} svc={grpc_service} method={grpc_method} path={path}")
+    _append_decrypted_flow_event(
+        request_id=request_id,
+        direction="client_to_proxy",
+        method=request.method,
+        path=path,
+        host=incoming_host,
+        route_mode=route_mode,
+        content_type=content_type_l,
+        body=original_body_bytes,
+        headers=request.headers,
+    )
 
     if route_mode != "inference" and len(body_bytes) <= HG_LOCAL_ACK_TELEMETRY_MAX_BODY_BYTES:
         is_telemetry = _is_local_ack_telemetry_path(path_l, incoming_host)
@@ -4484,7 +4749,8 @@ async def proxy_request(path: str, request: Request):
         _append_shared_metric("request", **{metric_label: 1})
 
     # 1. Local Mocks (Permissive Control Plane)
-    if ProtoMocker.should_mock(path, content_type_l):
+    # Disabled by default for Antigravity observe-only mode; enable with HG_TRAFFIC_MUTATION_ENABLED=1.
+    if _traffic_mutation_enabled() and ProtoMocker.should_mock(path, content_type_l):
         # Match Protocols: If IDE expects Proto, we give it real binary Proto.
         # get_mock handles the binary vs JSON logic internally.
         res_ct = content_type_l or "application/connect+proto"
@@ -4495,7 +4761,7 @@ async def proxy_request(path: str, request: Request):
 
 
 
-    if is_usage_route:
+    if _traffic_mutation_enabled() and is_usage_route:
         mock_usage = dict(UNLIMITED_USAGE_SPOOF)
         return StreamingResponse(
             iter([json.dumps(mock_usage).encode()]),
@@ -4646,7 +4912,9 @@ async def proxy_request(path: str, request: Request):
             reasoning_prompt = _extract_prompt_text(raw_body_json)
             model_hint = raw_body_json.get("model", "") or ""
             if not skip_json_intelligence:
-                if not (HG_TOKEN_SAVER and HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION):
+                # Windsurf-era prompt/context injection is intentionally disabled unless
+                # HG_TRAFFIC_MUTATION_ENABLED=1 is set for a legacy test lab.
+                if _traffic_mutation_enabled() and not (HG_TOKEN_SAVER and HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION):
                     inject_mission_profile(raw_body_json["messages"])
                     inject_compliance_reminder(raw_body_json["messages"])
                     inject_local_rules(raw_body_json["messages"])
@@ -4706,9 +4974,9 @@ async def proxy_request(path: str, request: Request):
             if is_json:
                 reason_service = _detect_inference_service(raw_body_json, path_l, model_hint, incoming_host)
                 _mark_detected_service(reason_service)
-                if HG_TOKEN_SAVER:
+                if _traffic_mutation_enabled() and HG_TOKEN_SAVER:
                     _apply_token_saver_json(raw_body_json)
-                else:
+                elif _traffic_mutation_enabled():
                     _apply_reasoning_controls(
                         raw_body_json,
                         reason_service,
@@ -4718,7 +4986,7 @@ async def proxy_request(path: str, request: Request):
                     )
             else:
                 cache_lookup_text = (reasoning_prompt or cache_lookup_text)[:2400]
-                if not HG_TOKEN_SAVER:
+                if _traffic_mutation_enabled() and not HG_TOKEN_SAVER:
                     body_bytes, reasoning_injected, reason_detail = _apply_reasoning_controls_binary(
                         path,
                         body_bytes,
@@ -4812,10 +5080,10 @@ async def proxy_request(path: str, request: Request):
             fh = {k: v for k, v in request.headers.items() if k.lower() not in ["host", "connection", "content-length", "te", "accept-encoding"]}
             fh["Host"] = upstream_host
             fh["Accept-Encoding"] = "identity"
-            if route_mode != "passthrough":
+            if _traffic_mutation_enabled() and route_mode != "passthrough":
                 fh["User-Agent"] = random.choice(USER_AGENTS)
                 if not is_auth_flow:
-                    # Pass the client's native valid token through directly for all requests.
+                    # Legacy Windsurf identity mutation disabled by default; enable only in a lab.
                     auth_token = fh.get("Authorization", "").replace("Bearer ", "")
                     profile = pool.get_shadow_profile(auth_token)
                     if is_json:
@@ -4840,6 +5108,19 @@ async def proxy_request(path: str, request: Request):
 
                     if not is_stream_req:
                         full_body = await resp.read()
+                        _append_decrypted_flow_event(
+                            request_id=request_id,
+                            direction="upstream_to_proxy",
+                            method=request.method,
+                            path=path,
+                            host=incoming_host,
+                            upstream=upstream_host,
+                            route_mode=route_mode,
+                            content_type=resp.headers.get("Content-Type", ""),
+                            body=full_body,
+                            status=resp.status,
+                            headers=resp.headers,
+                        )
                         
                         # Binary Capture: Save real upstream binary responses for analysis
                         if not is_json and resp.status == 200:
@@ -4849,10 +5130,10 @@ async def proxy_request(path: str, request: Request):
                                 # Save with Connect framing for exact replication
                                 f.write(b'\x00' + len(full_body).to_bytes(4, 'big') + full_body)
                             logger.info(f"[{request_id}] CAPTURED_BINARY: {capture_name} bytes={len(full_body)}")
-                        if is_json and route_mode != "passthrough":
+                        if _traffic_mutation_enabled() and is_json and route_mode != "passthrough":
                             full_body = full_body.replace(b"INDIVIDUAL", b"ENTERPRISE")
                         
-                        if "getuserstatus" in path_l:
+                        if _traffic_mutation_enabled() and "getuserstatus" in path_l:
                             # Hot-patch the real Free-tier binary Protobuf to say ENTERPRISE
                             full_body = full_body.replace(b"individual", b"enterprise")
                             full_body = full_body.replace(b"INDIVIDUAL", b"ENTERPRISE")
@@ -4950,9 +5231,25 @@ async def proxy_request(path: str, request: Request):
                             header_snap = _quota_probe_header_snapshot(resp.headers)
                             logger.info(f"[{request_id}] QUOTA_PROBE_HEADERS: path={path} upstream={upstream_host} headers={json.dumps(header_snap, separators=(',', ':'))}")
                         try:
+                            chunk_index = 0
                             async for chunk in resp.content.iter_any():
                                 if chunk:
-                                    if is_json and route_mode != "passthrough":
+                                    chunk_index += 1
+                                    _append_decrypted_flow_event(
+                                        request_id=request_id,
+                                        direction="upstream_to_proxy_chunk",
+                                        method=request.method,
+                                        path=path,
+                                        host=incoming_host,
+                                        upstream=upstream_host,
+                                        route_mode=route_mode,
+                                        content_type=resp.headers.get("Content-Type", ""),
+                                        body=chunk,
+                                        status=resp.status,
+                                        headers=resp.headers,
+                                        chunk_index=chunk_index,
+                                    )
+                                    if _traffic_mutation_enabled() and is_json and route_mode != "passthrough":
                                         chunk = chunk.replace(b"INDIVIDUAL", b"ENTERPRISE")
                                     
                                     # Active Sanitization and Fuzzing for streams
@@ -4987,8 +5284,8 @@ async def proxy_request(path: str, request: Request):
                                             chunk,
                                         )
                                     bytes_sent += len(chunk)
-                                    # Patch model configs and user status in real-time
-                                    if "GetCliModelConfigs" in path_l or "GetUserStatus" in path_l:
+                                    # Legacy Windsurf protobuf patching disabled unless explicitly enabled.
+                                    if _traffic_mutation_enabled() and ("getclimodelconfigs" in path_l or "getuserstatus" in path_l):
                                         chunk = patch_proto(chunk)
                                     yield chunk
                             if carry:

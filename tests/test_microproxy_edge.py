@@ -149,8 +149,8 @@ class MicroproxyEdgeBuildTests(unittest.TestCase):
                 capture_output=True,
             )
 
-        self.assertIn("Windsurf -> hg-edge", result.stdout)
-        self.assertIn("Python proxy", result.stdout)
+        self.assertIn("Antigravity client -> hg-edge", result.stdout)
+        self.assertIn("Python TLS observer", result.stdout)
         self.assertIn("passive skeleton", result.stdout)
         self.assertIn("max-active-streams: 12", result.stdout)
 
@@ -507,7 +507,7 @@ class MicroproxyEdgeBuildTests(unittest.TestCase):
                 b"\r\n",
             ),
             (
-                "control",
+                "telemetry",
                 b"POST /telemetry/events HTTP/1.1\r\n"
                 b"Host: telemetry.local\r\n"
                 b"Content-Length: 0\r\n"
@@ -636,7 +636,7 @@ class MicroproxyEdgeBuildTests(unittest.TestCase):
                     "stream_finished",
                 ],
             )
-            self.assertEqual(events[3]["details"]["candidate"], "windsurf_get_chat_message")
+            self.assertEqual(events[3]["details"]["candidate"], "connect_get_chat_message")
             self.assertEqual(events[3]["details"]["route"], "passthrough")
             self.assertEqual(events[3]["details"]["method"], "POST")
             self.assertEqual(
@@ -1168,7 +1168,13 @@ class MicroproxyEdgeBuildTests(unittest.TestCase):
                         client.sendall(request)
                         self.assertIn(b"200 OK", client.recv(4096))
                     self.wait_for_events(event_log, 4, timeout=3)
-                events = self.wait_for_events(event_log, 8, timeout=3)
+                deadline = time.monotonic() + 3
+                events = []
+                while time.monotonic() < deadline:
+                    events = self.read_events(event_log)
+                    if sum(event["event"] == "stream_finished" for event in events) >= 2:
+                        break
+                    time.sleep(0.05)
             finally:
                 proc.terminate()
                 try:

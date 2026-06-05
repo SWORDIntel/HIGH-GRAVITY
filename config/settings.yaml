@@ -4,15 +4,28 @@ rotation_mode: "round-robin"
 max_log_size_mb: 5
 backup_count: 3
 
-# MITM Bridge Configuration
-mitm_mode: "enabled"
+# Antigravity / MITM Bridge Configuration
+# Default is observe-only: log decrypted local reverse-proxy traffic without
+# injecting prompts, spoofing plan state, patching model configs, or mutating bodies.
+client_target: "antigravity"
+traffic_mutation_enabled: false
+decrypted_traffic_log: true
+decrypted_traffic_full_body: true
+decrypted_traffic_log_path: "logs/traffic_flows.jsonl"
+decrypted_traffic_log_max_bytes: 104857600
+decrypted_traffic_log_backup_count: 5
+decrypted_traffic_queue_size: 256
+local_ack_telemetry: false
+microproxy_event_log_path: "logs/microproxy_events.jsonl"
+mitm_mode: "observe-only"
 mitm_auto_detect: true
 mitm_services:
+  - antigravity
   - gemini
   - codex
   - openai
-mitm_inject_premium: true
-mitm_reduce_rate_limits: true
+mitm_inject_premium: false
+mitm_reduce_rate_limits: false
 
 # Khoj Semantic Search Configuration
 khoj_enabled: true
