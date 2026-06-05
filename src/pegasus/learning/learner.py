@@ -1,25 +1,38 @@
-import time
+"""Non-blocking Pegasus proxy-flow learner with optional autoresearch support."""
+
+import importlib
+import importlib.util
 import json
-from pathlib import Path
-try:
-    from autoresearch.train import train_step
-except ImportError:
-    def train_step(flow_data):
-        pass  # No-op if autoresearch not installed
+import time
+from typing import Any, Callable, Dict
+
+
+def _noop_train_step(flow_data: Dict[str, Any]) -> None:
+    return None
+
+
+def _resolve_train_step() -> Callable[[Dict[str, Any]], Any]:
+    if importlib.util.find_spec("autoresearch") is None or importlib.util.find_spec("autoresearch.train") is None:
+        return _noop_train_step
+    module = importlib.import_module("autoresearch.train")
+    return getattr(module, "train_step", _noop_train_step)
+
+
+TRAIN_STEP = _resolve_train_step()
+
 
 class PegasusLearner:
-    def __init__(self, gsl):
+    def __init__(self, gsl: Any) -> None:
         self.gsl = gsl
-        
-    def ingest_proxy_flow(self, request: dict, response: bytes):
-        """Processes request/response flow and triggers autonomous training."""
+
+    def ingest_proxy_flow(self, request: dict, response: bytes) -> None:
+        """Process a flow without allowing optional training failures to block it."""
         flow_data = {
             "prompt": json.dumps(request.get("messages", [])),
             "response": response.decode(errors="ignore"),
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
-        # Ingest directly into the training loop
         try:
-            train_step(flow_data)
-        except Exception as e:
-            pass # Non-blocking for production traffic
+            TRAIN_STEP(flow_data)
+        except Exception:
+            return None

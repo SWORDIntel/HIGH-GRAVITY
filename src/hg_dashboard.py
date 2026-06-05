@@ -15,7 +15,6 @@ import requests
 import json
 import random
 import shlex
-import numpy as np
 from datetime import datetime
 from pathlib import Path
 
@@ -138,7 +137,12 @@ class Dashboard:
             hg_cmd = args[2] if len(args) >= 3 else ""
         if "proxy" in hg_cmd:
             env.setdefault("HG_PROXY_WATCHDOG", "0")
-            env.setdefault("HG_TOKEN_SAVER", "1")
+            env.setdefault("HG_CLIENT_TARGET", "antigravity")
+            env.setdefault("HG_TRAFFIC_MUTATION_ENABLED", "0")
+            env.setdefault("HG_DECRYPTED_TRAFFIC_LOG", "1")
+            env.setdefault("HG_DECRYPTED_TRAFFIC_FULL_BODY", "1")
+            env.setdefault("HG_KHOJ_BINARY_INJECT", "0")
+            env.setdefault("HG_TOKEN_SAVER", "0")
             env.setdefault("HG_TOKEN_SAVER_DISABLE_CONTEXT_INJECTION", "1")
             env.setdefault("HG_TOKEN_SAVER_FORCE_LOW_REASONING", "0")
             env.setdefault("HG_EXACT_RESPONSE_CACHE", "0")

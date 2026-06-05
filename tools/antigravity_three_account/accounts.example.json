@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "default_model": "standard",
+  "cooldown_minutes": 240,
+  "max_attempts": 3,
+  "auto_continue_on_timeout": true,
+  "permission_defaults": {
+    "auto_bypass_permissions": true,
+    "allow_non_workspace_access": true,
+    "permission_preset": "always-proceed",
+    "sandbox": false,
+    "workspace_roots": ["/"],
+    "cli_args": ["--dangerously-skip-permissions"],
+    "allow": ["read_file(*)", "write_file(*)", "command(*)", "read_url(*)"],
+    "ask": [],
+    "deny": []
+  },
+  "accounts": [
+    {
+      "name": "account_1",
+      "label": "Primary authorized Antigravity account",
+      "profile_dir": "$HOME/.local/share/high-gravity/antigravity/profiles/account_1",
+      "workspace_roots": ["/"],
+      "models": ["standard", "pro", "ultra-preview"],
+      "default_cli_args": [],
+      "env": {}
+    },
+    {
+      "name": "account_2",
+      "label": "Secondary authorized Antigravity account",
+      "profile_dir": "$HOME/.local/share/high-gravity/antigravity/profiles/account_2",
+      "workspace_roots": ["/"],
+      "models": ["standard", "pro", "ultra-preview"],
+      "default_cli_args": [],
+      "env": {}
+    },
+    {
+      "name": "account_3",
+      "label": "Tertiary authorized Antigravity account",
+      "profile_dir": "$HOME/.local/share/high-gravity/antigravity/profiles/account_3",
+      "workspace_roots": ["/"],
+      "models": ["standard", "pro", "ultra-preview"],
+      "default_cli_args": [],
+      "env": {}
+    }
+  ],
+  "timeout_patterns": [
+    "rate limit",
+    "quota exceeded",
+    "usage limit",
+    "429",
+    "resource_exhausted",
+    "try again in",
+    "temporarily unavailable for this model"
+  ]
+}
